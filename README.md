@@ -67,7 +67,7 @@ these will be the credentials that Rome will use to access S3 on your behalf
 
 ### Romefile
 
-The Romefile has tow purposes:
+The Romefile has two purposes:
 1. Specifies what S3 bucket to use - [S3Bucket] section. This section is __required__.
 1. Allows to use custom name mappings between repository names and framework names - [RepositoryMap] section. This section is __optional__ and can be omitted.
 

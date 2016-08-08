@@ -68,6 +68,7 @@ these will be the credentials that Rome will use to access S3 on your behalf
 ### Romefile
 
 The Romefile has two purposes:
+
 1. Specifies what S3 bucket to use - [S3Bucket] section. This section is __required__.
 1. Allows to use custom name mappings between repository names and framework names - [RepositoryMap] section. This section is __optional__ and can be omitted.
 
@@ -111,5 +112,47 @@ simply add a `[RepositoryMap]` section to your `Romefile` and specify the follow
   better-dog-names  DogFramework
 ```
 
+### Usage
+
+Getting help:
+
+```
+$ rome --help
+S3 cache tool for Carthage
+
+Usage: rome COMMAND [-v]
+
+Available options:
+  -h,--help                Show this help text
+  --version                Prints the version information
+  -v                       Show verbose output
+
+Available commands:
+  upload                   Uploads frameworks contained in the local
+                           Carthage/Build/iOS to S3, according to the local
+                           Cartfile.resolved
+  download                 Downloads and unpacks in Carthage/Build/iOS
+                           frameworks found in S3, according to the local
+                           Carftfile.resolved
+```
+
+Uploading one or more frameworks (an empty list of frameworks will upload all frameworks found in `Cartfile.resolved`):
+
+```
+$ rome upload Alamofire FGAuth
+Uploaded: Alamofire/Alamofire.framework-3.4.1.zip
+Uploaded: FGAuth/FGAuth.framework-v3.3.3.zip
+```
+
+Downloading one or more frameworks (an empty list of frameworks will download all frameworks found in `Cartfile.resolved`):
+
+```
+$ rome download Alamofire FGAuth
+Downloaded: Alamofire.framework-3.4.1.zip
+Unzipped: Alamofire.framework-3.4.1.zip
+Downloaded: FGAuth.framework-v3.3.3.zip
+Unzipped: FGAuth.framework-v3.3.3.zip
+```
+
 ## Get Rome
-The Rome binary is attached as a zip to the releases here on GitHub.
+The Rome binary is attached as a zip to the [releases page](https://github.com/blender/Rome/releases) here on GitHub.

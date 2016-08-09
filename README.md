@@ -1,13 +1,13 @@
 # Rome
 
-Rome is a tool that allows developer on Apple platforms to use Amazon's S3 as a
-cache for frameworks build with [Carthage](https://github.com/Carthage/Carthage).
+Rome is a tool that allows developers on Apple platforms to use Amazon's S3 as a
+shared cache for frameworks build with [Carthage](https://github.com/Carthage/Carthage).
 
 ## The problem
 
-Suppose you're working on some frameworks for you iOS project and want to share
-your frameworks with your team. A great way to do so is to use Carthage and have
-team members point the `Cartfile` to the new framework version (or branch, tag, commit)
+Suppose you're working a number of frameworks for you iOS project and want to
+share to share those with your team. A great way to do so is to use Carthage and
+have team members point the `Cartfile` to the new framework version (or branch, tag, commit)
 and run `carthage update`.
 
 Unfortunately this will require them to build from scratch the new framework.
@@ -27,21 +27,21 @@ person in your team to build the framework) or the consumer.
 ### Producer workflow
 
 ```
-$ vi Cartfile #point to the new version of the framework
+$ vi Cartfile # point to the new version of the framework
 $ carthage update && rome upload
 ```
 
 ### Consumer workflow
 
 ```
-$ vi Cartfile
+$ vi Cartfile # point to the new version of the framework
 $ carthage update --no-build && rome download
 ```
 
 or
 
 ```
-$ vi Cartfile.resolved #point to the new version of the framework
+$ vi Cartfile.resolved # point to the new version of the framework
 $ rome download
 ```
 ## Set up and Usage
@@ -80,7 +80,7 @@ A Romefile looks like this
 
 [RepositoryMap]
   awesome-framework-for-cat-names CatFramework
-  better-dog-names  DogFramework
+  better-dog-names DogFramework
 ```  
 
 #### S3Bucket section
@@ -95,8 +95,8 @@ Example:
 Suppose you have the following in your `Cartfile`
 
 ```
-git "http://stash.myAimalStartup.com/scm/iossdk/awesome-framework-for-cat-names.git" ~> 3.3.1
-git "http://stash.myAimalStartup.com/scm/iossdk/better-dog-name.git" ~> 0.4.4
+git "http://stash.myAnimalStartup.com/scm/iossdk/awesome-framework-for-cat-names.git" ~> 3.3.1
+git "http://stash.myAnimalStartup.com/scm/iossdk/better-dog-names.git" ~> 0.4.4
 ```
 
 but your framework names are actually `CatFramework` and `DogFramework` as opposed to `awesome-framework-for-cat-names` and `better-dog-names`.

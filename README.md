@@ -1,7 +1,7 @@
 # Rome
 
 Rome is a tool that allows developers on Apple platforms to use Amazon's S3 as a
-shared cache for frameworks build with [Carthage](https://github.com/Carthage/Carthage).
+shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
 
 ## The problem
 

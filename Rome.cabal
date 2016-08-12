@@ -1,9 +1,9 @@
 name:                Rome
-version:             0.1.0.0
+version:             0.2.0.1
 synopsis:            An S3 cache for Carthage
 description:         Please see README.md
-homepage:            https://github.com/blender/Rome#readme
-license:             BSD3
+homepage:            https://github.com/blender/Rome
+license:             MIT
 license-file:        LICENSE
 author:              Tommaso Piazza
 maintainer:          tommaso.piazza@gmail.com
@@ -17,14 +17,14 @@ library
   hs-source-dirs:      src
   exposed-modules:     Lib
   build-depends:       base >= 4.7 && < 5
-                       , aws >= 0.13
+                       , amazonka >= 1.4.1
+                       , amazonka-s3 >= 1.4.1
+                       , lens >= 4.13
                        , parsec >= 3.1.10
                        , mtl >= 2.2.1
                        , directory >= 1.2.2
                        , containers >= 0.5
-                       , conduit >=  1.2
                        , conduit-extra >= 1.1
-                       , http-conduit >= 2.1
                        , text >= 1.2
                        , bytestring >= 0.10
                        , zip-archive >= 0.2
@@ -41,6 +41,7 @@ executable rome
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base >= 4.7 && < 5
                      , Rome
+                     , amazonka >= 1.4.1
                      , mtl >= 2.2.1
                      , optparse-applicative >= 0.12
 

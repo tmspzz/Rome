@@ -5,44 +5,42 @@
 
 
 
+{- Exports -}
 module Lib
     ( parseRomeOptions
-    , getS3Configuration
     , donwloadORUpload
     ) where
 
 
 
-
-
-import qualified Aws
-import qualified Aws.S3                       as S3
+{- Imports -}
 import qualified Codec.Archive.Zip            as Zip
 import           Control.Applicative          ((<|>))
+import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.Reader         (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans          (MonadIO, lift, liftIO)
 import           Control.Monad.Trans.Resource (runResourceT)
-import qualified Data.ByteString              as S
 import qualified Data.ByteString.Lazy         as L
-import           Data.Conduit                 (($$+-), ($=))
 import           Data.Conduit.Binary          (sinkLbs)
 import qualified Data.Map                     as M
 import           Data.Maybe
 import qualified Data.Text                    as T
-import           Network.HTTP.Conduit         (Manager, RequestBody (..),
-                                               newManager, responseBody,
-                                               tlsManagerSettings)
+import qualified Network.AWS                  as AWS
+import           Network.AWS.Data
+import           Network.AWS.S3               as S3
 import           Options.Applicative          as Opts
 import           System.Directory
 import qualified Text.Parsec                  as Parsec
 import           Text.Parsec.String
 
 
-type Location = String
-type Version = String
-type Config = (Aws.Configuration, S3.S3Configuration Aws.NormalQuery, Bool)
+
+{- Types -}
+type Location  = String
+type Version   = String
+type Config    = (AWS.Env, Bool)
 type RomeMonad = ExceptT String IO
 
 data RepoHosting = GitHub | Git
@@ -69,7 +67,7 @@ data RomeOptions = RomeOptions { romeCommand :: RomeCommand
 
 
 
-
+{- Functions -}
 uploadParser :: Opts.Parser RomeCommand
 uploadParser = pure Upload <*> Opts.many (Opts.argument str (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names as specified in the Cartfile. If zero, all frameworks are uploaded."))
 
@@ -100,95 +98,92 @@ getCartfileEntires = do
     Left e -> throwError $ "Carfile.resolved parse error: " ++ show e
     Right cartfileEntries -> return cartfileEntries
 
-getRomefileEntries :: RomeMonad (S3.Bucket, [RomefileEntry])
+getRomefileEntries :: RomeMonad (S3.BucketName, [RomefileEntry])
 getRomefileEntries = do
   romeConfig <- liftIO $ parseFromFile parseRomeConfig romefile
   case romeConfig of
     Left e -> throwError $ "Romefile parse error: " ++ show e
-    Right (bucketName, entries) -> return (T.pack bucketName, entries)
+    Right (bucketName, entries) -> return (S3.BucketName $ T.pack bucketName, entries)
 
-donwloadORUpload :: Aws.Configuration -> S3.S3Configuration Aws.NormalQuery -> RomeOptions -> ExceptT String IO ()
-donwloadORUpload cfg s3cfg (RomeOptions options verbose) = do
+donwloadORUpload :: AWS.Env -> RomeOptions -> ExceptT String IO ()
+donwloadORUpload env (RomeOptions options verbose) = do
   cartfileEntries <- getCartfileEntires
   (s3BucketName, romefileEntries) <- getRomefileEntries
   case options of
       Upload [] -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries romefileEntries
-        liftIO $ runReaderT (uploadFrameworksToS3 s3BucketName frameworkAndVersions) (cfg, s3cfg, verbose)
+        liftIO $ runReaderT (uploadFrameworksToS3 s3BucketName frameworkAndVersions) (env, verbose)
 
       Upload names ->
-        liftIO $ runReaderT (uploadFrameworksToS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (cfg, s3cfg, verbose)
+        liftIO $ runReaderT (uploadFrameworksToS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (env, verbose)
 
       Download [] -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries romefileEntries
-        liftIO $ runReaderT (downloadFrameworksFromS3 s3BucketName frameworkAndVersions) (cfg, s3cfg, verbose)
+        -- let t = AWS.catching AWS._Error (runReaderT (downloadFrameworksFromS3 s3BucketName frameworkAndVersions) (env, verbose)) (\ _ -> putStrLn "hello")
+        liftIO $ runReaderT (downloadFrameworksFromS3 s3BucketName frameworkAndVersions) (env, verbose)
 
       Download names ->
-        liftIO $ runReaderT (downloadFrameworksFromS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (cfg, s3cfg, verbose)
+        liftIO $ runReaderT (downloadFrameworksFromS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (env, verbose)
   where
    constructFrameworksAndVersionsFrom cartfileEntries romefileEntries = zip (deriveFrameworkNames (toRomeFilesEntriesMap romefileEntries) cartfileEntries) (map version cartfileEntries)
    filterByNames cartfileEntries romefileEntries = concatMap (constructFrameworksAndVersionsFrom cartfileEntries romefileEntries `filterByName`)
 
-
-getS3Configuration :: MonadIO m => m (Aws.Configuration, S3.S3Configuration Aws.NormalQuery)
-getS3Configuration = do
-  cfg <- Aws.baseConfiguration
-  let s3cfg = Aws.defServiceConfig :: S3.S3Configuration Aws.NormalQuery
-  return (cfg, s3cfg)
+fromErrorMessage :: AWS.ErrorMessage -> String
+fromErrorMessage (AWS.ErrorMessage t) = T.unpack t
 
 filterByName:: [(String, Version)] -> String -> [(String, Version)]
 filterByName fs s = filter (\(name, version) -> name == s) fs
 
-uploadFrameworksToS3 :: (MonadIO m) => S3.Bucket -> [(String, Version)] -> ReaderT Config m ()
-uploadFrameworksToS3 s3Bucket s = do
-  manager <- liftIO $ newManager tlsManagerSettings
-  mapM_ (uploadFrameworkToS3 manager s3Bucket) s
+uploadFrameworksToS3 s3Bucket = mapM_ (uploadFrameworkToS3 s3Bucket)
 
-uploadFrameworkToS3 :: (MonadIO m) => Manager -> S3.Bucket -> (String, Version) -> ReaderT Config m ()
-uploadFrameworkToS3 manager s3Bucket (framework, version) = do
+uploadFrameworkToS3 s3BucketName (framework, version) = do
   let pathInCarthageBuild =  appendFrameworkExtensionTo $ "Carthage/Build/iOS/" ++ framework
   exists <- liftIO $ doesDirectoryExist pathInCarthageBuild
   when exists $ do
-    (_, _, verbose) <- ask
+    (env, verbose) <- ask
     archive <- liftIO $ Zip.addFilesToArchive (zipOptions verbose) Zip.emptyArchive [pathInCarthageBuild]
-    uploadB manager s3Bucket (Zip.fromArchive archive) (framework ++ "/" ++ appendFrameworkExtensionTo framework ++ "-" ++ version ++ ".zip")
+    uploadBinary s3BucketName (Zip.fromArchive archive) (framework ++ "/" ++ appendFrameworkExtensionTo framework ++ "-" ++ version ++ ".zip") framework
 
-downloadFrameworksFromS3 :: (MonadIO m) => S3.Bucket -> [(String, Version)] -> ReaderT Config m ()
-downloadFrameworksFromS3  s3Bucket s = do
-  manager <- liftIO $ newManager tlsManagerSettings
-  mapM_ (downloadFrameworkFromS3 manager s3Bucket) s
+uploadBinary s3BucketName binaryZip destinationPath frameworkName = do
+  let objectKey = S3.ObjectKey $ T.pack destinationPath
+  (env, verbose) <- ask
+  runResourceT . AWS.runAWS env $ do
+    let body = AWS.toBody binaryZip
+    rs <- AWS.trying AWS._Error (AWS.send $ S3.putObject s3BucketName objectKey body)
+    case rs of
+      Left e -> sayLn $ "Error uploading " <> frameworkName <> " : " <> errorString e
+      Right _ -> sayLn $ "Successfully uploaded " <> frameworkName <> " to: " <> destinationPath
 
-downloadFrameworkFromS3 :: (MonadIO m) => Manager -> S3.Bucket -> (String, Version) -> ReaderT Config m ()
-downloadFrameworkFromS3 manager s3Bucket (frameworkName, version) = do
-  (awsConfig, s3Config, verbose) <- ask
-  liftIO $
-      {- Create a request object with S3.getObject and run the request with pureAws. -}
-      runResourceT $ do
-        let frameworkZipName = appendFrameworkExtensionTo frameworkName ++ "-" ++ version ++ ".zip"
-        let frameworkRemotePath = frameworkName ++ "/" ++ frameworkZipName
-        e <- Aws.aws awsConfig s3Config manager $ S3.getObject s3Bucket (T.pack frameworkRemotePath)
-        let eitherResponse = Aws.responseResult e
-        case eitherResponse of
-          Left exception -> liftIO . putStrLn $ "Could not download:  " ++ frameworkZipName
-          Right S3.GetObjectResponse { .. } -> do
-            lbs <- responseBody gorResponse $$+- sinkLbs
-            liftIO . putStrLn $ "Donwloaded: " ++ frameworkZipName
-            lift $ Zip.extractFilesFromArchive (zipOptions verbose) (Zip.toArchive lbs)
-            liftIO . putStrLn $ "Unzipped: " ++ frameworkZipName
+downloadFrameworksFromS3  s3Bucket = mapM_ (downloadFrameworkFromS3 s3Bucket)
+
+downloadFrameworkFromS3 s3BucketName (frameworkName, version) = do
+  let frameworkZipName = appendFrameworkExtensionTo frameworkName ++ "-" ++ version ++ ".zip"
+  let frameworkObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ frameworkZipName
+  (env, verbose) <- ask
+  runResourceT . AWS.runAWS env $ getFramework s3BucketName frameworkObjectKey frameworkZipName verbose
+
+getFramework s3BucketName frameworkObjectKey frameworkZipName verbose = do
+  rs <- AWS.trying AWS._Error (AWS.send $ S3.getObject s3BucketName frameworkObjectKey)
+  case rs of
+    Left e -> sayLn $ "Error downloading " <> frameworkZipName <> " : " <> errorString e
+    Right goResponse -> do
+      lbs <- lift $ view S3.gorsBody goResponse `AWS.sinkBody` sinkLbs
+      sayLn $ "Donwloaded: " ++ frameworkZipName
+      liftIO $ Zip.extractFilesFromArchive (zipOptions verbose) (Zip.toArchive lbs)
+      sayLn $ "Unzipped: " ++ frameworkZipName
+
+
+errorString :: AWS.Error -> String
+errorString e = fromErrorMessage $ fromMaybe (AWS.ErrorMessage "Unexpected Error") maybeServiceError
+  where
+    maybeServiceError = view AWS.serviceMessage =<< (e ^? AWS._ServiceError)
+
+
+sayLn :: MonadIO m => String -> m ()
+sayLn = liftIO . putStrLn
 
 zipOptions :: Bool -> [Zip.ZipOption]
 zipOptions verbose = if verbose then [Zip.OptRecursive, Zip.OptVerbose] else [Zip.OptRecursive]
-
-uploadB :: (MonadIO m) => Manager -> S3.Bucket -> L.ByteString -> String -> ReaderT Config m ()
-uploadB manager s3Bucket lazyByteString destinationPath = do
-  contents <- ask
-  (awsConfig, s3Config, verbose) <- ask
-  liftIO $
-    runResourceT $ do
-    let body = RequestBodyLBS lazyByteString
-    response <- Aws.pureAws awsConfig s3Config manager $
-      S3.putObject s3Bucket (T.pack destinationPath) body
-    liftIO . putStrLn $ "Uploaded: " ++ destinationPath
 
 deriveFrameworkNames :: M.Map String String -> [CartfileEntry] -> [String]
 deriveFrameworkNames romeMap = map (deriveFrameworkName romeMap)

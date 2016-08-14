@@ -46,24 +46,36 @@ $ rome download
 ```
 ## Set up and Usage
 
-- First you need a `.aws-keys` file in your home folder. This is used to specify
+- First you need a `.aws/credentials` file in your home folder. This is used to specify
 your AWS Credentials
 - Second you need a `Romefile` in the project where you want to use Rome. At the
 same level where the `Cartfile` is.
 
 ### Setting up AWS credentials
-In your home folder create a `.aws-keys` that contains the following line
+
+Since version `0.2.0.0` Rome will expect to find credentials either as environment
+variables `$AWS_ACCESS_KEY_ID` and `$AWS_SECRET_ACCESS_KEY` or in a file at
+`.aws/credentials`. This aligns Rome behavior to other tools that use Amazon's SDK. See
+[Amazon's blogpost on the topic](https://blogs.aws.amazon.com/security/post/Tx3D6U6WSFGOK2H/A-New-and-Standardized-Way-to-Manage-Credentials-in-the-AWS-SDKs).
+
+In your home folder create a `.aws/credentials` like the following
+
 ```
-default AWS_IDENTITY AWS_PRIVATE_KEY
+[default]
+aws_access_key_id = ACCESS_KEY
+aws_secret_access_key = SECRET_KEY
 ```
 
 this should look something like
 
 ```
-default AGIAJQARMD67CE3DTKHA TedRV2/dFkBr1H3D7xuPsF9+CBHTjK0NKrJuoVs8
+[default]
+aws_access_key_id = AGIAJQARMD67CE3DTKHA
+aws_secret_access_key = TedRV2/dFkBr1H3D7xuPsF9+CBHTjK0NKrJuoVs8
 ```
 
-these will be the credentials that Rome will use to access S3 on your behalf
+these will be the credentials that Rome will use to access S3 on your behalf.
+At present Rome will use the `[default]` credential profile.
 
 ### Romefile
 

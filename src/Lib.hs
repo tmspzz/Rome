@@ -16,7 +16,7 @@ module Lib
 {- Imports -}
 import qualified Codec.Archive.Zip            as Zip
 import           Control.Applicative          ((<|>))
-import           Control.Lens
+import           Control.Lens                 hiding (List)
 import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.Reader         (ReaderT, ask, runReaderT)
@@ -59,7 +59,13 @@ data RomefileEntry = RomefileEntry { gitRepositoryName   :: String
 
 data RomeCommand = Upload [String]
                   | Download [String]
+                  | List ListMode
                   deriving (Show, Eq)
+
+data ListMode = All
+               | Missing
+               | Present
+               deriving (Show, Eq)
 
 data RomeOptions = RomeOptions { romeCommand :: RomeCommand
                                , verbose     :: Bool
@@ -74,10 +80,18 @@ uploadParser = pure Upload <*> Opts.many (Opts.argument str (Opts.metavar "FRAME
 downloadParser :: Opts.Parser RomeCommand
 downloadParser = pure Download <*> Opts.many (Opts.argument str (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names as specified in the Cartfile. If zero, all frameworks are downloaded."))
 
+listParser :: Opts.Parser RomeCommand
+listParser = pure List <*> (
+                            (Opts.flag' Missing (Opts.long "missing" <> Opts.help "List frameworks missing from the cache.")
+                            <|> Opts.flag' Present (Opts.long "present" <> Opts.help "List frameworks present in the cache.")
+                           )
+                           <|> Opts.flag All All (Opts.help "Reports missing or present status of frameworks in the cache."))
+
 parseRomeCommand :: Opts.Parser RomeCommand
 parseRomeCommand = Opts.subparser $
   Opts.command "upload" (uploadParser `withInfo` "Uploads frameworks contained in the local Carthage/Build/iOS to S3, according to the local Cartfile.resolved")
-  <> Opts.command "download" (downloadParser `withInfo` "Downdloads and unpacks in Carthage/Build/iOS frameworks found in S3, according to the local Carftfile.resolved")
+  <> Opts.command "download" (downloadParser `withInfo` "Downloads and unpacks in Carthage/Build/iOS frameworks found in S3, according to the local Carftfile.resolved")
+  <> Opts.command "list" (listParser `withInfo` "Lists frameworks in the cache and reports cache misses/hits, according to the local Carftfile.resolved")
 
 parseRomeOptions :: Opts.Parser RomeOptions
 parseRomeOptions = RomeOptions <$> parseRomeCommand <*> Opts.switch ( Opts.short 'v' <> help "Show verbose output" )
@@ -119,11 +133,17 @@ donwloadORUpload env (RomeOptions options verbose) = do
 
       Download [] -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries romefileEntries
-        -- let t = AWS.catching AWS._Error (runReaderT (downloadFrameworksFromS3 s3BucketName frameworkAndVersions) (env, verbose)) (\ _ -> putStrLn "hello")
         liftIO $ runReaderT (downloadFrameworksFromS3 s3BucketName frameworkAndVersions) (env, verbose)
 
       Download names ->
         liftIO $ runReaderT (downloadFrameworksFromS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (env, verbose)
+
+      List All -> sayLn "Will list all"
+
+      List Missing -> sayLn "Will list only missing"
+
+      List Present -> sayLn "Will list only present"
+
   where
    constructFrameworksAndVersionsFrom cartfileEntries romefileEntries = zip (deriveFrameworkNames (toRomeFilesEntriesMap romefileEntries) cartfileEntries) (map version cartfileEntries)
    filterByNames cartfileEntries romefileEntries = concatMap (constructFrameworksAndVersionsFrom cartfileEntries romefileEntries `filterByName`)

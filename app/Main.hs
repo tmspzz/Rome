@@ -8,7 +8,7 @@ import           Options.Applicative  as Opts
 
 
 romeVersion :: String
-romeVersion = "0.2.0.1"
+romeVersion = "0.3.0.1"
 
 
 
@@ -21,7 +21,7 @@ main = do
     Nothing -> putStrLn $ romeVersion ++ " - Romam uno die non fuisse conditam."
     Just romeOptions -> do
       env <- AWS.newEnv AWS.NorthVirginia AWS.Discover
-      l <- runExceptT $ donwloadORUpload env romeOptions
+      l <- runExceptT $ runRomeWithOptions env romeOptions
       case l of
         Right _ -> return ()
         Left e -> putStrLn e

@@ -250,8 +250,17 @@ printProbeResult listMode ((frameworkName, version), present) | listMode == Miss
                                                               | otherwise                                   = sayLn $ frameworkName <> " " <> version <> " " <> printProbeStringForBool present
 
 printProbeStringForBool :: Bool -> String
-printProbeStringForBool True  = "✔︎"
-printProbeStringForBool False = "✘"
+printProbeStringForBool True  = green <> "✔︎" <> noColor
+printProbeStringForBool False = red <> "✘" <> noColor
+
+red :: String
+red = "\ESC[0;31m"
+
+green :: String
+green = "\ESC[0;32m"
+
+noColor :: String
+noColor = "\ESC[0m"
 
 filterAccordingToListMode :: ListMode -> [((String, Version), Bool)] -> [((String, Version), Bool)]
 filterAccordingToListMode All probeResults     = probeResults

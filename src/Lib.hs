@@ -9,6 +9,7 @@
 module Lib
     ( parseRomeOptions
     , runRomeWithOptions
+    , discoverRegion
     ) where
 
 
@@ -23,7 +24,9 @@ import           Control.Monad.Reader         (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans          (MonadIO, lift, liftIO)
 import           Control.Monad.Trans.Resource (runResourceT)
 import qualified Data.ByteString.Lazy         as L
+import           Data.Char                    (isSpace)
 import           Data.Conduit.Binary          (sinkLbs)
+import           Data.Ini                     as INI
 import qualified Data.Map                     as M
 import           Data.Maybe
 import qualified Data.Text                    as T
@@ -32,6 +35,7 @@ import           Network.AWS.Data
 import           Network.AWS.S3               as S3
 import           Options.Applicative          as Opts
 import           System.Directory
+import           System.Environment
 import qualified Text.Parsec                  as Parsec
 import           Text.Parsec.String
 
@@ -271,6 +275,46 @@ replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults :: M.Map FrameworkName G
 replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults reverseRomeMap = map (replaceResultIfFrameworkNameIsInMap reverseRomeMap)
   where
     replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((fromMaybe frameworkName (M.lookup frameworkName reverseRomeMap), version), present)
+
+
+s3ConfigFile :: (MonadIO m) => m FilePath
+s3ConfigFile = (++ p) `liftM` liftIO getHomeDirectory
+    where
+      p = "/.aws/config"
+
+discoverRegion :: RomeMonad AWS.Region
+discoverRegion = do
+  f <- s3ConfigFile
+  profile <- liftIO $ lookupEnv "AWS_PROFILE"
+  getRegionFromFile f (fromMaybe "default" profile)
+
+getRegionFromFile :: FilePath -> String -> RomeMonad AWS.Region
+getRegionFromFile f profile = do
+  i <- liftIO (INI.readIniFile f)
+  case i of
+    Left e -> throwError e
+    Right ini -> do
+      regionString <- req "region" ini
+      case (fromText regionString :: Either String AWS.Region) of
+        Left e  -> throwError e
+        Right r -> return r
+  where
+  blank x = T.null x || T.all isSpace x
+
+  req k i =
+      case INI.lookupValue (T.pack profile) k i of
+          Left  e         -> invalidErr (Just $ T.unpack k) e
+          Right x
+              | blank x   -> invalidErr (Just $ T.unpack k) "cannot be a blank string."
+              | otherwise -> return x
+
+  opt k i = return $
+      case INI.lookupValue (T.pack profile) k i of
+          Left  _ -> Nothing
+          Right x -> Just x
+
+  invalidErr Nothing  e = throwError e
+  invalidErr (Just k) e = throwError $ f <> ", key " <> k <> " " <> e
 
 
 

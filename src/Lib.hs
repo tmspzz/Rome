@@ -24,6 +24,8 @@ import           Control.Monad.Reader         (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans          (MonadIO, lift, liftIO)
 import           Control.Monad.Trans.Resource (runResourceT)
 import qualified Data.ByteString.Lazy         as L
+import           Data.Cartfile
+import           Data.Romefile
 import           Data.Char                    (isSpace)
 import           Data.Conduit.Binary          (sinkLbs)
 import           Data.Ini                     as INI
@@ -36,32 +38,13 @@ import           Network.AWS.S3               as S3
 import           Options.Applicative          as Opts
 import           System.Directory
 import           System.Environment
-import qualified Text.Parsec                  as Parsec
-import           Text.Parsec.String
 
 
 
 {- Types -}
-type Location      = String
-type Version       = String
-type FrameworkName = String
-type GitRepoName   = String
+
 type Config        = (AWS.Env, Bool)
 type RomeMonad     = ExceptT String IO
-
-data RepoHosting = GitHub | Git
-  deriving (Eq, Show)
-
-data CartfileEntry = CartfileEntry { hosting  :: RepoHosting
-                                   , location :: Location
-                                   , version  :: Version
-                                   }
-                                   deriving (Show, Eq)
-
-data RomefileEntry = RomefileEntry { gitRepositoryName   :: GitRepoName
-                                   , frameworkCommonName :: FrameworkName
-                                   }
-                                   deriving (Show, Eq)
 
 data RomeCommand = Upload [FrameworkName]
                   | Download [FrameworkName]
@@ -105,22 +88,16 @@ parseRomeOptions = RomeOptions <$> parseRomeCommand <*> Opts.switch ( Opts.short
 withInfo :: Opts.Parser a -> String -> Opts.ParserInfo a
 withInfo opts desc = Opts.info (Opts.helper <*> opts) $ Opts.progDesc desc
 
-cartfileResolved :: String
-cartfileResolved = "Cartfile.resolved"
-
-romefile :: String
-romefile = "Romefile"
-
 getCartfileEntires :: RomeMonad [CartfileEntry]
 getCartfileEntires = do
-  eitherCartfileEntries <- liftIO $ parseFromFile (Parsec.many1 parseCartfileResolvedLine) cartfileResolved
+  eitherCartfileEntries <- liftIO $ parseCartfileResolved cartfileResolved
   case eitherCartfileEntries of
     Left e -> throwError $ "Carfile.resolved parse error: " ++ show e
     Right cartfileEntries -> return cartfileEntries
 
 getRomefileEntries :: RomeMonad (S3.BucketName, [RomefileEntry])
 getRomefileEntries = do
-  romeConfig <- liftIO $ parseFromFile parseRomeConfig romefile
+  romeConfig <- liftIO $ parseRomefile romefile
   case romeConfig of
     Left e -> throwError $ "Romefile parse error: " ++ show e
     Right (bucketName, entries) -> return (S3.BucketName $ T.pack bucketName, entries)
@@ -316,80 +293,11 @@ getRegionFromFile f profile = do
   invalidErr Nothing  e = throwError e
   invalidErr (Just k) e = throwError $ f <> ", key " <> k <> " " <> e
 
-
-
--- Cartfile.resolved parsing
-
-parseGitHub :: Parsec.Parsec String () RepoHosting
-parseGitHub = Parsec.string "github" >> Parsec.many1 Parsec.space >> pure GitHub
-
-parseGit :: Parsec.Parsec String () RepoHosting
-parseGit = Parsec.string "git" >> Parsec.many1 Parsec.space >> pure Git
-
-repoHosting :: Parsec.Parsec String () RepoHosting
-repoHosting = Parsec.try parseGit <|> parseGitHub
-
-quotedContent :: Parsec.Parsec String () String
-quotedContent = do
-  Parsec.char '"'
-  location <- parseUnquotedString
-  Parsec.char '"'
-  return location
-
-parseCartfileResolvedLine :: Parsec.Parsec String () CartfileEntry
-parseCartfileResolvedLine = do
-  hosting <- repoHosting
-  location <- quotedContent
-  Parsec.many1 Parsec.space
-  version <- quotedContent
-  Parsec.endOfLine
-  return CartfileEntry {..}
-
-
-
--- Romefile parsing
-
-parseS3BucketNameSection :: Parsec.Parsec String () String
-parseS3BucketNameSection = do
-  Parsec.string "[S3Bucket]" >> Parsec.endOfLine
-  s3BucketName <- parseWhiteSpaces >> parseUnquotedString
-  Parsec.endOfLine
-  return s3BucketName
-
-parseRepositoryMapSection :: Parsec.Parsec String () [RomefileEntry]
-parseRepositoryMapSection = do
-  Parsec.string "[RepositoryMap]" >> Parsec.endOfLine
-  Parsec.many parseRepositoryMapLine
-
-parseRepositoryMapLine :: Parsec.Parsec String () RomefileEntry
-parseRepositoryMapLine = do
-  gitRepositoryName <- parseWhiteSpaces >> parseUnquotedString
-  frameworkCommonName <- parseWhiteSpaces >> parseUnquotedString
-  Parsec.endOfLine
-  return RomefileEntry {..}
-
-parseWhiteSpaces :: Parsec.Parsec String () String
-parseWhiteSpaces =  Parsec.try (Parsec.many1 Parsec.space) <|> Parsec.many1 Parsec.tab
-
-parseUnquotedString :: Parsec.Parsec String () String
-parseUnquotedString = Parsec.many1 (Parsec.noneOf ['"', ' ', '\t', '\n', '\'', '\\', '\r'])
-
-parseRomeConfig :: Parsec.Parsec String () (String, [RomefileEntry])
-parseRomeConfig = do
-  s3BucketName <- parseS3BucketNameSection
-  Parsec.many Parsec.newline
-  romeFileEntries <- Parsec.option [] parseRepositoryMapSection
-  Parsec.manyTill parseWhiteSpaces Parsec.eof
-  return (s3BucketName, romeFileEntries)
-
 toRomeFilesEntriesMap :: [RomefileEntry] -> M.Map String String
 toRomeFilesEntriesMap = M.fromList . map romeFileEntryToTuple
 
 toInvertedRomeFilesEntriesMap :: [RomefileEntry] -> M.Map String String
 toInvertedRomeFilesEntriesMap = M.fromList . map ( uncurry (flip (,)) . romeFileEntryToTuple)
 
-
 romeFileEntryToTuple :: RomefileEntry -> (String, String)
 romeFileEntryToTuple RomefileEntry {..} = (gitRepositoryName, frameworkCommonName)
-
-parse rule text = Parsec.parse rule "(source)" text

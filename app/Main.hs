@@ -1,7 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
-
-
 module Main where
 
 import           Control.Monad.Except

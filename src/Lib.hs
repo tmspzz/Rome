@@ -30,7 +30,6 @@ import           Data.Ini                     as INI
 import qualified Data.Map                     as M
 import           Data.Maybe
 import qualified Data.Text                    as T
-import qualified Data.Text.Encoding           as T
 import qualified Network.AWS                  as AWS
 import           Network.AWS.Data
 import           Network.AWS.S3               as S3

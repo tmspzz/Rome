@@ -91,6 +91,7 @@ A Romefile looks like this
   ios-dev-bucket
 
 [RepositoryMap]
+  HockeySDK-iOS HockeySDK
   awesome-framework-for-cat-names CatFramework
   better-dog-names DogFramework
 ```  
@@ -107,11 +108,13 @@ Example:
 Suppose you have the following in your `Cartfile`
 
 ```
+github "bitstadium/HockeySDK-iOS" "3.8.6"
 git "http://stash.myAnimalStartup.com/scm/iossdk/awesome-framework-for-cat-names.git" ~> 3.3.1
 git "http://stash.myAnimalStartup.com/scm/iossdk/better-dog-names.git" ~> 0.4.4
 ```
 
-but your framework names are actually `CatFramework` and `DogFramework` as opposed to `awesome-framework-for-cat-names` and `better-dog-names`.
+but your framework names are actually `HockeySDK`, `CatFramework` and `DogFramework`
+as opposed to `HockeySDK-iOS`, `awesome-framework-for-cat-names` and `better-dog-names`.
 
 simply add a `[RepositoryMap]` section to your `Romefile` and specify the following mapping:
 
@@ -146,7 +149,12 @@ Available commands:
   download                 Downloads and unpacks in Carthage/Build/iOS
                            frameworks found in S3, according to the local
                            Carftfile.resolved
+  list                     Lists frameworks in the cache and reports cache
+                           misses/hits, according to the local
+                           Carftfile.resolved
 ```
+
+#### Uploading
 
 Uploading one or more frameworks (an empty list of frameworks will upload all frameworks found in `Cartfile.resolved`):
 
@@ -156,6 +164,8 @@ Uploaded: Alamofire/Alamofire.framework-3.4.1.zip
 Uploaded: FGAuth/FGAuth.framework-v3.3.3.zip
 ```
 
+#### Downloading
+
 Downloading one or more frameworks (an empty list of frameworks will download all frameworks found in `Cartfile.resolved`):
 
 ```
@@ -164,6 +174,39 @@ Downloaded: Alamofire.framework-3.4.1.zip
 Unzipped: Alamofire.framework-3.4.1.zip
 Downloaded: FGAuth.framework-v3.3.3.zip
 Unzipped: FGAuth.framework-v3.3.3.zip
+```
+
+#### Listing
+
+Listing frameworks and reporting on their availability:
+```
+$ rome list
+Alamofire 3.4.1 ✔︎
+GCDKit 1.2.5 ✔︎
+HanekeSwift v0.10.1 ✔︎
+HockeySDK-iOS 3.8.6 ✔︎
+KeychainAccess v2.3.6 ✔︎
+M13Checkbox 2.1.2 ✔︎
+ResearchKit 1.3.1 ✘
+```
+
+Listing only frameworks present in the cache:
+
+```
+$ rome list --present
+Alamofire
+GCDKit
+HanekeSwift
+HockeySDK-iOS
+KeychainAccess
+M13Checkbox
+```
+
+Listing only frameworks missing from the cache:
+
+```
+$ rome list --present
+ResearchKit
 ```
 
 ## Get Rome

@@ -29,6 +29,7 @@ import           Data.Romefile
 import           Data.Char                    (isSpace)
 import           Data.Conduit.Binary          (sinkLbs)
 import           Data.Ini                     as INI
+import           Data.String.Utils
 import qualified Data.Map                     as M
 import           Data.Maybe
 import qualified Data.Text                    as T
@@ -207,10 +208,13 @@ deriveFrameworkNames :: M.Map GitRepoName Version -> [CartfileEntry] -> [Framewo
 deriveFrameworkNames romeMap = map (deriveFrameworkName romeMap)
 
 deriveFrameworkName ::  M.Map GitRepoName Version -> CartfileEntry -> FrameworkName
-deriveFrameworkName romeMap (CartfileEntry GitHub l _) = last $ splitWithSeparator '/' l
-deriveFrameworkName romeMap (CartfileEntry Git l _)    = fromMaybe "" (M.lookup (getGitRepositoryNameFromGitURL l) romeMap >>= \x -> Just x)
+deriveFrameworkName romeMap (CartfileEntry GitHub l _) = fromMaybe gitHubRepositoryName (M.lookup gitHubRepositoryName romeMap)
   where
-    getGitRepositoryNameFromGitURL = reverse . tail . snd . splitAt 3 . reverse . last . splitWithSeparator '/'
+    gitHubRepositoryName = last $ splitWithSeparator '/' l
+deriveFrameworkName romeMap (CartfileEntry Git l _)    = fromMaybe gitRepositoryName (M.lookup gitRepositoryName romeMap)
+  where
+    gitRepositoryName = getGitRepositoryNameFromGitURL l
+    getGitRepositoryNameFromGitURL = replace ".git" "" . last . splitWithSeparator '/'
 
 appendFrameworkExtensionTo :: FrameworkName -> String
 appendFrameworkExtensionTo a = a ++ ".framework"

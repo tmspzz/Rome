@@ -75,7 +75,7 @@ aws_secret_access_key = TedRV2/dFkBr1H3D7xuPsF9+CBHTjK0NKrJuoVs8
 ```
 
 these will be the credentials that Rome will use to access S3 on your behalf.
-At present Rome will use the `[default]` credential profile.
+To use configurations other than the ``default`` profile set the ``$AWS_PROFILE`` enviroment variable to your desired profile.
 
 ### Romefile
 

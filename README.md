@@ -190,7 +190,7 @@ ResearchKit 1.3.1 ✘
 Listing only frameworks present in the cache:
 
 ```
-rome list --present
+$ rome list --present
 Alamofire
 GCDKit
 HanekeSwift
@@ -202,7 +202,7 @@ M13Checkbox
 Listing only frameworks missing from the cache:
 
 ```
-rome list --present
+$ rome list --present
 ResearchKit
 ```
 

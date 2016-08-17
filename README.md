@@ -146,7 +146,12 @@ Available commands:
   download                 Downloads and unpacks in Carthage/Build/iOS
                            frameworks found in S3, according to the local
                            Carftfile.resolved
+  list                     Lists frameworks in the cache and reports cache
+                           misses/hits, according to the local
+                           Carftfile.resolved
 ```
+
+#### Uploading
 
 Uploading one or more frameworks (an empty list of frameworks will upload all frameworks found in `Cartfile.resolved`):
 
@@ -156,6 +161,8 @@ Uploaded: Alamofire/Alamofire.framework-3.4.1.zip
 Uploaded: FGAuth/FGAuth.framework-v3.3.3.zip
 ```
 
+#### Downloading
+
 Downloading one or more frameworks (an empty list of frameworks will download all frameworks found in `Cartfile.resolved`):
 
 ```
@@ -164,6 +171,39 @@ Downloaded: Alamofire.framework-3.4.1.zip
 Unzipped: Alamofire.framework-3.4.1.zip
 Downloaded: FGAuth.framework-v3.3.3.zip
 Unzipped: FGAuth.framework-v3.3.3.zip
+```
+
+#### Listing
+
+Listing frameworks and reporting on their availability:
+```
+$ rome list
+Alamofire 3.4.1 ✔︎
+GCDKit 1.2.5 ✔︎
+HanekeSwift v0.10.1 ✔︎
+HockeySDK-iOS 3.8.6 ✔︎
+KeychainAccess v2.3.6 ✔︎
+M13Checkbox 2.1.2 ✔︎
+ResearchKit 1.3.1 ✘
+```
+
+Listing only frameworks present in the cache:
+
+```
+rome list --present
+Alamofire
+GCDKit
+HanekeSwift
+HockeySDK-iOS
+KeychainAccess
+M13Checkbox
+```
+
+Listing only frameworks missing from the cache:
+
+```
+rome list --present
+ResearchKit
 ```
 
 ## Get Rome

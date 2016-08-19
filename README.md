@@ -91,6 +91,7 @@ A Romefile looks like this
   ios-dev-bucket
 
 [RepositoryMap]
+  HockeySDK-iOS HockeySDK
   awesome-framework-for-cat-names CatFramework
   better-dog-names DogFramework
 ```  
@@ -107,11 +108,13 @@ Example:
 Suppose you have the following in your `Cartfile`
 
 ```
+github "bitstadium/HockeySDK-iOS" "3.8.6"
 git "http://stash.myAnimalStartup.com/scm/iossdk/awesome-framework-for-cat-names.git" ~> 3.3.1
 git "http://stash.myAnimalStartup.com/scm/iossdk/better-dog-names.git" ~> 0.4.4
 ```
 
-but your framework names are actually `CatFramework` and `DogFramework` as opposed to `awesome-framework-for-cat-names` and `better-dog-names`.
+but your framework names are actually `HockeySDK`, `CatFramework` and `DogFramework`
+as opposed to `HockeySDK-iOS`, `awesome-framework-for-cat-names` and `better-dog-names`.
 
 simply add a `[RepositoryMap]` section to your `Romefile` and specify the following mapping:
 

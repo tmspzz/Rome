@@ -4,6 +4,7 @@
 module Data.Ini.Utils
   (optionalKey
   , requireKey
+  , keysAndValues
   , inRequiredSection
   , inOptionalSection
   , fromIni'
@@ -39,6 +40,13 @@ optionalKey key = do
   case lookupValue section key ini of
     Left _ -> return Nothing
     Right value -> return $ Just value
+
+keysAndValues :: (MonadReader (Ini, Text) m, MonadError Text m) => m (M.HashMap Text Text)
+keysAndValues = do
+  (Ini ini, section) <- ask
+  case M.lookup section ini of
+    Nothing -> throwError $ "Could not find section " <> section
+    Just m -> return m
 
 requireSection :: (MonadReader Ini m, MonadError Text m) => Text -> m Text
 requireSection section = do

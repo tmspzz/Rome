@@ -1,5 +1,7 @@
 {-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 
 module Data.Romefile
@@ -11,10 +13,15 @@ module Data.Romefile
     )
 where
 
-import           Data.Cartfile
-import qualified Text.Parsec         as Parsec
-import qualified Text.Parsec.Utils   as Parsec
-import qualified Text.Parsec.String  as Parsec
+import           Data.Ini             as INI
+import           Data.Ini.Utils       as INI
+import           Data.Monoid
+import           Data.Text
+import           Control.Monad.Except
+import           Control.Monad.Trans
+-- import qualified Text.Parsec         as Parsec
+-- import qualified Text.Parsec.Utils   as Parsec
+-- import qualified Text.Parsec.String  as Parsec
 
 type FrameworkName = String
 type GitRepoName   = String
@@ -24,38 +31,32 @@ data RomefileEntry = RomefileEntry { gitRepositoryName   :: GitRepoName
                                    deriving (Show, Eq)
 
 
-
+-- |The name of the Romefile
 romefile :: String
 romefile = "Romefile"
 
--- Romefile parsing
+-- |The delimiter of the CACHE section a Romefile
+cacheSectionDelimiter :: Text
+cacheSectionDelimiter = "CACHE"
 
-parseS3BucketNameSection :: Parsec.Parsec String () String
-parseS3BucketNameSection = do
-  Parsec.string "[S3Bucket]" >> Parsec.endOfLine
-  s3BucketName <- Parsec.parseWhiteSpaces >> Parsec.parseUnquotedString
-  Parsec.endOfLine
-  return s3BucketName
+-- |The S3-Bucket Key
+s3BucketKey :: Text
+s3BucketKey = "S3-Bucket"
 
-parseRepositoryMapSection :: Parsec.Parsec String () [RomefileEntry]
-parseRepositoryMapSection = do
-  Parsec.string "[RepositoryMap]" >> Parsec.endOfLine
-  Parsec.many parseRepositoryMapLine
+-- |The delimier of the REPOSITORYMAP section
+repositoryMapSectionDelimiter :: String
+repositoryMapSectionDelimiter = "REPOSITORYMAP"
 
-parseRepositoryMapLine :: Parsec.Parsec String () RomefileEntry
-parseRepositoryMapLine = do
-  gitRepositoryName <- Parsec.parseWhiteSpaces >> Parsec.parseUnquotedString
-  frameworkCommonName <- Parsec.parseWhiteSpaces >> Parsec.parseUnquotedString
-  Parsec.endOfLine
-  return RomefileEntry {..}
 
-parseRomeConfig :: Parsec.Parsec String () (String, [RomefileEntry])
-parseRomeConfig = do
-  s3BucketName <- parseS3BucketNameSection
-  Parsec.many Parsec.newline
-  romeFileEntries <- Parsec.option [] parseRepositoryMapSection
-  Parsec.manyTill Parsec.parseWhiteSpaces Parsec.eof
-  return (s3BucketName, romeFileEntries)
+parseRomefile ::  (MonadIO m, MonadError String m) => FilePath -> m (Text, [RomefileEntry])
+parseRomefile f = do
+  eitherIni <- liftIO $ INI.readIniFile f
+  case eitherIni of
+    Left iniError -> throwError iniError
+    Right ini -> do
+      eitherBucker <- getBucket ini
+      case eitherBucker of
+        Left e -> throwError $ "Error while parsing " <> f <> ": "  <> unpack e
+        Right bucket -> return (bucket, [])
 
-parseRomefile :: String -> IO (Either Parsec.ParseError (String, [RomefileEntry]))
-parseRomefile = Parsec.parseFromFile parseRomeConfig
+getBucket ini = requireKey s3BucketKey `inRequiredSection` cacheSectionDelimiter `fromIni'` ini

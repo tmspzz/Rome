@@ -6,7 +6,7 @@ shared cache for frameworks built with [Carthage](https://github.com/Carthage/Ca
 ## The problem
 
 Suppose you're working a number of frameworks for you iOS project and want to
-share to share those with your team. A great way to do so is to use Carthage and
+share those with your team. A great way to do so is to use Carthage and
 have team members point the `Cartfile` to the new framework version (or branch, tag, commit)
 and run `carthage update`.
 

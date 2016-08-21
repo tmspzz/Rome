@@ -38,7 +38,7 @@ romefile = "Romefile"
 
 -- |The delimiter of the CACHE section a Romefile
 cacheSectionDelimiter :: Text
-cacheSectionDelimiter = "CACHE"
+cacheSectionDelimiter = "Cache"
 
 -- |The S3-Bucket Key
 s3BucketKey :: Text
@@ -46,7 +46,7 @@ s3BucketKey = "S3-Bucket"
 
 -- |The delimier of the REPOSITORYMAP section
 repositoryMapSectionDelimiter :: Text
-repositoryMapSectionDelimiter = "REPOSITORYMAP"
+repositoryMapSectionDelimiter = "RepositoryMap"
 
 parseRomefile ::  (MonadIO m, MonadError String m) => FilePath -> m (Text, [RomefileEntry])
 parseRomefile f = do

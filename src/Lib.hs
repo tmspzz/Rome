@@ -112,17 +112,17 @@ runRomeWithOptions env (RomeOptions options verbose) = do
   case options of
       Upload [] -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries romefileEntries
-        liftIO $ runReaderT (uploadFrameworksToS3 s3BucketName frameworkAndVersions) (env, verbose)
+        liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName frameworkAndVersions) (env, verbose)
 
       Upload names ->
-        liftIO $ runReaderT (uploadFrameworksToS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (env, verbose)
+        liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (env, verbose)
 
       Download [] -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries romefileEntries
-        liftIO $ runReaderT (downloadFrameworksFromS3 s3BucketName frameworkAndVersions) (env, verbose)
+        liftIO $ runReaderT (downloadFrameworksAndDsymsFromS3 s3BucketName frameworkAndVersions) (env, verbose)
 
       Download names ->
-        liftIO $ runReaderT (downloadFrameworksFromS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (env, verbose)
+        liftIO $ runReaderT (downloadFrameworksAndDsymsFromS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (env, verbose)
 
       List listMode -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries romefileEntries
@@ -141,15 +141,25 @@ fromErrorMessage (AWS.ErrorMessage t) = T.unpack t
 filterByName:: [(FrameworkName, Version)] -> FrameworkName -> [(FrameworkName, Version)]
 filterByName fs s = filter (\(name, version) -> name == s) fs
 
-uploadFrameworksToS3 s3Bucket = mapM_ (uploadFrameworkToS3 s3Bucket)
+uploadFrameworksAndDsymsToS3 s3Bucket = mapM_ (uploadFrameworkAndDsymToS3 s3Bucket)
 
-uploadFrameworkToS3 s3BucketName (framework, version) = do
-  let pathInCarthageBuild =  appendFrameworkExtensionTo $ "Carthage/Build/iOS/" ++ framework
-  exists <- liftIO $ doesDirectoryExist pathInCarthageBuild
-  when exists $ do
-    (env, verbose) <- ask
-    archive <- liftIO $ Zip.addFilesToArchive (zipOptions verbose) Zip.emptyArchive [pathInCarthageBuild]
-    uploadBinary s3BucketName (Zip.fromArchive archive) (framework ++ "/" ++ appendFrameworkExtensionTo framework ++ "-" ++ version ++ ".zip") framework
+uploadFrameworkAndDsymToS3 s3BucketName fv@(framework, version) = do
+  (env, verbose) <- ask
+  frameworkExists <- liftIO $ doesDirectoryExist frameworkDirectory
+  dSymExists <- liftIO $ doesDirectoryExist dSYMdirectory
+  when frameworkExists $ do
+    frameworkArchive <- zipDir frameworkDirectory verbose
+    uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) (framework ++ "/" ++ frameworkArchiveName fv) framework
+  when dSymExists $ do
+    dSYMArchive <- zipDir dSYMdirectory verbose
+    uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) (framework ++ "/" ++ dSYMArchiveName fv) (framework ++ ".dSYM")
+  where
+    carthageBuildDirecotryiOS = "Carthage/Build/iOS/"
+    frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo framework
+    frameworkDirectory = carthageBuildDirecotryiOS ++ frameworkNameWithFrameworkExtension
+    dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension ++ ".dSYM"
+    dSYMdirectory = carthageBuildDirecotryiOS ++ dSYMNameWithDSYMExtension
+    zipDir dir verbose = liftIO $ Zip.addFilesToArchive (zipOptions verbose) Zip.emptyArchive [dir]
 
 uploadBinary s3BucketName binaryZip destinationPath frameworkName = do
   let objectKey = S3.ObjectKey $ T.pack destinationPath
@@ -161,23 +171,26 @@ uploadBinary s3BucketName binaryZip destinationPath frameworkName = do
       Left e -> sayLn $ "Error uploading " <> frameworkName <> " : " <> errorString e
       Right _ -> sayLn $ "Successfully uploaded " <> frameworkName <> " to: " <> destinationPath
 
-downloadFrameworksFromS3 s3BucketName = mapM_ (downloadFrameworkFromS3 s3BucketName)
+downloadFrameworksAndDsymsFromS3 s3BucketName = mapM_ (downloadFrameworkAndDsymFromS3 s3BucketName)
 
-downloadFrameworkFromS3 s3BucketName (frameworkName, version) = do
-  let frameworkZipName = frameworkArchiveName (frameworkName, version)
+downloadFrameworkAndDsymFromS3 s3BucketName fv@(frameworkName, version) = do
+  let frameworkZipName = frameworkArchiveName fv
+  let dSYMZipName = dSYMArchiveName fv
   let frameworkObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ frameworkZipName
+  let dSYMObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ dSYMZipName
   (env, verbose) <- ask
-  runResourceT . AWS.runAWS env $ getFramework s3BucketName frameworkObjectKey frameworkZipName verbose
+  runResourceT . AWS.runAWS env $ getZip s3BucketName frameworkObjectKey frameworkZipName verbose
+  runResourceT . AWS.runAWS env $ getZip s3BucketName dSYMObjectKey dSYMZipName verbose
 
-getFramework s3BucketName frameworkObjectKey frameworkZipName verbose = do
+getZip s3BucketName frameworkObjectKey zipName verbose = do
   rs <- AWS.trying AWS._Error (AWS.send $ S3.getObject s3BucketName frameworkObjectKey)
   case rs of
-    Left e -> sayLn $ "Error downloading " <> frameworkZipName <> " : " <> errorString e
+    Left e -> sayLn $ "Error downloading " <> zipName <> " : " <> errorString e
     Right goResponse -> do
       lbs <- lift $ view S3.gorsBody goResponse `AWS.sinkBody` sinkLbs
-      sayLn $ "Donwloaded: " ++ frameworkZipName
+      sayLn $ "Donwloaded: " ++ zipName
       liftIO $ Zip.extractFilesFromArchive (zipOptions verbose) (Zip.toArchive lbs)
-      sayLn $ "Unzipped: " ++ frameworkZipName
+      sayLn $ "Unzipped: " ++ zipName
 
 
 probeForFrameworks s3BucketName = mapM (probeForFramework s3BucketName)
@@ -223,6 +236,9 @@ appendFrameworkExtensionTo a = a ++ ".framework"
 
 frameworkArchiveName :: (String, Version) -> String
 frameworkArchiveName (name, version) = appendFrameworkExtensionTo name ++ "-" ++ version ++ ".zip"
+
+dSYMArchiveName :: (String, Version) -> String
+dSYMArchiveName (name, version) = appendFrameworkExtensionTo name ++ ".dSYM" ++ "-" ++ version ++ ".zip"
 
 splitWithSeparator :: (Eq a) => a -> [a] -> [[a]]
 splitWithSeparator _ [] = []

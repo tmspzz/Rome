@@ -29,6 +29,7 @@ import           Data.Romefile
 import           Data.Char                    (isSpace)
 import           Data.Conduit.Binary          (sinkLbs)
 import           Data.Ini                     as INI
+import           Data.Ini.Utils               as INI
 import           Data.String.Utils
 import qualified Data.Map                     as M
 import           Data.Maybe
@@ -100,10 +101,6 @@ getRomefileEntries :: RomeMonad (S3.BucketName, [RomefileEntry])
 getRomefileEntries = do
   (bucketName, entries) <- parseRomefile romefile
   return (S3.BucketName bucketName, entries)
-
-  -- case romeConfig of
-    -- Left e -> throwError $ "Romefile parse error: " ++ show e
-    -- Right (bucketName, entries) -> return (S3.BucketName $ T.pack bucketName, entries)
 
 runRomeWithOptions :: AWS.Env -> RomeOptions -> ExceptT String IO ()
 runRomeWithOptions env (RomeOptions options verbose) = do
@@ -275,29 +272,14 @@ getRegionFromFile :: FilePath -> String -> RomeMonad AWS.Region
 getRegionFromFile f profile = do
   i <- liftIO (INI.readIniFile f)
   case i of
-    Left e -> invalidErr Nothing e
+    Left e -> throwError e
     Right ini -> do
-      regionString <- req "region" ini
-      case (fromText regionString :: Either String AWS.Region) of
-        Left e  -> invalidErr Nothing e
+      region <- withExceptT (\e -> "Could not parse " <> f <> ": " <> T.unpack e) $ INI.requireKey "region" `INI.inRequiredSection` T.pack profile `INI.fromIni''` ini
+      let eitherAWSRegion = fromText region :: Either String AWS.Region
+      case eitherAWSRegion of
+        Left e  -> throwError e
         Right r -> return r
-  where
-  blank x = T.null x || T.all isSpace x
 
-  req k i =
-      case INI.lookupValue (T.pack profile) k i of
-          Left  e         -> invalidErr (Just $ T.unpack k) e
-          Right x
-              | blank x   -> invalidErr (Just $ T.unpack k) "cannot be a blank string."
-              | otherwise -> return x
-
-  opt k i = return $
-      case INI.lookupValue (T.pack profile) k i of
-          Left  _ -> Nothing
-          Right x -> Just x
-
-  invalidErr Nothing  e = throwError e
-  invalidErr (Just k) e = throwError $ f <> ", key " <> k <> " " <> e
 
 toRomeFilesEntriesMap :: [RomefileEntry] -> M.Map String String
 toRomeFilesEntriesMap = M.fromList . map romeFileEntryToTuple

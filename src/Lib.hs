@@ -65,23 +65,23 @@ data RomeOptions = RomeOptions { romeCommand :: RomeCommand
 
 {- Functions -}
 uploadParser :: Opts.Parser RomeCommand
-uploadParser = pure Upload <*> Opts.many (Opts.argument str (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names as specified in the Cartfile. If zero, all frameworks are uploaded."))
+uploadParser = pure Upload <*> Opts.many (Opts.argument str (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."))
 
 downloadParser :: Opts.Parser RomeCommand
-downloadParser = pure Download <*> Opts.many (Opts.argument str (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names as specified in the Cartfile. If zero, all frameworks are downloaded."))
+downloadParser = pure Download <*> Opts.many (Opts.argument str (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are downloaded."))
 
 listParser :: Opts.Parser RomeCommand
 listParser = pure List <*> (
-                            (Opts.flag' Missing (Opts.long "missing" <> Opts.help "List frameworks missing from the cache.")
-                            <|> Opts.flag' Present (Opts.long "present" <> Opts.help "List frameworks present in the cache.")
+                            (Opts.flag' Missing (Opts.long "missing" <> Opts.help "List frameworks missing from the cache. Ignores dSYMs")
+                            <|> Opts.flag' Present (Opts.long "present" <> Opts.help "List frameworks present in the cache. Ignores dSYMs.")
                            )
-                           <|> Opts.flag All All (Opts.help "Reports missing or present status of frameworks in the cache."))
+                           <|> Opts.flag All All (Opts.help "Reports missing or present status of frameworks in the cache. Ignores dSYMs."))
 
 parseRomeCommand :: Opts.Parser RomeCommand
 parseRomeCommand = Opts.subparser $
-  Opts.command "upload" (uploadParser `withInfo` "Uploads frameworks contained in the local Carthage/Build/iOS to S3, according to the local Cartfile.resolved")
-  <> Opts.command "download" (downloadParser `withInfo` "Downloads and unpacks in Carthage/Build/iOS frameworks found in S3, according to the local Carftfile.resolved")
-  <> Opts.command "list" (listParser `withInfo` "Lists frameworks in the cache and reports cache misses/hits, according to the local Carftfile.resolved")
+  Opts.command "upload" (uploadParser `withInfo` "Uploads frameworks and dSYMs contained in the local Carthage/Build/iOS to S3, according to the local Cartfile.resolved")
+  <> Opts.command "download" (downloadParser `withInfo` "Downloads and unpacks in Carthage/Build/iOS frameworks and dSYMs found in S3, according to the local Carftfile.resolved")
+  <> Opts.command "list" (listParser `withInfo` "Lists frameworks in the cache and reports cache misses/hits, according to the local Carftfile.resolved. Ignores dSYMs.")
 
 parseRomeOptions :: Opts.Parser RomeOptions
 parseRomeOptions = RomeOptions <$> parseRomeCommand <*> Opts.switch ( Opts.short 'v' <> help "Show verbose output" )

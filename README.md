@@ -143,35 +143,40 @@ Available options:
   -v                       Show verbose output
 
 Available commands:
-  upload                   Uploads frameworks contained in the local
+  upload                   Uploads frameworks and dSYMs contained in the local
                            Carthage/Build/iOS to S3, according to the local
                            Cartfile.resolved
   download                 Downloads and unpacks in Carthage/Build/iOS
-                           frameworks found in S3, according to the local
-                           Carftfile.resolved
+                           frameworks and dSYMs found in S3, according to the
+                           local Carftfile.resolved
   list                     Lists frameworks in the cache and reports cache
                            misses/hits, according to the local
-                           Carftfile.resolved
+                           Carftfile.resolved. Ignores dSYMs.
 ```
 
 #### Uploading
 
-Uploading one or more frameworks (an empty list of frameworks will upload all frameworks found in `Cartfile.resolved`):
+Uploading one or more frameworks and corresponding dSYMs
+(an empty list of frameworks will upload all frameworks found in `Cartfile.resolved`):
 
 ```
 $ rome upload Alamofire FGAuth
 Uploaded: Alamofire/Alamofire.framework-3.4.1.zip
+Uploaded: Alamofire/Alamofire.framework.dSYM-3.4.1.zip
 Uploaded: FGAuth/FGAuth.framework-v3.3.3.zip
 ```
 
 #### Downloading
 
-Downloading one or more frameworks (an empty list of frameworks will download all frameworks found in `Cartfile.resolved`):
+Downloading one or more frameworks and corresponding dSYMs
+(an empty list of frameworks will download all frameworks found in `Cartfile.resolved`):
 
 ```
 $ rome download Alamofire FGAuth
 Downloaded: Alamofire.framework-3.4.1.zip
 Unzipped: Alamofire.framework-3.4.1.zip
+Downloaded: Alamofire.framework.dSYM-3.4.1.zip
+Unzipped: Alamofire.framework.dSYM-3.4.1.zip
 Downloaded: FGAuth.framework-v3.3.3.zip
 Unzipped: FGAuth.framework-v3.3.3.zip
 ```
@@ -208,6 +213,9 @@ Listing only frameworks missing from the cache:
 $ rome list --present
 ResearchKit
 ```
+
+Note: `list` completely ignores dSYMs. If a dSYM is missing the corresponding
+framework is still reported as present. 
 
 ## Get Rome
 The Rome binary is attached as a zip to the [releases page](https://github.com/blender/Rome/releases) here on GitHub.

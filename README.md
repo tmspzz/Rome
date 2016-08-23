@@ -81,20 +81,22 @@ To use configurations other than the ``default`` profile set the ``$AWS_PROFILE`
 
 The Romefile has two purposes:
 
-1. Specifies what S3 bucket to use - [S3Bucket] section. This section is __required__.
+1. Specifies what S3 bucket to use - [Cache] section. This section is __required__.
 1. Allows to use custom name mappings between repository names and framework names - [RepositoryMap] section. This section is __optional__ and can be omitted.
 
-A Romefile looks like this
+A Romefile looks like this:
 
 ```
-[S3Bucket]
-  ios-dev-bucket
+[Cache]
+  S3-Bucket = ios-dev-bucket
 
 [RepositoryMap]
-  HockeySDK-iOS HockeySDK
-  awesome-framework-for-cat-names CatFramework
-  better-dog-names DogFramework
+  HockeySDK-iOS = HockeySDK
+  awesome-framework-for-cat-names = CatFramework
+  better-dog-names = DogFramework
 ```  
+
+A Romefile is the [INI format](https://en.wikipedia.org/wiki/INI_file)
 
 #### S3Bucket section
 This section contains the name of the S3 bucket you want Rome to use to upload/download.
@@ -119,12 +121,13 @@ as opposed to `HockeySDK-iOS`, `awesome-framework-for-cat-names` and `better-dog
 simply add a `[RepositoryMap]` section to your `Romefile` and specify the following mapping:
 
 ```
-[S3Bucket]
-  ios-dev-bucket
+[Cache]
+  S3-Bucket = ios-dev-bucket
 
 [RepositoryMap]
-  awesome-framework-for-cat-names CatFramework
-  better-dog-names  DogFramework
+  HockeySDK-iOS = HockeySDK
+  awesome-framework-for-cat-names = CatFramework
+  better-dog-names = DogFramework
 ```
 
 ### Usage

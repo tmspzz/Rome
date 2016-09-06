@@ -129,7 +129,7 @@ runRomeWithOptions env (RomeOptions options verbose) = do
         liftIO $ mapM_ (printProbeResult listMode) namesVersionAndExisting
 
   where
-    constructFrameworksAndVersionsFrom cartfileEntries romefileEntries = zip (deriveFrameworkNames (toRomeFilesEntriesMap romefileEntries) cartfileEntries) (map version cartfileEntries)
+    constructFrameworksAndVersionsFrom cartfileEntries romefileEntries = deriveFrameworkNamesAndVersion (toRomeFilesEntriesMap romefileEntries) cartfileEntries
     filterByNames cartfileEntries romefileEntries = concatMap (constructFrameworksAndVersionsFrom cartfileEntries romefileEntries `filterByName`)
 
 fromErrorMessage :: AWS.ErrorMessage -> String
@@ -216,14 +216,14 @@ sayLn = liftIO . putStrLn
 zipOptions :: Bool -> [Zip.ZipOption]
 zipOptions verbose = if verbose then [Zip.OptRecursive, Zip.OptVerbose] else [Zip.OptRecursive]
 
-deriveFrameworkNames :: M.Map GitRepoName Version -> [CartfileEntry] -> [FrameworkName]
-deriveFrameworkNames romeMap = map (deriveFrameworkName romeMap)
+deriveFrameworkNamesAndVersion :: M.Map GitRepoName [FrameworkName] -> [CartfileEntry] -> [(FrameworkName, Version)]
+deriveFrameworkNamesAndVersion romeMap = concatMap (deriveFrameworkNameAndVersion romeMap)
 
-deriveFrameworkName ::  M.Map GitRepoName Version -> CartfileEntry -> FrameworkName
-deriveFrameworkName romeMap (CartfileEntry GitHub l _) = fromMaybe gitHubRepositoryName (M.lookup gitHubRepositoryName romeMap)
+deriveFrameworkNameAndVersion ::  M.Map GitRepoName [FrameworkName] -> CartfileEntry -> [(FrameworkName, Version)]
+deriveFrameworkNameAndVersion romeMap (CartfileEntry GitHub l v) = map (\n -> (n, v)) $ fromMaybe [gitHubRepositoryName] (M.lookup gitHubRepositoryName romeMap)
   where
     gitHubRepositoryName = last $ splitWithSeparator '/' l
-deriveFrameworkName romeMap (CartfileEntry Git l _)    = fromMaybe gitRepositoryName (M.lookup gitRepositoryName romeMap)
+deriveFrameworkName romeMap (CartfileEntry Git l v)    = map (\n -> (n, v)) $ fromMaybe [gitRepositoryName] (M.lookup gitRepositoryName romeMap)
   where
     gitRepositoryName = getGitRepositoryNameFromGitURL l
     getGitRepositoryNameFromGitURL = replace ".git" "" . last . splitWithSeparator '/'
@@ -297,11 +297,14 @@ getRegionFromFile f profile = do
         Right r -> return r
 
 
-toRomeFilesEntriesMap :: [RomefileEntry] -> M.Map String String
+toRomeFilesEntriesMap :: [RomefileEntry] -> M.Map GitRepoName [FrameworkName]
 toRomeFilesEntriesMap = M.fromList . map romeFileEntryToTuple
 
-toInvertedRomeFilesEntriesMap :: [RomefileEntry] -> M.Map String String
-toInvertedRomeFilesEntriesMap = M.fromList . map ( uncurry (flip (,)) . romeFileEntryToTuple)
+toInvertedRomeFilesEntriesMap :: [RomefileEntry] -> M.Map FrameworkName GitRepoName
+toInvertedRomeFilesEntriesMap = M.fromList . concatMap romeFileEntryToListOfTuples
+  where listify (fs, g) = map (\f -> (f,g)) fs
+        flipTuple = uncurry (flip (,))
+        romeFileEntryToListOfTuples = listify . flipTuple . romeFileEntryToTuple
 
-romeFileEntryToTuple :: RomefileEntry -> (String, String)
-romeFileEntryToTuple RomefileEntry {..} = (gitRepositoryName, frameworkCommonName)
+romeFileEntryToTuple :: RomefileEntry -> (GitRepoName, [FrameworkName])
+romeFileEntryToTuple RomefileEntry {..} = (gitRepositoryName, frameworkCommonNames)

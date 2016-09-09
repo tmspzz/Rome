@@ -223,7 +223,7 @@ deriveFrameworkNameAndVersion ::  M.Map GitRepoName [FrameworkName] -> CartfileE
 deriveFrameworkNameAndVersion romeMap (CartfileEntry GitHub l v) = map (\n -> (n, v)) $ fromMaybe [gitHubRepositoryName] (M.lookup gitHubRepositoryName romeMap)
   where
     gitHubRepositoryName = last $ splitWithSeparator '/' l
-deriveFrameworkName romeMap (CartfileEntry Git l v)    = map (\n -> (n, v)) $ fromMaybe [gitRepositoryName] (M.lookup gitRepositoryName romeMap)
+deriveFrameworkNameAndVersion romeMap (CartfileEntry Git l v)    = map (\n -> (n, v)) $ fromMaybe [gitRepositoryName] (M.lookup gitRepositoryName romeMap)
   where
     gitRepositoryName = getGitRepositoryNameFromGitURL l
     getGitRepositoryNameFromGitURL = replace ".git" "" . last . splitWithSeparator '/'

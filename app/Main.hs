@@ -8,7 +8,7 @@ import           Options.Applicative  as Opts
 
 
 romeVersion :: String
-romeVersion = "0.6.0.8"
+romeVersion = "0.6.0.9"
 
 
 

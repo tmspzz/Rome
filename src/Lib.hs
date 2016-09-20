@@ -185,7 +185,7 @@ getZip s3BucketName frameworkObjectKey zipName verbose = do
     Left e -> sayLn $ "Error downloading " <> zipName <> " : " <> errorString e
     Right goResponse -> do
       lbs <- lift $ view S3.gorsBody goResponse `AWS.sinkBody` sinkLbs
-      sayLn $ "Donwloaded: " ++ zipName
+      sayLn $ "Downloaded: " ++ zipName
       liftIO $ Zip.extractFilesFromArchive (zipOptions verbose) (Zip.toArchive lbs)
       sayLn $ "Unzipped: " ++ zipName
 

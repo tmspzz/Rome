@@ -64,4 +64,4 @@ getBucket ini = requireKey s3BucketKey `inRequiredSection` cacheSectionDelimiter
 
 getRomefileEntries ini = do
   m <- inOptionalSection repositoryMapSectionDelimiter M.empty keysAndValues `fromIni''` ini
-  return $ Prelude.map (\(repoName, frameworkCommonNames) -> RomefileEntry (unpack repoName) (Prelude.map unpack (splitOn "," frameworkCommonNames))) (M.toList m)
+  return $ Prelude.map (\(repoName, frameworkCommonNames) -> RomefileEntry (unpack repoName) (Prelude.map (unpack . strip) (splitOn "," frameworkCommonNames))) (M.toList m)

@@ -47,8 +47,10 @@ $ rome download
 ## Set up and Usage
 
 - First you need a `.aws/credentials` file in your home folder. This is used to specify
-your AWS Credentials
-- Second you need a `Romefile` in the project where you want to use Rome. At the
+your AWS Credentials.
+- Second you need a `.aws/config` file in your home folder. This is used to specify the AWS
+region.
+- Third you need a `Romefile` in the project where you want to use Rome. At the
 same level where the `Cartfile` is.
 
 ### Setting up AWS credentials
@@ -75,7 +77,20 @@ aws_secret_access_key = TedRV2/dFkBr1H3D7xuPsF9+CBHTjK0NKrJuoVs8
 ```
 
 these will be the credentials that Rome will use to access S3 on your behalf.
-To use configurations other than the ``default`` profile set the ``$AWS_PROFILE`` enviroment variable to your desired profile.
+To use configurations other than the `default` profile set the `$AWS_PROFILE`
+environment variable to your desired profile.
+
+### Selecting the AWS Region
+
+In your home folder create a `.aws/config` like the following
+
+```
+[default]
+region = us-east-1
+```
+
+To use configurations other than the `default` profile set the `$AWS_PROFILE`
+environment variable to your desired profile.
 
 ### Romefile
 
@@ -96,7 +111,21 @@ A Romefile looks like this:
   better-dog-names = DogFramework
 ```  
 
-A Romefile is the [INI format](https://en.wikipedia.org/wiki/INI_file)
+The Romefile is the [INI format](https://en.wikipedia.org/wiki/INI_file)
+
+#### RepositoryMap Multiple Aliases
+
+Since version `0.6.0.10` Rome supports multiple aliases for one map entry.
+Suppose you have a framework `Framework` that builds two targets, `t1` and `t2`,
+Rome can handle both targets by specifying
+
+```
+[RepositoryMap]
+  Framework = t1, t2
+```
+
+If __ANY__ of the aliases is missing on S3, the entire entry will be reported as missing
+when running `rome list [--missing]`
 
 #### S3Bucket section
 This section contains the name of the S3 bucket you want Rome to use to upload/download.
@@ -218,7 +247,7 @@ ResearchKit
 ```
 
 Note: `list` completely ignores dSYMs. If a dSYM is missing the corresponding
-framework is still reported as present. 
+framework is still reported as present.
 
 ## Get Rome
 The Rome binary is attached as a zip to the [releases page](https://github.com/blender/Rome/releases) here on GitHub.

@@ -108,6 +108,7 @@ runRomeWithOptions env (RomeOptions options verbose) = do
   cartfileEntries <- getCartfileEntires
   (s3BucketName, romefileEntries) <- getRomefileEntries
   case options of
+
       Upload [] -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries romefileEntries
         liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName frameworkAndVersions) (env, verbose)
@@ -146,17 +147,23 @@ uploadFrameworkAndDsymToS3 s3BucketName fv@(framework, version) = do
   frameworkExists <- liftIO $ doesDirectoryExist frameworkDirectory
   dSymExists <- liftIO $ doesDirectoryExist dSYMdirectory
   when frameworkExists $ do
+    when verbose $
+      sayLnWithTime $ "Staring to zip: " <> frameworkDirectory
     frameworkArchive <- zipDir frameworkDirectory verbose
-    uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) (framework ++ "/" ++ frameworkArchiveName fv) framework
+    uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath framework
   when dSymExists $ do
+    when verbose $
+      sayLnWithTime $ "Staring to zip: " <> dSYMdirectory
     dSYMArchive <- zipDir dSYMdirectory verbose
-    uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) (framework ++ "/" ++ dSYMArchiveName fv) (framework ++ ".dSYM")
+    uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) remoteDsymUploadPath (framework ++ ".dSYM")
   where
     carthageBuildDirecotryiOS = "Carthage/Build/iOS/"
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo framework
     frameworkDirectory = carthageBuildDirecotryiOS ++ frameworkNameWithFrameworkExtension
+    remoteFrameworkUploadPath = framework ++ "/" ++ frameworkArchiveName fv
     dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension ++ ".dSYM"
     dSYMdirectory = carthageBuildDirecotryiOS ++ dSYMNameWithDSYMExtension
+    remoteDsymUploadPath = framework ++ "/" ++ dSYMArchiveName fv
     zipDir dir verbose = liftIO $ Zip.addFilesToArchive (zipOptions verbose) Zip.emptyArchive [dir]
 
 uploadBinary s3BucketName binaryZip destinationPath frameworkName = do
@@ -164,40 +171,52 @@ uploadBinary s3BucketName binaryZip destinationPath frameworkName = do
   (env, verbose) <- ask
   runResourceT . AWS.runAWS env $ do
     let body = AWS.toBody binaryZip
+    let sayFunc = if verbose then sayLnWithTime else sayLn
+    when verbose $
+      sayFunc $ "Started uploading " <> frameworkName <> " to: " <> destinationPath
     rs <- AWS.trying AWS._Error (AWS.send $ S3.putObject s3BucketName objectKey body)
     case rs of
-      Left e -> sayLn $ "Error uploading " <> frameworkName <> " : " <> errorString e
-      Right _ -> sayLn $ "Successfully uploaded " <> frameworkName <> " to: " <> destinationPath
+      Left e -> sayFunc $ "Error uploading " <> frameworkName <> " : " <> errorString e
+      Right _ -> sayFunc $ "Successfully uploaded " <> frameworkName <> " to: " <> destinationPath
 
 downloadFrameworksAndDsymsFromS3 s3BucketName = mapM_ (downloadFrameworkAndDsymFromS3 s3BucketName)
 
 downloadFrameworkAndDsymFromS3 s3BucketName fv@(frameworkName, version) = do
-  let frameworkZipName = frameworkArchiveName fv
-  let dSYMZipName = dSYMArchiveName fv
-  let frameworkObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ frameworkZipName
-  let dSYMObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ dSYMZipName
+  downloadBinary s3BucketName frameworkName frameworkZipName
+  downloadBinary s3BucketName frameworkName dSYMZipName
+  where
+    frameworkZipName = frameworkArchiveName fv
+    dSYMZipName = dSYMArchiveName fv
+
+
+downloadBinary s3BucketName objectName objectZipName = do
   (env, verbose) <- ask
-  runResourceT . AWS.runAWS env $ getZip s3BucketName frameworkObjectKey frameworkZipName verbose
-  runResourceT . AWS.runAWS env $ getZip s3BucketName dSYMObjectKey dSYMZipName verbose
-
-getZip s3BucketName frameworkObjectKey zipName verbose = do
-  rs <- AWS.trying AWS._Error (AWS.send $ S3.getObject s3BucketName frameworkObjectKey)
-  case rs of
-    Left e -> sayLn $ "Error downloading " <> zipName <> " : " <> errorString e
-    Right goResponse -> do
-      lbs <- lift $ view S3.gorsBody goResponse `AWS.sinkBody` sinkLbs
-      sayLn $ "Downloaded: " ++ zipName
-      liftIO $ Zip.extractFilesFromArchive (zipOptions verbose) (Zip.toArchive lbs)
-      sayLn $ "Unzipped: " ++ zipName
-
+  runResourceT . AWS.runAWS env $ do
+    let sayFunc = if verbose then sayLnWithTime else sayLn
+    when verbose $
+      sayFunc $ "Started downloading " <> objectName <> " from: " <> objectRemotePath
+    rs <- AWS.trying AWS._Error (AWS.send $ S3.getObject s3BucketName objectKey)
+    case rs of
+      Left e -> sayFunc $ "Error downloading " <> objectName <> " : " <> errorString e
+      Right goResponse -> do
+        lbs <- lift $ view S3.gorsBody goResponse `AWS.sinkBody` sinkLbs
+        sayFunc $ "Downloaded: " <> objectName
+        when verbose $
+          sayFunc $ "Staring to unzip " <> objectName
+        liftIO $ Zip.extractFilesFromArchive (zipOptions verbose) (Zip.toArchive lbs)
+        sayFunc $ "Unzipped: " <> objectName
+  where
+    objectRemotePath = objectName ++ "/" ++ objectZipName
+    objectKey = S3.ObjectKey . T.pack $ objectRemotePath
 
 probeForFrameworks s3BucketName = mapM (probeForFramework s3BucketName)
 
 probeForFramework s3BucketName (frameworkName, version) = do
-  let frameworkZipName = frameworkArchiveName (frameworkName, version)
-  let frameworkObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ frameworkZipName
   (env, verbose) <- ask
   runResourceT . AWS.runAWS env $ checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey verbose
+  where
+    frameworkZipName = frameworkArchiveName (frameworkName, version)
+    frameworkObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ frameworkZipName
 
 
 checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey verbose = do
@@ -213,6 +232,11 @@ errorString e = fromErrorMessage $ fromMaybe (AWS.ErrorMessage "Unexpected Error
 
 sayLn :: MonadIO m => String -> m ()
 sayLn = liftIO . putStrLn
+
+sayLnWithTime :: MonadIO m => String -> m ()
+sayLnWithTime line = do
+  time <- liftIO getZonedTime
+  sayLn $ formatTime defaultTimeLocale "%T %F" time <> " - " <> line
 
 zipOptions :: Bool -> [Zip.ZipOption]
 zipOptions verbose = if verbose then [Zip.OptRecursive, Zip.OptVerbose] else [Zip.OptRecursive]

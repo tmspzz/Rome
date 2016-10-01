@@ -270,7 +270,9 @@ filterAccordingToListMode Present probeResults = (\((name, version), present) ->
 replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults :: M.Map FrameworkName GitRepoName -> [((FrameworkName, Version), Bool)] -> [((String, Version), Bool)]
 replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults reverseRomeMap = map (replaceResultIfFrameworkNameIsInMap (reverseRomeMap))
   where
-    replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((fromMaybe frameworkName (M.lookup frameworkName reverseRomeMap), version), present)
+    replaceResultIfFrameworkNameIsInMap :: M.Map FrameworkName GitRepoName -> ((FrameworkName, Version), Bool) -> ((String, Version), Bool)
+    -- replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((fromMaybe (frameworkName) (fmap unGitRepoName (M.lookup reverseRomeMap)), version), present)
+    replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((fromMaybe frameworkName (fmap unGitRepoName (M.lookup frameworkName reverseRomeMap)), version), present)
 
 
 s3ConfigFile :: (MonadIO m) => m FilePath

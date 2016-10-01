@@ -24,7 +24,7 @@ import           Control.Monad.Trans
 
 type FrameworkName = String
 newtype GitRepoName = GitRepoName { unGitRepoName :: String } 
-                    deriving (Eq, Show)
+                    deriving (Eq, Show, Ord)
 data RomefileEntry = RomefileEntry { gitRepositoryName   :: GitRepoName
                                    , frameworkCommonNames :: [FrameworkName]
                                    }

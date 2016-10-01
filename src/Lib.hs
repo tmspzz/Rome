@@ -174,9 +174,9 @@ uploadBinary s3BucketName binaryZip destinationPath frameworkName = do
 downloadFrameworksAndDsymsFromS3 :: BucketName -> [(FrameworkName, Version)] -> ReaderT (AWS.Env, Bool) IO ()
 downloadFrameworksAndDsymsFromS3 s3BucketName = mapM_ (downloadFrameworkAndDsymFromS3 s3BucketName)
 
-downloadFrameworkAndDsymFromS3 s3BucketName fv@(frameworkName, version) = do
-  let frameworkZipName = frameworkArchiveName fv
-  let dSYMZipName = dSYMArchiveName fv
+downloadFrameworkAndDsymFromS3 s3BucketName fv@((FrameworkName frameworkName), version) = do
+  let frameworkZipName = frameworkArchiveName (frameworkName, version)
+  let dSYMZipName = dSYMArchiveName (frameworkName, version)
   let frameworkObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ frameworkZipName
   let dSYMObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ dSYMZipName
   (env, verbose) <- ask
@@ -225,10 +225,10 @@ deriveFrameworkNamesAndVersion :: M.Map GitRepoName [FrameworkName] -> [Cartfile
 deriveFrameworkNamesAndVersion romeMap = concatMap (deriveFrameworkNameAndVersion romeMap)
 
 deriveFrameworkNameAndVersion ::  M.Map GitRepoName [FrameworkName] -> CartfileEntry -> [(FrameworkName, Version)]
-deriveFrameworkNameAndVersion romeMap (CartfileEntry GitHub l v) = map (\n -> (n, v)) $ fromMaybe [gitHubRepositoryName] (M.lookup (GitRepoName gitHubRepositoryName) romeMap)
+deriveFrameworkNameAndVersion romeMap (CartfileEntry GitHub l v) = map (\n -> (n, v)) $ fromMaybe [FrameworkName gitHubRepositoryName] (M.lookup (GitRepoName gitHubRepositoryName) romeMap)
   where
     gitHubRepositoryName = last $ splitWithSeparator '/' l
-deriveFrameworkNameAndVersion romeMap (CartfileEntry Git l v)    = map (\n -> (n, v)) $ fromMaybe [gitRepositoryName] (M.lookup (GitRepoName gitRepositoryName) romeMap)
+deriveFrameworkNameAndVersion romeMap (CartfileEntry Git l v)    = map (\n -> (n, v)) $ fromMaybe [FrameworkName gitRepositoryName] (M.lookup (GitRepoName gitRepositoryName) romeMap)
   where
     gitRepositoryName = getGitRepositoryNameFromGitURL l
     getGitRepositoryNameFromGitURL = replace ".git" "" . last . splitWithSeparator '/'
@@ -267,10 +267,10 @@ green = "\ESC[0;32m"
 noColor :: String
 noColor = "\ESC[0m"
 
-filterAccordingToListMode :: ListMode -> [((String, Version), Bool)] -> [((String, Version), Bool)]
+filterAccordingToListMode :: ListMode -> [((FrameworkName, Version), Bool)] -> [((FrameworkName, Version), Bool)]
 filterAccordingToListMode All probeResults     = probeResults
-filterAccordingToListMode Missing probeResults = (\((name, version), present) -> not present) `filter`probeResults
-filterAccordingToListMode Present probeResults = (\((name, version), present) -> present) `filter`probeResults
+filterAccordingToListMode Missing probeResults = (\(((FrameworkName name), version), present) -> not present) `filter` probeResults
+filterAccordingToListMode Present probeResults = (\(((FrameworkName name), version), present) -> present) `filter` probeResults
 
 replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults :: M.Map FrameworkName GitRepoName -> [((FrameworkName, Version), Bool)] -> [((String, Version), Bool)]
 replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults reverseRomeMap = map (replaceResultIfFrameworkNameIsInMap (reverseRomeMap))

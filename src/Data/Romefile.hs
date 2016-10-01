@@ -23,7 +23,7 @@ import           Control.Monad.Trans
 
 
 
-newtype FrameworkName = FrameworkName String
+newtype FrameworkName = FrameworkName { unFrameworkName :: String }
   deriving (Show, Eq)
 
 newtype GitRepoName = GitRepoName { unGitRepoName :: String } 
@@ -69,17 +69,12 @@ getBucket ini = requireKey s3BucketKey `inRequiredSection` cacheSectionDelimiter
 
 getRomefileEntries ini = do
   m <- inOptionalSection repositoryMapSectionDelimiter M.empty keysAndValues `fromIni''` ini
-<<<<<<< HEAD
-  return $ Prelude.map (\(repoName, frameworkCommonNames) -> RomefileEntry (unpack repoName) (Prelude.map (FrameworkName . unpack . strip) (splitOn "," frameworkCommonNames))) (M.toList m)
-=======
-
   return $
     Prelude.map
     (\(repoName, frameworkCommonNames)
      -> RomefileEntry
         (GitRepoName (unpack repoName))
         (Prelude.map
-         (unpack . strip)
+         (FrameworkName . unpack . strip)
          (splitOn "," frameworkCommonNames)))
     (M.toList m)
->>>>>>> master

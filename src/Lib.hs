@@ -109,7 +109,7 @@ runRomeWithOptions env (RomeOptions options verbose) = do
   case options of
       Upload [] -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries romefileEntries
-        liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName frameworkAndVersions) (env, verbose)
+        liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName (frameworkAndVersions)) (env, verbose)
 
       Upload names ->
         liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (env, verbose)
@@ -129,6 +129,7 @@ runRomeWithOptions env (RomeOptions options verbose) = do
         liftIO $ mapM_ (printProbeResult listMode) namesVersionAndExisting
 
   where
+    constructFrameworksAndVersionsFrom :: [CartfileEntry] -> [RomefileEntry] -> [(FrameworkName, Version)]
     constructFrameworksAndVersionsFrom cartfileEntries romefileEntries = deriveFrameworkNamesAndVersion (toRomeFilesEntriesMap romefileEntries) cartfileEntries
     filterByNames cartfileEntries romefileEntries = concatMap (constructFrameworksAndVersionsFrom cartfileEntries romefileEntries `filterByName`)
 
@@ -138,6 +139,7 @@ fromErrorMessage (AWS.ErrorMessage t) = T.unpack t
 filterByName:: [(FrameworkName, Version)] -> FrameworkName -> [(FrameworkName, Version)]
 filterByName fs s = filter (\(name, version) -> name == s) fs
 
+uploadFrameworksAndDsymsToS3 :: BucketName -> [(FrameworkName, Version)] -> ReaderT (AWS.Env, Bool) IO ()
 uploadFrameworksAndDsymsToS3 s3Bucket = mapM_ (uploadFrameworkAndDsymToS3 s3Bucket)
 
 uploadFrameworkAndDsymToS3 s3BucketName fv@(framework, version) = do
@@ -168,6 +170,7 @@ uploadBinary s3BucketName binaryZip destinationPath frameworkName = do
       Left e -> sayLn $ "Error uploading " <> frameworkName <> " : " <> errorString e
       Right _ -> sayLn $ "Successfully uploaded " <> frameworkName <> " to: " <> destinationPath
 
+downloadFrameworksAndDsymsFromS3 :: BucketName -> [(FrameworkName, Version)] -> ReaderT (AWS.Env, Bool) IO ()
 downloadFrameworksAndDsymsFromS3 s3BucketName = mapM_ (downloadFrameworkAndDsymFromS3 s3BucketName)
 
 downloadFrameworkAndDsymFromS3 s3BucketName fv@(frameworkName, version) = do
@@ -189,9 +192,10 @@ getZip s3BucketName frameworkObjectKey zipName verbose = do
       liftIO $ Zip.extractFilesFromArchive (zipOptions verbose) (Zip.toArchive lbs)
       sayLn $ "Unzipped: " ++ zipName
 
-
+probeForFrameworks :: BucketName -> [(FrameworkName, Version)] -> ReaderT (AWS.Env, Bool) IO [Bool]
 probeForFrameworks s3BucketName = mapM (probeForFramework s3BucketName)
 
+probeForFramework :: BucketName -> (FrameworkName, Version) -> ReaderT (AWS.Env, Bool) IO Bool
 probeForFramework s3BucketName (frameworkName, version) = do
   let frameworkZipName = frameworkArchiveName (frameworkName, version)
   let frameworkObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ frameworkZipName
@@ -232,10 +236,10 @@ appendFrameworkExtensionTo :: FrameworkName -> String
 appendFrameworkExtensionTo (FrameworkName a) = a ++ ".framework"
 
 frameworkArchiveName :: (String, Version) -> String
-frameworkArchiveName (name, version) = appendFrameworkExtensionTo name ++ "-" ++ version ++ ".zip"
+frameworkArchiveName (name, version) = appendFrameworkExtensionTo (FrameworkName name) ++ "-" ++ version ++ ".zip"
 
 dSYMArchiveName :: (String, Version) -> String
-dSYMArchiveName (name, version) = appendFrameworkExtensionTo name ++ ".dSYM" ++ "-" ++ version ++ ".zip"
+dSYMArchiveName (name, version) = appendFrameworkExtensionTo (FrameworkName name) ++ ".dSYM" ++ "-" ++ version ++ ".zip"
 
 splitWithSeparator :: (Eq a) => a -> [a] -> [[a]]
 splitWithSeparator _ [] = []
@@ -271,8 +275,8 @@ replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults :: M.Map FrameworkName G
 replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults reverseRomeMap = map (replaceResultIfFrameworkNameIsInMap (reverseRomeMap))
   where
     replaceResultIfFrameworkNameIsInMap :: M.Map FrameworkName GitRepoName -> ((FrameworkName, Version), Bool) -> ((String, Version), Bool)
-    -- replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((fromMaybe (frameworkName) (fmap unGitRepoName (M.lookup reverseRomeMap)), version), present)
-    replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((fromMaybe frameworkName (fmap unGitRepoName (M.lookup frameworkName reverseRomeMap)), version), present)
+    -- replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((fromMaybe (unFrameworkName frameworkName) (fmap unGitRepoName (M.lookup reverseRomeMap)), version), present)
+    replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((fromMaybe (unFrameworkName frameworkName) (fmap unGitRepoName (M.lookup frameworkName reverseRomeMap)), version), present)
 
 
 s3ConfigFile :: (MonadIO m) => m FilePath

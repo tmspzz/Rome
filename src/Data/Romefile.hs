@@ -8,7 +8,7 @@ module Data.Romefile
     , romefile
     , RomefileEntry (..)
     , FrameworkName (..)
-    , GitRepoName
+    , GitRepoName (..)
     )
 where
 
@@ -22,9 +22,13 @@ import           Control.Monad.Trans
 
 
 
+
 newtype FrameworkName = FrameworkName String
   deriving (Show, Eq)
-type GitRepoName   = String
+
+newtype GitRepoName = GitRepoName { unGitRepoName :: String } 
+                    deriving (Eq, Show, Ord)
+
 data RomefileEntry = RomefileEntry { gitRepositoryName   :: GitRepoName
                                    , frameworkCommonNames :: [FrameworkName]
                                    }
@@ -65,4 +69,17 @@ getBucket ini = requireKey s3BucketKey `inRequiredSection` cacheSectionDelimiter
 
 getRomefileEntries ini = do
   m <- inOptionalSection repositoryMapSectionDelimiter M.empty keysAndValues `fromIni''` ini
+<<<<<<< HEAD
   return $ Prelude.map (\(repoName, frameworkCommonNames) -> RomefileEntry (unpack repoName) (Prelude.map (FrameworkName . unpack . strip) (splitOn "," frameworkCommonNames))) (M.toList m)
+=======
+
+  return $
+    Prelude.map
+    (\(repoName, frameworkCommonNames)
+     -> RomefileEntry
+        (GitRepoName (unpack repoName))
+        (Prelude.map
+         (unpack . strip)
+         (splitOn "," frameworkCommonNames)))
+    (M.toList m)
+>>>>>>> master

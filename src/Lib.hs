@@ -66,10 +66,10 @@ data RomeOptions = RomeOptions { romeCommand :: RomeCommand
 
 {- Functions -}
 uploadParser :: Opts.Parser RomeCommand
-uploadParser = pure Upload <*> Opts.many (Opts.argument str (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."))
+uploadParser = pure Upload <*> Opts.many (Opts.argument (FrameworkName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."))
 
 downloadParser :: Opts.Parser RomeCommand
-downloadParser = pure Download <*> Opts.many (Opts.argument str (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are downloaded."))
+downloadParser = pure Download <*> Opts.many (Opts.argument (FrameworkName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are downloaded."))
 
 listParser :: Opts.Parser RomeCommand
 listParser = pure List <*> (
@@ -152,7 +152,7 @@ uploadFrameworkAndDsymToS3 s3BucketName fv@(framework, version) = do
     uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) (framework ++ "/" ++ dSYMArchiveName fv) (framework ++ ".dSYM")
   where
     carthageBuildDirecotryiOS = "Carthage/Build/iOS/"
-    frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo framework
+    frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo (FrameworkName framework)
     frameworkDirectory = carthageBuildDirecotryiOS ++ frameworkNameWithFrameworkExtension
     dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension ++ ".dSYM"
     dSYMdirectory = carthageBuildDirecotryiOS ++ dSYMNameWithDSYMExtension
@@ -229,7 +229,7 @@ deriveFrameworkNameAndVersion romeMap (CartfileEntry Git l v)    = map (\n -> (n
     getGitRepositoryNameFromGitURL = replace ".git" "" . last . splitWithSeparator '/'
 
 appendFrameworkExtensionTo :: FrameworkName -> String
-appendFrameworkExtensionTo a = a ++ ".framework"
+appendFrameworkExtensionTo (FrameworkName a) = a ++ ".framework"
 
 frameworkArchiveName :: (String, Version) -> String
 frameworkArchiveName (name, version) = appendFrameworkExtensionTo name ++ "-" ++ version ++ ".zip"

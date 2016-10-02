@@ -24,7 +24,7 @@ import           Control.Monad.Trans
 
 
 newtype FrameworkName = FrameworkName { unFrameworkName :: String }
-  deriving (Show, Eq, Ord)
+                      deriving (Show, Eq, Ord)
 
 newtype GitRepoName = GitRepoName { unGitRepoName :: String } 
                     deriving (Eq, Show, Ord)

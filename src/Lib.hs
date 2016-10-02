@@ -143,16 +143,16 @@ uploadFrameworksAndDsymsToS3 :: BucketName -> [(FrameworkName, Version)] -> Read
 uploadFrameworksAndDsymsToS3 s3Bucket = mapM_ (uploadFrameworkAndDsymToS3 s3Bucket)
 
 uploadFrameworkAndDsymToS3 :: BucketName -> (FrameworkName, Version) -> ReaderT (AWS.Env, Bool) IO ()
-uploadFrameworkAndDsymToS3 s3BucketName fv@(framework, version) = do
+uploadFrameworkAndDsymToS3 s3BucketName fv@(framework@(FrameworkName fwn), version) = do
   (env, verbose) <- ask
   frameworkExists <- liftIO $ doesDirectoryExist frameworkDirectory
   dSymExists <- liftIO $ doesDirectoryExist dSYMdirectory
   when frameworkExists $ do
     frameworkArchive <- zipDir frameworkDirectory verbose
-    uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) ((unFrameworkName framework) ++ "/" ++ frameworkArchiveName (unFrameworkName framework, version)) (unFrameworkName framework)
+    uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) (fwn ++ "/" ++ frameworkArchiveName (fwn, version)) (fwn)
   when dSymExists $ do
     dSYMArchive <- zipDir dSYMdirectory verbose
-    uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) ((unFrameworkName framework) ++ "/" ++ dSYMArchiveName (unFrameworkName framework, version)) ((unFrameworkName framework) ++ ".dSYM")
+    uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) (fwn ++ "/" ++ dSYMArchiveName (fwn, version)) (fwn ++ ".dSYM")
   where
     carthageBuildDirecotryiOS = "Carthage/Build/iOS/"
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo framework
@@ -197,9 +197,9 @@ probeForFrameworks :: BucketName -> [(FrameworkName, Version)] -> ReaderT (AWS.E
 probeForFrameworks s3BucketName = mapM (probeForFramework s3BucketName)
 
 probeForFramework :: BucketName -> (FrameworkName, Version) -> ReaderT (AWS.Env, Bool) IO Bool
-probeForFramework s3BucketName (frameworkName, version) = do
-  let frameworkZipName = frameworkArchiveName ((unFrameworkName frameworkName), version)
-  let frameworkObjectKey = S3.ObjectKey . T.pack $ (unFrameworkName frameworkName) ++ "/" ++ frameworkZipName
+probeForFramework s3BucketName ((FrameworkName frameworkName), version) = do
+  let frameworkZipName = frameworkArchiveName (frameworkName, version)
+  let frameworkObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ frameworkZipName
   (env, verbose) <- ask
   runResourceT . AWS.runAWS env $ checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey verbose
 
@@ -276,7 +276,6 @@ replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults :: M.Map FrameworkName G
 replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults reverseRomeMap = map (replaceResultIfFrameworkNameIsInMap (reverseRomeMap))
   where
     replaceResultIfFrameworkNameIsInMap :: M.Map FrameworkName GitRepoName -> ((FrameworkName, Version), Bool) -> ((String, Version), Bool)
-    -- replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((fromMaybe (unFrameworkName frameworkName) (fmap unGitRepoName (M.lookup reverseRomeMap)), version), present)
     replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((fromMaybe (unFrameworkName frameworkName) (fmap unGitRepoName (M.lookup frameworkName reverseRomeMap)), version), present)
 
 

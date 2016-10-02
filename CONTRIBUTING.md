@@ -78,9 +78,7 @@ Before creating enhancement suggestions, please check [this list of open issues]
 
     **Why would the enhancement be useful to most users**
 
-    [Explain why the enhancement would be useful to most users]
-
-    [List some use cases]
+    [Explain why the enhancement would be useful to most users, list some use cases]
 
     **Rome version:** [Enter Rome version here]
     **OS and version:** [Enter OS name and version here]

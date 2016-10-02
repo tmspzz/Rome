@@ -269,14 +269,15 @@ noColor = "\ESC[0m"
 
 filterAccordingToListMode :: ListMode -> [((FrameworkName, Version), Bool)] -> [((FrameworkName, Version), Bool)]
 filterAccordingToListMode All probeResults     = probeResults
-filterAccordingToListMode Missing probeResults = (\(((FrameworkName name), version), present) -> not present) `filter` probeResults
-filterAccordingToListMode Present probeResults = (\(((FrameworkName name), version), present) -> present) `filter` probeResults
+filterAccordingToListMode Missing probeResults = (\((FrameworkName name, version), present) -> not present) `filter` probeResults
+filterAccordingToListMode Present probeResults = (\((FrameworkName name, version), present) -> present) `filter` probeResults
 
 replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults :: M.Map FrameworkName GitRepoName -> [((FrameworkName, Version), Bool)] -> [((String, Version), Bool)]
-replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults reverseRomeMap = map (replaceResultIfFrameworkNameIsInMap (reverseRomeMap))
+replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults reverseRomeMap = map (replaceResultIfFrameworkNameIsInMap reverseRomeMap)
   where
     replaceResultIfFrameworkNameIsInMap :: M.Map FrameworkName GitRepoName -> ((FrameworkName, Version), Bool) -> ((String, Version), Bool)
-    replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((fromMaybe (unFrameworkName frameworkName) (fmap unGitRepoName (M.lookup frameworkName reverseRomeMap)), version), present)
+    replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((maybe fName unGitRepoName (M.lookup frameworkName reverseRomeMap), version), present)
+      where fName = unFrameworkName frameworkName
 
 
 s3ConfigFile :: (MonadIO m) => m FilePath

@@ -225,10 +225,10 @@ deriveFrameworkNamesAndVersion :: M.Map GitRepoName [FrameworkName] -> [Cartfile
 deriveFrameworkNamesAndVersion romeMap = concatMap (deriveFrameworkNameAndVersion romeMap)
 
 deriveFrameworkNameAndVersion ::  M.Map GitRepoName [FrameworkName] -> CartfileEntry -> [(FrameworkName, Version)]
-deriveFrameworkNameAndVersion romeMap (CartfileEntry GitHub l v) = map (\n -> (n, v)) $ fromMaybe [FrameworkName gitHubRepositoryName] (M.lookup (GitRepoName gitHubRepositoryName) romeMap)
+deriveFrameworkNameAndVersion romeMap (CartfileEntry GitHub (Location l) v) = map (\n -> (n, v)) $ fromMaybe [FrameworkName gitHubRepositoryName] (M.lookup (GitRepoName gitHubRepositoryName) romeMap)
   where
     gitHubRepositoryName = last $ splitWithSeparator '/' l
-deriveFrameworkNameAndVersion romeMap (CartfileEntry Git l v)    = map (\n -> (n, v)) $ fromMaybe [FrameworkName gitRepositoryName] (M.lookup (GitRepoName gitRepositoryName) romeMap)
+deriveFrameworkNameAndVersion romeMap (CartfileEntry Git (Location l) v)    = map (\n -> (n, v)) $ fromMaybe [FrameworkName gitRepositoryName] (M.lookup (GitRepoName gitRepositoryName) romeMap)
   where
     gitRepositoryName = getGitRepositoryNameFromGitURL l
     getGitRepositoryNameFromGitURL = replace ".git" "" . last . splitWithSeparator '/'
@@ -237,10 +237,10 @@ appendFrameworkExtensionTo :: FrameworkName -> String
 appendFrameworkExtensionTo (FrameworkName a) = a ++ ".framework"
 
 frameworkArchiveName :: (String, Version) -> String
-frameworkArchiveName (name, version) = appendFrameworkExtensionTo (FrameworkName name) ++ "-" ++ version ++ ".zip"
+frameworkArchiveName (name, (Version v)) = appendFrameworkExtensionTo (FrameworkName name) ++ "-" ++ v ++ ".zip"
 
 dSYMArchiveName :: (String, Version) -> String
-dSYMArchiveName (name, version) = appendFrameworkExtensionTo (FrameworkName name) ++ ".dSYM" ++ "-" ++ version ++ ".zip"
+dSYMArchiveName (name, (Version v)) = appendFrameworkExtensionTo (FrameworkName name) ++ ".dSYM" ++ "-" ++ v ++ ".zip"
 
 splitWithSeparator :: (Eq a) => a -> [a] -> [[a]]
 splitWithSeparator _ [] = []
@@ -251,8 +251,8 @@ splitWithSeparator a as = g as : splitWithSeparator a (dropTaken as as)
       dropTaken bs = drop $ numberOfAsIn bs + length (g bs)
 
 printProbeResult :: MonadIO m => ListMode -> ((String, Version), Bool) -> m ()
-printProbeResult listMode ((frameworkName, version), present) | listMode == Missing || listMode ==  Present = sayLn frameworkName
-                                                              | otherwise                                   = sayLn $ frameworkName <> " " <> version <> " " <> printProbeStringForBool present
+printProbeResult listMode ((frameworkName, (Version v)), present) | listMode == Missing || listMode ==  Present = sayLn frameworkName
+                                                              | otherwise                                   = sayLn $ frameworkName <> " " <> v <> " " <> printProbeStringForBool present
 
 printProbeStringForBool :: Bool -> String
 printProbeStringForBool True  = green <> "✔︎" <> noColor

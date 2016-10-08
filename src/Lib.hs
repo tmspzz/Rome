@@ -118,8 +118,6 @@ runRomeWithOptions env (RomeOptions options verbose) = do
 
       Upload gitRepoNames -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom  (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) respositoryMap
-        sayLn . show $ filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries
-        sayLn . show $ frameworkAndVersions
         liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName frameworkAndVersions) (env, verbose)
 
       Download [] -> do
@@ -198,7 +196,7 @@ downloadFrameworksAndDsymsFromS3 s3BucketName = mapM_ (downloadFrameworkAndDsymF
 
 downloadFrameworkAndDsymFromS3 s3BucketName fv@(FrameworkName fwn, version) = do
   downloadBinary s3BucketName remoteFrameworkUploadPath fwn frameworkZipName
-  downloadBinary s3BucketName remoteDsymUploadPath (fwn ++ ".dSYM") dSYMZipName 
+  downloadBinary s3BucketName remoteDsymUploadPath (fwn ++ ".dSYM") dSYMZipName
   where
     frameworkZipName = frameworkArchiveName fv
     remoteFrameworkUploadPath = fwn ++ "/" ++ frameworkArchiveName fv
@@ -294,7 +292,7 @@ splitWithSeparator a as = g as : splitWithSeparator a (dropTaken as as)
 
 printProbeResult :: MonadIO m => ListMode -> ((String, Version), Bool) -> m ()
 printProbeResult listMode ((frameworkName, Version v), present) | listMode == Missing || listMode ==  Present = sayLn frameworkName
-                                                              | otherwise                                   = sayLn $ frameworkName <> " " <> v <> " " <> printProbeStringForBool present
+                                                              | otherwise                                     = sayLn $ frameworkName <> " " <> v <> " " <> printProbeStringForBool present
 
 printProbeStringForBool :: Bool -> String
 printProbeStringForBool True  = green <> "✔︎" <> noColor

@@ -191,11 +191,14 @@ Available commands:
 Uploading one or more frameworks and corresponding dSYMs
 (an empty list of frameworks will upload all frameworks found in `Cartfile.resolved`):
 
+Referring to the `Cartfile.resolved` in [RepositoryMap](#RepositoryMap)
+
 ```
-$ rome upload Alamofire FGAuth
-Uploaded: Alamofire/Alamofire.framework-3.4.1.zip
-Uploaded: Alamofire/Alamofire.framework.dSYM-3.4.1.zip
-Uploaded: FGAuth/FGAuth.framework-v3.3.3.zip
+$ rome upload HockeySDK-iOS awesome-framework-for-cat-names
+Uploaded HockeySDK to: bitstadium/HockeySDK.framework-3.8.6.zip
+Uploaded HockeySDK.dSYM to: bitstadium/HockeySDK.framework.dSYM-3.8.6.zip
+Uploaded CatFramework to: CatFramework/CatFramework.framework-3.3.1.zip
+Uploaded CatFramework.dSYM to: CatFramework/CatFramework.framework.dSYM-3.3.1.zip
 ```
 
 #### Downloading
@@ -203,14 +206,18 @@ Uploaded: FGAuth/FGAuth.framework-v3.3.3.zip
 Downloading one or more frameworks and corresponding dSYMs
 (an empty list of frameworks will download all frameworks found in `Cartfile.resolved`):
 
+Referring to the `Cartfile.resolved` in [RepositoryMap](#RepositoryMap)
+
 ```
-$ rome download Alamofire FGAuth
-Downloaded: Alamofire.framework-3.4.1.zip
-Unzipped: Alamofire.framework-3.4.1.zip
-Downloaded: Alamofire.framework.dSYM-3.4.1.zip
-Unzipped: Alamofire.framework.dSYM-3.4.1.zip
-Downloaded: FGAuth.framework-v3.3.3.zip
-Unzipped: FGAuth.framework-v3.3.3.zip
+$ rome download HockeySDK-iOS awesome-framework-for-cat-names
+Downloaded HockeySDK from: HockeySDK/HockeySDK.framework-3.8.6.zip
+Unzipped HockeySDK from: HockeySDK.framework-3.8.6.zip
+Downloaded HockeySDK.dSYM from: HockeySDK/HockeySDK.framework.dSYM-3.8.6.zip
+Unzipped HockeySDK.dSYM from: HockeySDK.framework.dSYM-3.8.6.zip
+Downloaded CatFramework from: CatFramework/CatFramework.framework-3.3.1.zip
+Unzipped CatFramework from: CatFramework.framework-3.3.1.zip
+Downloaded CatFramework from: CatFramework/CatFramework.framework.dSYM-3.3.1.zip
+Unzipped CatFramework from: CatFramework.framework.dSYM-3.3.1.zip
 ```
 
 #### Listing
@@ -246,7 +253,7 @@ $ rome list --present
 ResearchKit
 ```
 
-Note: `list` completely ignores dSYMs. If a dSYM is missing the corresponding
+Note: `list` __completely ignores dSYMs__. If a dSYM is missing the corresponding
 framework is still reported as present.
 
 ## Get Rome

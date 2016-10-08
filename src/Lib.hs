@@ -25,15 +25,16 @@ import           Control.Monad.Trans          (MonadIO, lift, liftIO)
 import           Control.Monad.Trans.Resource (runResourceT)
 import qualified Data.ByteString.Lazy         as L
 import           Data.Cartfile
-import           Data.Romefile
 import           Data.Char                    (isSpace)
 import           Data.Conduit.Binary          (sinkLbs)
 import           Data.Ini                     as INI
 import           Data.Ini.Utils               as INI
-import           Data.String.Utils
 import qualified Data.Map                     as M
 import           Data.Maybe
+import           Data.Romefile
+import           Data.String.Utils
 import qualified Data.Text                    as T
+import           Data.Time
 import qualified Network.AWS                  as AWS
 import           Network.AWS.Data
 import           Network.AWS.S3               as S3
@@ -107,9 +108,10 @@ runRomeWithOptions env (RomeOptions options verbose) = do
   cartfileEntries <- getCartfileEntires
   (s3BucketName, romefileEntries) <- getRomefileEntries
   case options of
+
       Upload [] -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries romefileEntries
-        liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName (frameworkAndVersions)) (env, verbose)
+        liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName frameworkAndVersions) (env, verbose)
 
       Upload names ->
         liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (env, verbose)
@@ -148,17 +150,23 @@ uploadFrameworkAndDsymToS3 s3BucketName fv@(framework@(FrameworkName fwn), versi
   frameworkExists <- liftIO $ doesDirectoryExist frameworkDirectory
   dSymExists <- liftIO $ doesDirectoryExist dSYMdirectory
   when frameworkExists $ do
+    when verbose $
+      sayLnWithTime $ "Staring to zip: " <> frameworkDirectory
     frameworkArchive <- zipDir frameworkDirectory verbose
-    uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) (fwn ++ "/" ++ frameworkArchiveName (fwn, version)) (fwn)
+    uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn
   when dSymExists $ do
+    when verbose $
+      sayLnWithTime $ "Staring to zip: " <> dSYMdirectory
     dSYMArchive <- zipDir dSYMdirectory verbose
-    uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) (fwn ++ "/" ++ dSYMArchiveName (fwn, version)) (fwn ++ ".dSYM")
+    uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) remoteDsymUploadPath (fwn ++ ".dSYM")
   where
     carthageBuildDirecotryiOS = "Carthage/Build/iOS/"
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo framework
     frameworkDirectory = carthageBuildDirecotryiOS ++ frameworkNameWithFrameworkExtension
+    remoteFrameworkUploadPath = fwn ++ "/" ++ frameworkArchiveName fv
     dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension ++ ".dSYM"
     dSYMdirectory = carthageBuildDirecotryiOS ++ dSYMNameWithDSYMExtension
+    remoteDsymUploadPath = fwn ++ "/" ++ dSYMArchiveName fv
     zipDir dir verbose = liftIO $ Zip.addFilesToArchive (zipOptions verbose) Zip.emptyArchive [dir]
 
 uploadBinary s3BucketName binaryZip destinationPath frameworkName = do
@@ -166,42 +174,54 @@ uploadBinary s3BucketName binaryZip destinationPath frameworkName = do
   (env, verbose) <- ask
   runResourceT . AWS.runAWS env $ do
     let body = AWS.toBody binaryZip
+    let sayFunc = if verbose then sayLnWithTime else sayLn
+    when verbose $
+      sayFunc $ "Started uploading " <> frameworkName <> " to: " <> destinationPath
     rs <- AWS.trying AWS._Error (AWS.send $ S3.putObject s3BucketName objectKey body)
     case rs of
-      Left e -> sayLn $ "Error uploading " <> frameworkName <> " : " <> errorString e
-      Right _ -> sayLn $ "Successfully uploaded " <> frameworkName <> " to: " <> destinationPath
+      Left e -> sayFunc $ "Error uploading " <> frameworkName <> " : " <> errorString e
+      Right _ -> sayFunc $ "Successfully uploaded " <> frameworkName <> " to: " <> destinationPath
 
 downloadFrameworksAndDsymsFromS3 :: BucketName -> [(FrameworkName, Version)] -> ReaderT (AWS.Env, Bool) IO ()
 downloadFrameworksAndDsymsFromS3 s3BucketName = mapM_ (downloadFrameworkAndDsymFromS3 s3BucketName)
 
-downloadFrameworkAndDsymFromS3 s3BucketName fv@((FrameworkName frameworkName), version) = do
-  let frameworkZipName = frameworkArchiveName (frameworkName, version)
-  let dSYMZipName = dSYMArchiveName (frameworkName, version)
-  let frameworkObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ frameworkZipName
-  let dSYMObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ dSYMZipName
-  (env, verbose) <- ask
-  runResourceT . AWS.runAWS env $ getZip s3BucketName frameworkObjectKey frameworkZipName verbose
-  runResourceT . AWS.runAWS env $ getZip s3BucketName dSYMObjectKey dSYMZipName verbose
+downloadFrameworkAndDsymFromS3 s3BucketName fv@(FrameworkName fwn, version) = do
+  downloadBinary s3BucketName fwn frameworkZipName
+  downloadBinary s3BucketName fwn dSYMZipName
+  where
+    frameworkZipName = frameworkArchiveName fv
+    dSYMZipName = dSYMArchiveName fv
 
-getZip s3BucketName frameworkObjectKey zipName verbose = do
-  rs <- AWS.trying AWS._Error (AWS.send $ S3.getObject s3BucketName frameworkObjectKey)
-  case rs of
-    Left e -> sayLn $ "Error downloading " <> zipName <> " : " <> errorString e
-    Right goResponse -> do
-      lbs <- lift $ view S3.gorsBody goResponse `AWS.sinkBody` sinkLbs
-      sayLn $ "Downloaded: " ++ zipName
-      liftIO $ Zip.extractFilesFromArchive (zipOptions verbose) (Zip.toArchive lbs)
-      sayLn $ "Unzipped: " ++ zipName
+downloadBinary s3BucketName objectName objectZipName = do
+  (env, verbose) <- ask
+  runResourceT . AWS.runAWS env $ do
+    let sayFunc = if verbose then sayLnWithTime else sayLn
+    when verbose $
+      sayFunc $ "Started downloading " <> objectName <> " from: " <> objectRemotePath
+    rs <- AWS.trying AWS._Error (AWS.send $ S3.getObject s3BucketName objectKey)
+    case rs of
+      Left e -> sayFunc $ "Error downloading " <> objectName <> " : " <> errorString e
+      Right goResponse -> do
+        lbs <- lift $ view S3.gorsBody goResponse `AWS.sinkBody` sinkLbs
+        sayFunc $ "Downloaded: " <> objectName
+        when verbose $
+          sayFunc $ "Staring to unzip " <> objectName
+        liftIO $ Zip.extractFilesFromArchive (zipOptions verbose) (Zip.toArchive lbs)
+        sayFunc $ "Unzipped: " <> objectName
+  where
+    objectRemotePath = objectName ++ "/" ++ objectZipName
+    objectKey = S3.ObjectKey . T.pack $ objectRemotePath
 
 probeForFrameworks :: BucketName -> [(FrameworkName, Version)] -> ReaderT (AWS.Env, Bool) IO [Bool]
 probeForFrameworks s3BucketName = mapM (probeForFramework s3BucketName)
 
 probeForFramework :: BucketName -> (FrameworkName, Version) -> ReaderT (AWS.Env, Bool) IO Bool
-probeForFramework s3BucketName ((FrameworkName frameworkName), version) = do
-  let frameworkZipName = frameworkArchiveName (frameworkName, version)
-  let frameworkObjectKey = S3.ObjectKey . T.pack $ frameworkName ++ "/" ++ frameworkZipName
+probeForFramework s3BucketName fv@(FrameworkName fwn, version) = do
   (env, verbose) <- ask
   runResourceT . AWS.runAWS env $ checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey verbose
+  where
+    frameworkZipName = frameworkArchiveName fv
+    frameworkObjectKey = S3.ObjectKey . T.pack $ fwn ++ "/" ++ frameworkZipName
 
 
 checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey verbose = do
@@ -217,6 +237,11 @@ errorString e = fromErrorMessage $ fromMaybe (AWS.ErrorMessage "Unexpected Error
 
 sayLn :: MonadIO m => String -> m ()
 sayLn = liftIO . putStrLn
+
+sayLnWithTime :: MonadIO m => String -> m ()
+sayLnWithTime line = do
+  time <- liftIO getZonedTime
+  sayLn $ formatTime defaultTimeLocale "%T %F" time <> " - " <> line
 
 zipOptions :: Bool -> [Zip.ZipOption]
 zipOptions verbose = if verbose then [Zip.OptRecursive, Zip.OptVerbose] else [Zip.OptRecursive]
@@ -236,11 +261,11 @@ deriveFrameworkNameAndVersion romeMap (CartfileEntry Git (Location l) v)    = ma
 appendFrameworkExtensionTo :: FrameworkName -> String
 appendFrameworkExtensionTo (FrameworkName a) = a ++ ".framework"
 
-frameworkArchiveName :: (String, Version) -> String
-frameworkArchiveName (name, (Version v)) = appendFrameworkExtensionTo (FrameworkName name) ++ "-" ++ v ++ ".zip"
+frameworkArchiveName :: (FrameworkName, Version) -> String
+frameworkArchiveName (fwn, Version v) = appendFrameworkExtensionTo fwn ++ "-" ++ v ++ ".zip"
 
-dSYMArchiveName :: (String, Version) -> String
-dSYMArchiveName (name, (Version v)) = appendFrameworkExtensionTo (FrameworkName name) ++ ".dSYM" ++ "-" ++ v ++ ".zip"
+dSYMArchiveName :: (FrameworkName, Version) -> String
+dSYMArchiveName (fwn, Version v) = appendFrameworkExtensionTo fwn ++ ".dSYM" ++ "-" ++ v ++ ".zip"
 
 splitWithSeparator :: (Eq a) => a -> [a] -> [[a]]
 splitWithSeparator _ [] = []
@@ -251,7 +276,7 @@ splitWithSeparator a as = g as : splitWithSeparator a (dropTaken as as)
       dropTaken bs = drop $ numberOfAsIn bs + length (g bs)
 
 printProbeResult :: MonadIO m => ListMode -> ((String, Version), Bool) -> m ()
-printProbeResult listMode ((frameworkName, (Version v)), present) | listMode == Missing || listMode ==  Present = sayLn frameworkName
+printProbeResult listMode ((frameworkName, Version v), present) | listMode == Missing || listMode ==  Present = sayLn frameworkName
                                                               | otherwise                                   = sayLn $ frameworkName <> " " <> v <> " " <> printProbeStringForBool present
 
 printProbeStringForBool :: Bool -> String
@@ -269,16 +294,14 @@ noColor = "\ESC[0m"
 
 filterAccordingToListMode :: ListMode -> [((FrameworkName, Version), Bool)] -> [((FrameworkName, Version), Bool)]
 filterAccordingToListMode All probeResults     = probeResults
-filterAccordingToListMode Missing probeResults = (\((FrameworkName name, version), present) -> not present) `filter` probeResults
-filterAccordingToListMode Present probeResults = (\((FrameworkName name, version), present) -> present) `filter` probeResults
+filterAccordingToListMode Missing probeResults = (\((FrameworkName fwn, version), present) -> not present) `filter` probeResults
+filterAccordingToListMode Present probeResults = (\((FrameworkName fwn, version), present) -> present) `filter` probeResults
 
 replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults :: M.Map FrameworkName GitRepoName -> [((FrameworkName, Version), Bool)] -> [((String, Version), Bool)]
 replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults reverseRomeMap = map (replaceResultIfFrameworkNameIsInMap reverseRomeMap)
   where
     replaceResultIfFrameworkNameIsInMap :: M.Map FrameworkName GitRepoName -> ((FrameworkName, Version), Bool) -> ((String, Version), Bool)
-    replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName, version), present) = ((maybe fName unGitRepoName (M.lookup frameworkName reverseRomeMap), version), present)
-      where fName = unFrameworkName frameworkName
-
+    replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName@(FrameworkName fwn), version), present) = ((maybe fwn unGitRepoName (M.lookup frameworkName reverseRomeMap), version), present)
 
 s3ConfigFile :: (MonadIO m) => m FilePath
 s3ConfigFile = (++ p) `liftM` liftIO getHomeDirectory

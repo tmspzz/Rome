@@ -180,30 +180,32 @@ uploadFrameworkAndDsymToS3 s3BucketName fv@(framework@(FrameworkName fwn), versi
     remoteDsymUploadPath = fwn ++ "/" ++ dSYMArchiveName fv
     zipDir dir verbose = liftIO $ Zip.addFilesToArchive (zipOptions verbose) Zip.emptyArchive [dir]
 
-uploadBinary s3BucketName binaryZip destinationPath frameworkName = do
+uploadBinary s3BucketName binaryZip destinationPath objectName = do
   let objectKey = S3.ObjectKey $ T.pack destinationPath
   (env, verbose) <- ask
   runResourceT . AWS.runAWS env $ do
     let body = AWS.toBody binaryZip
     let sayFunc = if verbose then sayLnWithTime else sayLn
     when verbose $
-      sayFunc $ "Started uploading " <> frameworkName <> " to: " <> destinationPath
+      sayFunc $ "Started uploading " <> objectName <> " to: " <> destinationPath
     rs <- AWS.trying AWS._Error (AWS.send $ S3.putObject s3BucketName objectKey body)
     case rs of
-      Left e -> sayFunc $ "Error uploading " <> frameworkName <> " : " <> errorString e
-      Right _ -> sayFunc $ "Successfully uploaded " <> frameworkName <> " to: " <> destinationPath
+      Left e -> sayFunc $ "Error uploading " <> objectName <> " : " <> errorString e
+      Right _ -> sayFunc $ "Uploaded " <> objectName <> " to: " <> destinationPath
 
 downloadFrameworksAndDsymsFromS3 :: BucketName -> [(FrameworkName, Version)] -> ReaderT (AWS.Env, Bool) IO ()
 downloadFrameworksAndDsymsFromS3 s3BucketName = mapM_ (downloadFrameworkAndDsymFromS3 s3BucketName)
 
 downloadFrameworkAndDsymFromS3 s3BucketName fv@(FrameworkName fwn, version) = do
-  downloadBinary s3BucketName fwn frameworkZipName
-  downloadBinary s3BucketName fwn dSYMZipName
+  downloadBinary s3BucketName remoteFrameworkUploadPath fwn frameworkZipName
+  downloadBinary s3BucketName remoteDsymUploadPath (fwn ++ ".dSYM") dSYMZipName 
   where
     frameworkZipName = frameworkArchiveName fv
+    remoteFrameworkUploadPath = fwn ++ "/" ++ frameworkArchiveName fv
     dSYMZipName = dSYMArchiveName fv
+    remoteDsymUploadPath = fwn ++ "/" ++ dSYMArchiveName fv
 
-downloadBinary s3BucketName objectName objectZipName = do
+downloadBinary s3BucketName objectRemotePath objectName objectZipName = do
   (env, verbose) <- ask
   runResourceT . AWS.runAWS env $ do
     let sayFunc = if verbose then sayLnWithTime else sayLn
@@ -214,13 +216,12 @@ downloadBinary s3BucketName objectName objectZipName = do
       Left e -> sayFunc $ "Error downloading " <> objectName <> " : " <> errorString e
       Right goResponse -> do
         lbs <- lift $ view S3.gorsBody goResponse `AWS.sinkBody` sinkLbs
-        sayFunc $ "Downloaded: " <> objectName
+        sayFunc $ "Downloaded " <> objectName <> " from: " <> objectRemotePath
         when verbose $
-          sayFunc $ "Staring to unzip " <> objectName
+          sayFunc $ "Staring to unzip " <> objectZipName
         liftIO $ Zip.extractFilesFromArchive (zipOptions verbose) (Zip.toArchive lbs)
-        sayFunc $ "Unzipped: " <> objectName
+        sayFunc $ "Unzipped " <> objectName <> " from: " <> objectZipName
   where
-    objectRemotePath = objectName ++ "/" ++ objectZipName
     objectKey = S3.ObjectKey . T.pack $ objectRemotePath
 
 probeForFrameworks :: BucketName -> [(FrameworkName, Version)] -> ReaderT (AWS.Env, Bool) IO [Bool]

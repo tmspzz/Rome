@@ -303,7 +303,6 @@ replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults reverseRomeMap = map (re
     replaceResultIfFrameworkNameIsInMap :: M.Map FrameworkName GitRepoName -> ((FrameworkName, Version), Bool) -> ((String, Version), Bool)
     replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName@(FrameworkName fwn), version), present) = ((maybe fwn unGitRepoName (M.lookup frameworkName reverseRomeMap), version), present)
 
-
 s3ConfigFile :: (MonadIO m) => m FilePath
 s3ConfigFile = (++ p) `liftM` liftIO getHomeDirectory
     where

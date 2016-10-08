@@ -113,20 +113,6 @@ A Romefile looks like this:
 
 The Romefile is the [INI format](https://en.wikipedia.org/wiki/INI_file)
 
-#### RepositoryMap Multiple Aliases
-
-Since version `0.6.0.10` Rome supports multiple aliases for one map entry.
-Suppose you have a framework `Framework` that builds two targets, `t1` and `t2`,
-Rome can handle both targets by specifying
-
-```
-[RepositoryMap]
-  Framework = t1, t2
-```
-
-If __ANY__ of the aliases is missing on S3, the entire entry will be reported as missing
-when running `rome list [--missing]`
-
 #### S3Bucket section
 This section contains the name of the S3 bucket you want Rome to use to upload/download.
 
@@ -158,6 +144,20 @@ simply add a `[RepositoryMap]` section to your `Romefile` and specify the follow
   awesome-framework-for-cat-names = CatFramework
   better-dog-names = DogFramework
 ```
+
+##### RepositoryMap Multiple Aliases
+
+Since version `0.6.0.10` Rome supports multiple aliases for one map entry.
+Suppose you have a framework `Framework` that builds two targets, `t1` and `t2`,
+Rome can handle both targets by specifying
+
+```
+[RepositoryMap]
+  Framework = t1, t2
+```
+
+If __ANY__ of the aliases is missing on S3, the entire entry will be reported as missing
+when running `rome list [--missing]`
 
 ### Usage
 

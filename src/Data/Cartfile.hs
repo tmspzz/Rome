@@ -6,8 +6,8 @@ module Data.Cartfile
     , cartfileResolved
     , CartfileEntry (..)
     , RepoHosting (..)
-    , Version
-    , Location
+    , Version (..)
+    , Location (..)
     ) where
 
 
@@ -17,8 +17,10 @@ import qualified Text.Parsec         as Parsec
 import qualified Text.Parsec.String  as Parsec
 import qualified Text.Parsec.Utils   as Parsec
 
-type Location      = String
-type Version       = String
+newtype Location = Location { unLocation :: String } 
+                 deriving (Eq, Show)
+newtype Version = Version { unVersion :: String } 
+                deriving (Eq, Show)
 
 data RepoHosting = GitHub | Git
   deriving (Eq, Show)
@@ -55,9 +57,9 @@ quotedContent = do
 parseCartfileResolvedLine :: Parsec.Parsec String () CartfileEntry
 parseCartfileResolvedLine = do
   hosting <- repoHosting
-  location <- quotedContent
+  location <- (fmap Location) quotedContent
   Parsec.many1 Parsec.space
-  version <- quotedContent
+  version <- (fmap Version) quotedContent
   Parsec.endOfLine
   return CartfileEntry {..}
 

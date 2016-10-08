@@ -29,7 +29,7 @@ import           Data.Char                    (isSpace)
 import           Data.Conduit.Binary          (sinkLbs)
 import           Data.Ini                     as INI
 import           Data.Ini.Utils               as INI
-import qualified Data.Map                     as M
+import qualified Data.Map.Strict              as M
 import           Data.Maybe
 import           Data.Romefile
 import           Data.String.Utils
@@ -46,11 +46,13 @@ import           System.Environment
 
 {- Types -}
 
-type Config        = (AWS.Env, Bool)
-type RomeMonad     = ExceptT String IO
+type Config                = (AWS.Env, Bool)
+type RomeMonad             = ExceptT String IO
+type RepositoryMap         = M.Map GitRepoName [FrameworkName]
+type InvertedRepositoryMap = M.Map FrameworkName GitRepoName
 
-data RomeCommand = Upload [FrameworkName]
-                  | Download [FrameworkName]
+data RomeCommand = Upload [GitRepoName]
+                  | Download [GitRepoName]
                   | List ListMode
                   deriving (Show, Eq)
 
@@ -67,10 +69,10 @@ data RomeOptions = RomeOptions { romeCommand :: RomeCommand
 
 {- Functions -}
 uploadParser :: Opts.Parser RomeCommand
-uploadParser = pure Upload <*> Opts.many (Opts.argument (FrameworkName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."))
+uploadParser = pure Upload <*> Opts.many (Opts.argument (GitRepoName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."))
 
 downloadParser :: Opts.Parser RomeCommand
-downloadParser = pure Download <*> Opts.many (Opts.argument (FrameworkName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are downloaded."))
+downloadParser = pure Download <*> Opts.many (Opts.argument (GitRepoName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are downloaded."))
 
 listParser :: Opts.Parser RomeCommand
 listParser = pure List <*> (
@@ -107,39 +109,48 @@ runRomeWithOptions :: AWS.Env -> RomeOptions -> ExceptT String IO ()
 runRomeWithOptions env (RomeOptions options verbose) = do
   cartfileEntries <- getCartfileEntires
   (s3BucketName, romefileEntries) <- getRomefileEntries
+  let respositoryMap = toRomeFilesEntriesMap romefileEntries
   case options of
 
       Upload [] -> do
-        let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries romefileEntries
+        let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries respositoryMap
         liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName frameworkAndVersions) (env, verbose)
 
-      Upload names ->
-        liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (env, verbose)
+      Upload gitRepoNames -> do
+        let frameworkAndVersions = constructFrameworksAndVersionsFrom  (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) respositoryMap
+        sayLn . show $ filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries
+        sayLn . show $ frameworkAndVersions
+        liftIO $ runReaderT (uploadFrameworksAndDsymsToS3 s3BucketName frameworkAndVersions) (env, verbose)
 
       Download [] -> do
-        let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries romefileEntries
+        let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries respositoryMap
         liftIO $ runReaderT (downloadFrameworksAndDsymsFromS3 s3BucketName frameworkAndVersions) (env, verbose)
 
-      Download names ->
-        liftIO $ runReaderT (downloadFrameworksAndDsymsFromS3 s3BucketName (filterByNames cartfileEntries romefileEntries names)) (env, verbose)
+      Download gitRepoNames -> do
+        let frameworkAndVersions = constructFrameworksAndVersionsFrom  (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) respositoryMap
+        liftIO $ runReaderT (downloadFrameworksAndDsymsFromS3 s3BucketName frameworkAndVersions) (env, verbose)
 
       List listMode -> do
-        let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries romefileEntries
+        let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries respositoryMap
         existing <- liftIO $ runReaderT (probeForFrameworks s3BucketName frameworkAndVersions) (env, verbose)
-        let t = toInvertedRomeFilesEntriesMap romefileEntries
         let namesVersionAndExisting = replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults (toInvertedRomeFilesEntriesMap romefileEntries) . filterAccordingToListMode listMode $  zip frameworkAndVersions existing
         liftIO $ mapM_ (printProbeResult listMode) namesVersionAndExisting
 
   where
-    constructFrameworksAndVersionsFrom :: [CartfileEntry] -> [RomefileEntry] -> [(FrameworkName, Version)]
-    constructFrameworksAndVersionsFrom cartfileEntries romefileEntries = deriveFrameworkNamesAndVersion (toRomeFilesEntriesMap romefileEntries) cartfileEntries
-    filterByNames cartfileEntries romefileEntries = concatMap (constructFrameworksAndVersionsFrom cartfileEntries romefileEntries `filterByName`)
+    constructFrameworksAndVersionsFrom :: [CartfileEntry] -> RepositoryMap -> [(FrameworkName, Version)]
+    constructFrameworksAndVersionsFrom cartfileEntries repositoryMap = deriveFrameworkNamesAndVersion repositoryMap cartfileEntries
+
+    filterRepoMapByGitRepoNames :: RepositoryMap -> [GitRepoName] -> RepositoryMap
+    filterRepoMapByGitRepoNames repoMap gitRepoNames = M.unions $ map (restrictRepositoryMapToGitRepoName repoMap) gitRepoNames
 
 fromErrorMessage :: AWS.ErrorMessage -> String
 fromErrorMessage (AWS.ErrorMessage t) = T.unpack t
 
-filterByName:: [(FrameworkName, Version)] -> FrameworkName -> [(FrameworkName, Version)]
-filterByName fs s = filter (\(name, version) -> name == s) fs
+filterByNameEqualTo :: [(FrameworkName, Version)] -> FrameworkName -> [(FrameworkName, Version)]
+filterByNameEqualTo fs s = filter (\(name, version) -> name == s) fs
+
+restrictRepositoryMapToGitRepoName:: RepositoryMap -> GitRepoName -> RepositoryMap
+restrictRepositoryMapToGitRepoName repoMap repoName = maybe M.empty (M.singleton repoName) $ repoName `M.lookup` repoMap
 
 uploadFrameworksAndDsymsToS3 :: BucketName -> [(FrameworkName, Version)] -> ReaderT (AWS.Env, Bool) IO ()
 uploadFrameworksAndDsymsToS3 s3Bucket = mapM_ (uploadFrameworkAndDsymToS3 s3Bucket)
@@ -223,7 +234,6 @@ probeForFramework s3BucketName fv@(FrameworkName fwn, version) = do
     frameworkZipName = frameworkArchiveName fv
     frameworkObjectKey = S3.ObjectKey . T.pack $ fwn ++ "/" ++ frameworkZipName
 
-
 checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey verbose = do
   rs <- AWS.trying AWS._Error (AWS.send $ S3.headObject s3BucketName frameworkObjectKey)
   case rs of
@@ -246,17 +256,23 @@ sayLnWithTime line = do
 zipOptions :: Bool -> [Zip.ZipOption]
 zipOptions verbose = if verbose then [Zip.OptRecursive, Zip.OptVerbose] else [Zip.OptRecursive]
 
-deriveFrameworkNamesAndVersion :: M.Map GitRepoName [FrameworkName] -> [CartfileEntry] -> [(FrameworkName, Version)]
+deriveFrameworkNamesAndVersion :: RepositoryMap -> [CartfileEntry] -> [(FrameworkName, Version)]
 deriveFrameworkNamesAndVersion romeMap = concatMap (deriveFrameworkNameAndVersion romeMap)
 
-deriveFrameworkNameAndVersion ::  M.Map GitRepoName [FrameworkName] -> CartfileEntry -> [(FrameworkName, Version)]
-deriveFrameworkNameAndVersion romeMap (CartfileEntry GitHub (Location l) v) = map (\n -> (n, v)) $ fromMaybe [FrameworkName gitHubRepositoryName] (M.lookup (GitRepoName gitHubRepositoryName) romeMap)
+deriveFrameworkNameAndVersion ::  RepositoryMap -> CartfileEntry -> [(FrameworkName, Version)]
+deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry GitHub (Location l) v) = map (\n -> (n, v)) $ fromMaybe [FrameworkName gitHubRepositoryName] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
   where
-    gitHubRepositoryName = last $ splitWithSeparator '/' l
-deriveFrameworkNameAndVersion romeMap (CartfileEntry Git (Location l) v)    = map (\n -> (n, v)) $ fromMaybe [FrameworkName gitRepositoryName] (M.lookup (GitRepoName gitRepositoryName) romeMap)
+    gitHubRepositoryName = unGitRepoName $ gitRepoNameFromCartfileEntry cfe
+deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry Git (Location l) v)    = map (\n -> (n, v)) $ fromMaybe [FrameworkName gitRepositoryName] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
   where
-    gitRepositoryName = getGitRepositoryNameFromGitURL l
-    getGitRepositoryNameFromGitURL = replace ".git" "" . last . splitWithSeparator '/'
+    gitRepositoryName = unGitRepoName $ gitRepoNameFromCartfileEntry cfe
+
+gitRepoNameFromCartfileEntry :: CartfileEntry -> GitRepoName
+gitRepoNameFromCartfileEntry (CartfileEntry GitHub (Location l) _) = GitRepoName . last . splitWithSeparator '/' $ l
+gitRepoNameFromCartfileEntry (CartfileEntry Git (Location l) _) = GitRepoName . replace ".git" "" . last . splitWithSeparator '/' $ l
+
+filterCartfileEntriesByGitRepoNames :: [GitRepoName] -> [CartfileEntry] -> [CartfileEntry]
+filterCartfileEntriesByGitRepoNames repoNames cartfileEntries = [c | c <- cartfileEntries, gitRepoNameFromCartfileEntry c `elem` repoNames]
 
 appendFrameworkExtensionTo :: FrameworkName -> String
 appendFrameworkExtensionTo (FrameworkName a) = a ++ ".framework"
@@ -297,10 +313,10 @@ filterAccordingToListMode All probeResults     = probeResults
 filterAccordingToListMode Missing probeResults = (\((FrameworkName fwn, version), present) -> not present) `filter` probeResults
 filterAccordingToListMode Present probeResults = (\((FrameworkName fwn, version), present) -> present) `filter` probeResults
 
-replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults :: M.Map FrameworkName GitRepoName -> [((FrameworkName, Version), Bool)] -> [((String, Version), Bool)]
+replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults :: InvertedRepositoryMap -> [((FrameworkName, Version), Bool)] -> [((String, Version), Bool)]
 replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults reverseRomeMap = map (replaceResultIfFrameworkNameIsInMap reverseRomeMap)
   where
-    replaceResultIfFrameworkNameIsInMap :: M.Map FrameworkName GitRepoName -> ((FrameworkName, Version), Bool) -> ((String, Version), Bool)
+    replaceResultIfFrameworkNameIsInMap :: InvertedRepositoryMap -> ((FrameworkName, Version), Bool) -> ((String, Version), Bool)
     replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName@(FrameworkName fwn), version), present) = ((maybe fwn unGitRepoName (M.lookup frameworkName reverseRomeMap), version), present)
 
 s3ConfigFile :: (MonadIO m) => m FilePath
@@ -327,10 +343,10 @@ getRegionFromFile f profile = do
         Right r -> return r
 
 
-toRomeFilesEntriesMap :: [RomefileEntry] -> M.Map GitRepoName [FrameworkName]
+toRomeFilesEntriesMap :: [RomefileEntry] -> RepositoryMap
 toRomeFilesEntriesMap = M.fromList . map romeFileEntryToTuple
 
-toInvertedRomeFilesEntriesMap :: [RomefileEntry] -> M.Map FrameworkName GitRepoName
+toInvertedRomeFilesEntriesMap :: [RomefileEntry] -> InvertedRepositoryMap
 toInvertedRomeFilesEntriesMap = M.fromList . concatMap romeFileEntryToListOfTuples
   where listify (fs, g) = map (\f -> (f,g)) fs
         flipTuple = uncurry (flip (,))

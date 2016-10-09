@@ -118,7 +118,7 @@ A Romefile looks like this:
   xcconfigs = xcconfigs
 ```  
 
-The Romefile is the [INI format](https://en.wikipedia.org/wiki/INI_file)
+The Romefile is in the [INI format](https://en.wikipedia.org/wiki/INI_file)
 
 #### S3Bucket section
 This section contains the name of the S3 bucket you want Rome to use to upload/download.

@@ -94,10 +94,12 @@ environment variable to your desired profile.
 
 ### Romefile
 
-The Romefile has two purposes:
+The Romefile has three purposes:
 
 1. Specifies what S3 bucket to use - [Cache] section. This section is __required__.
 1. Allows to use custom name mappings between repository names and framework names - [RepositoryMap] section. This section is __optional__ and can be omitted.
+1. Allows to ignore certain framework names - [IgnoreMap] section. This section is __optional__ and can be omitted.
+
 
 A Romefile looks like this:
 
@@ -109,6 +111,9 @@ A Romefile looks like this:
   HockeySDK-iOS = HockeySDK
   awesome-framework-for-cat-names = CatFramework
   better-dog-names = DogFramework
+
+[IgnoreMap]
+  xcconfigs = xcconfigs
 ```  
 
 The Romefile is the [INI format](https://en.wikipedia.org/wiki/INI_file)
@@ -145,7 +150,29 @@ simply add a `[RepositoryMap]` section to your `Romefile` and specify the follow
   better-dog-names = DogFramework
 ```
 
-##### RepositoryMap Multiple Aliases
+#### IgnoreMap
+This contains the mappings of git repository names and framework names should be ignored.
+This is particularly useful in case not all your `Cartfile.resolved` entries produce a framework.
+
+Some repositories use Carthage as a simple mechanism to include other git repositories that do not produce frameworks.
+Even Carthage itself does this, to include `xcconfigs`.
+
+Example:
+
+Suppose you have the following in your `Cartfile`
+
+```
+github "Quick/Nimble"
+github "jspahrsummers/xcconfigs"
+```
+`xcconfigs` can be ignored by Rome by add an `IgnoreMap` section in the Romefile
+
+```
+[IgnoreMap]
+  xcconfigs = xcconfigs
+```
+
+##### Multiple Aliases
 
 Since version `0.6.0.10` Rome supports multiple aliases for one map entry.
 Suppose you have a framework `Framework` that builds two targets, `t1` and `t2`,
@@ -158,6 +185,8 @@ Rome can handle both targets by specifying
 
 If __ANY__ of the aliases is missing on S3, the entire entry will be reported as missing
 when running `rome list [--missing]`
+
+Multiple aliases are supported in `[IgnoreMap]` too
 
 ### Usage
 

@@ -18,13 +18,13 @@ instance Arbitrary Version where
   arbitrary = Version <$> nonEmptyString
 
 prop_filter_idempotent :: [(FrameworkName, Version)] -> FrameworkName -> Bool
-prop_filter_idempotent ls n = filterByName ls n == filterByName (filterByName ls n) n
+prop_filter_idempotent ls n = filterByNameEqualTo ls n == filterByNameEqualTo (filterByNameEqualTo ls n) n
 
 prop_filter_smaller :: [(FrameworkName, Version)] -> FrameworkName -> Bool
-prop_filter_smaller ls n = length (filterByName ls n) <= length ls
+prop_filter_smaller ls n = length (filterByNameEqualTo ls n) <= length ls
 
 prop_filter_model :: [(FrameworkName, Version)] -> FrameworkName -> Bool
-prop_filter_model ls n = map fst (filterByName ls n) == filter (== n) (map fst ls)
+prop_filter_model ls n = map fst (filterByNameEqualTo ls n) == filter (== n) (map fst ls)
 
 prop_split_length :: Char -> String -> Property
 prop_split_length sep ls =

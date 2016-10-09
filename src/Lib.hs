@@ -10,7 +10,7 @@ module Lib
     ( parseRomeOptions
     , runRomeWithOptions
     , discoverRegion
-    , filterByName
+    , filterByNameEqualTo
     , splitWithSeparator
     ) where
 

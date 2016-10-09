@@ -1,3 +1,5 @@
+![](logo/colosseum.jpg)
+
 # Rome
 
 Rome is a tool that allows developers on Apple platforms to use Amazon's S3 as a
@@ -287,3 +289,8 @@ framework is still reported as present.
 
 ## Get Rome
 The Rome binary is attached as a zip to the [releases page](https://github.com/blender/Rome/releases) here on GitHub.
+
+## License
+Rome is released under MIT License
+
+Logo courtesy of [TeddyBear[Picnic]](http://www.freedigitalphotos.net/images/view_photog.php?photogid=3407) at FreeDigitalPhotos.net

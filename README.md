@@ -156,7 +156,7 @@ This contains the mappings of git repository names and framework names should be
 This is particularly useful in case not all your `Cartfile.resolved` entries produce a framework.
 
 Some repositories use Carthage as a simple mechanism to include other git repositories that do not produce frameworks.
-Even Carthage itself does this, to include `xcconfigs`.
+Even Carthage itself does this, to include xcconfigs.
 
 
 Example:

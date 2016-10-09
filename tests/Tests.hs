@@ -29,7 +29,7 @@ prop_filter_model ls n = map fst (filterByNameEqualTo ls n) == filter (== n) (ma
 prop_split_length :: Char -> String -> Property
 prop_split_length sep ls =
   not (null ls) ==>
-    length (splitWithSeparator sep ls) == 1 + (length $ filter (== sep) ls)
+    length (splitWithSeparator sep ls) == 1 + length (filter (== sep) ls)
 
 prop_split_string :: String -> Property
 prop_split_string ls =

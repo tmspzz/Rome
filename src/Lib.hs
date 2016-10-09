@@ -284,13 +284,8 @@ frameworkArchiveName (fwn, Version v) = appendFrameworkExtensionTo fwn ++ "-" ++
 dSYMArchiveName :: (FrameworkName, Version) -> String
 dSYMArchiveName (fwn, Version v) = appendFrameworkExtensionTo fwn ++ ".dSYM" ++ "-" ++ v ++ ".zip"
 
-splitWithSeparator :: (Eq a) => a -> [a] -> [[a]]
-splitWithSeparator _ [] = []
-splitWithSeparator a as = g as : splitWithSeparator a (dropTaken as as)
-    where
-      numberOfAsIn = length . takeWhile (== a)
-      g = takeWhile (/= a) . dropWhile (== a)
-      dropTaken bs = drop $ numberOfAsIn bs + length (g bs)
+splitWithSeparator :: Char -> String -> [String]
+splitWithSeparator a as = map T.unpack (T.split (== a) $ T.pack as)
 
 printProbeResult :: MonadIO m => ListMode -> ((String, Version), Bool) -> m ()
 printProbeResult listMode ((frameworkName, Version v), present) | listMode == Missing || listMode ==  Present = sayLn frameworkName

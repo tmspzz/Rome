@@ -17,14 +17,23 @@ instance Arbitrary FrameworkName where
 instance Arbitrary Version where
   arbitrary = Version <$> nonEmptyString
 
-prop_filter_idempotent :: [(FrameworkName, Version)] -> FrameworkName -> Bool
-prop_filter_idempotent ls n = filterByNameEqualTo ls n == filterByNameEqualTo (filterByNameEqualTo ls n) n
+prop_filterByNameEqualTo_idempotent :: [(FrameworkName, Version)] -> FrameworkName -> Bool
+prop_filterByNameEqualTo_idempotent ls n = filterByNameEqualTo ls n == filterByNameEqualTo (filterByNameEqualTo ls n) n
 
-prop_filter_smaller :: [(FrameworkName, Version)] -> FrameworkName -> Bool
-prop_filter_smaller ls n = length (filterByNameEqualTo ls n) <= length ls
+prop_filterByNameEqualTo_smaller :: [(FrameworkName, Version)] -> FrameworkName -> Bool
+prop_filterByNameEqualTo_smaller ls n = length (filterByNameEqualTo ls n) <= length ls
 
-prop_filter_model :: [(FrameworkName, Version)] -> FrameworkName -> Bool
-prop_filter_model ls n = map fst (filterByNameEqualTo ls n) == filter (== n) (map fst ls)
+prop_filterByNameEqualTo_model :: [(FrameworkName, Version)] -> FrameworkName -> Bool
+prop_filterByNameEqualTo_model ls n = map fst (filterByNameEqualTo ls n) == filter (== n) (map fst ls)
+
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent :: [(FrameworkName, Version)] -> [FrameworkName] -> Bool
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent ls ns = filterOutFrameworkNamesAndVersionsIfNotIn ls ns == filterOutFrameworkNamesAndVersionsIfNotIn (filterOutFrameworkNamesAndVersionsIfNotIn ls ns) ns
+
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller :: [(FrameworkName, Version)] -> [FrameworkName] -> Bool
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller ls ns = length (filterOutFrameworkNamesAndVersionsIfNotIn ls ns) <= length ls
+
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_model :: [(FrameworkName, Version)] -> [FrameworkName] -> Bool
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_model ls ns = map fst (filterOutFrameworkNamesAndVersionsIfNotIn ls ns) == filter (`notElem` ns) (map fst ls)
 
 prop_split_length :: Char -> String -> Property
 prop_split_length sep ls =
@@ -39,14 +48,23 @@ prop_split_string ls =
 main :: IO ()
 main =
   do
-    putStrLn "prop_filter_idempotent"
-    quickCheck prop_filter_idempotent
+    putStrLn "prop_filterByNameEqualTo_idempotent"
+    quickCheck prop_filterByNameEqualTo_idempotent
 
-    putStrLn "prop_filter_smaller"
-    quickCheck prop_filter_smaller
+    putStrLn "prop_filterByNameEqualTo_smaller"
+    quickCheck prop_filterByNameEqualTo_smaller
 
-    putStrLn "prop_filter_model"
-    quickCheck prop_filter_model
+    putStrLn "prop_filterByNameEqualTo_model"
+    quickCheck prop_filterByNameEqualTo_model
+
+    putStrLn "prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent"
+    quickCheck prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent
+
+    putStrLn "prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller"
+    quickCheck prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller
+
+    putStrLn "prop_filterOutFrameworkNamesAndVersionsIfNotIn_model"
+    quickCheck prop_filterOutFrameworkNamesAndVersionsIfNotIn_model
 
     putStrLn "prop_split_length"
     quickCheck prop_split_length

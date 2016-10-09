@@ -191,7 +191,7 @@ Available commands:
 Uploading one or more frameworks and corresponding dSYMs
 (an empty list of frameworks will upload all frameworks found in `Cartfile.resolved`):
 
-Referring to the `Cartfile.resolved` in [RepositoryMap](#RepositoryMap)
+Referring to the `Cartfile.resolved` in [RepositoryMap](#repositorymap)
 
 ```
 $ rome upload HockeySDK-iOS awesome-framework-for-cat-names
@@ -206,7 +206,7 @@ Uploaded CatFramework.dSYM to: CatFramework/CatFramework.framework.dSYM-3.3.1.zi
 Downloading one or more frameworks and corresponding dSYMs
 (an empty list of frameworks will download all frameworks found in `Cartfile.resolved`):
 
-Referring to the `Cartfile.resolved` in [RepositoryMap](#RepositoryMap)
+Referring to the `Cartfile.resolved` in [RepositoryMap](#repositorymap)
 
 ```
 $ rome download HockeySDK-iOS awesome-framework-for-cat-names

@@ -280,7 +280,7 @@ M13Checkbox
 Listing only frameworks missing from the cache:
 
 ```
-$ rome list --present
+$ rome list --missing
 ResearchKit
 ```
 

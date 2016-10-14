@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns  #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -9,6 +10,7 @@ module Data.Romefile
     , RomefileEntry (..)
     , FrameworkName (..)
     , GitRepoName (..)
+    , RomeFileParseResult (..)
     )
 where
 
@@ -34,6 +36,11 @@ data RomefileEntry    = RomefileEntry { gitRepositoryName   :: GitRepoName
                                       }
                                       deriving (Show, Eq)
 
+data RomeFileParseResult = RomeFileParseResult { bucket :: Text
+                                               , repositoryMapEntries :: [RomefileEntry]
+                                               , ignoreMapEntries :: [RomefileEntry]
+                                               }
+
 
 
 -- |The name of the Romefile
@@ -52,7 +59,12 @@ s3BucketKey = "S3-Bucket"
 repositoryMapSectionDelimiter :: Text
 repositoryMapSectionDelimiter = "RepositoryMap"
 
-parseRomefile ::  (MonadIO m, MonadError String m) => FilePath -> m (Text, [RomefileEntry])
+-- |The delimier of the IGNOREMAP section
+ignoreMapSectionDelimiter :: Text
+ignoreMapSectionDelimiter = "IgnoreMap"
+
+
+parseRomefile ::  (MonadIO m, MonadError String m) => FilePath -> m RomeFileParseResult
 parseRomefile f = do
   eitherIni <- liftIO $ INI.readIniFile f
   case eitherIni of
@@ -62,13 +74,21 @@ parseRomefile f = do
       case eitherBucker of
         Left e -> throwError $ "Error while parsing " <> f <> ": "  <> unpack e
         Right bucket -> do
-          romeFileEntries <- getRomefileEntries ini
-          return (bucket, romeFileEntries)
+          repositoryMapEntries <- getRepostiryMapEntries ini
+          ignoreMapEntries <- getIgnoreMapEntries ini
+          return RomeFileParseResult {..}
 
 getBucket ini = requireKey s3BucketKey `inRequiredSection` cacheSectionDelimiter `fromIni'` ini
 
-getRomefileEntries ini = do
-  m <- inOptionalSection repositoryMapSectionDelimiter M.empty keysAndValues `fromIni''` ini
+getRepostiryMapEntries :: MonadIO m => Ini -> m [RomefileEntry]
+getRepostiryMapEntries = getRomefileEntries repositoryMapSectionDelimiter
+
+getIgnoreMapEntries :: MonadIO m => Ini -> m [RomefileEntry]
+getIgnoreMapEntries = getRomefileEntries ignoreMapSectionDelimiter
+
+getRomefileEntries :: (MonadIO m) => Text -> Ini -> m [RomefileEntry]
+getRomefileEntries sectionDelimiter ini = do
+  m <- inOptionalSection sectionDelimiter M.empty keysAndValues `fromIni''` ini
   return $
     Prelude.map
     (\(repoName, frameworkCommonNames)

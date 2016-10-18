@@ -11,6 +11,7 @@ module Data.Romefile
     , FrameworkName (..)
     , GitRepoName (..)
     , RomeFileParseResult (..)
+    , RomeCacheInfo (..)
     )
 where
 
@@ -21,6 +22,7 @@ import           Data.Monoid
 import           Data.Text
 import           Control.Monad.Except
 import           Control.Monad.Trans
+import           System.Path
 
 
 
@@ -36,12 +38,14 @@ data RomefileEntry    = RomefileEntry { gitRepositoryName   :: GitRepoName
                                       }
                                       deriving (Show, Eq)
 
-data RomeFileParseResult = RomeFileParseResult { bucket :: Text
+data RomeFileParseResult = RomeFileParseResult { cacheInfo :: RomeCacheInfo
                                                , repositoryMapEntries :: [RomefileEntry]
                                                , ignoreMapEntries :: [RomefileEntry]
                                                }
 
-
+data RomeCacheInfo = RomeCacheInfo { _bucket :: Text
+                                   , _localCacheDir :: Maybe FilePath
+                                   }
 
 -- |The name of the Romefile
 romefile :: String
@@ -55,6 +59,10 @@ cacheSectionDelimiter = "Cache"
 s3BucketKey :: Text
 s3BucketKey = "S3-Bucket"
 
+-- |The local cache dir Key
+localCacheDirKey :: Text
+localCacheDirKey = "local"
+
 -- |The delimier of the REPOSITORYMAP section
 repositoryMapSectionDelimiter :: Text
 repositoryMapSectionDelimiter = "RepositoryMap"
@@ -64,21 +72,28 @@ ignoreMapSectionDelimiter :: Text
 ignoreMapSectionDelimiter = "IgnoreMap"
 
 
-parseRomefile ::  (MonadIO m, MonadError String m) => FilePath -> m RomeFileParseResult
+parseRomefile :: MonadIO m => FilePath -> ExceptT FilePath m RomeFileParseResult
 parseRomefile f = do
   eitherIni <- liftIO $ INI.readIniFile f
   case eitherIni of
     Left iniError -> throwError iniError
     Right ini -> do
-      eitherBucker <- getBucket ini
-      case eitherBucker of
-        Left e -> throwError $ "Error while parsing " <> f <> ": "  <> unpack e
-        Right bucket -> do
-          repositoryMapEntries <- getRepostiryMapEntries ini
-          ignoreMapEntries <- getIgnoreMapEntries ini
-          return RomeFileParseResult {..}
+      _bucket <- withExceptT toErrorMessage $ getBucket ini
+      maybeCacheDirAsText <- withExceptT toErrorMessage $ getLocalCacheDir ini
+      let _localCacheDir = unpack <$> maybeCacheDirAsText
+      repositoryMapEntries <- getRepostiryMapEntries ini
+      ignoreMapEntries <- getIgnoreMapEntries ini
+      let cacheInfo = RomeCacheInfo {..}
+      return RomeFileParseResult { .. }
+  where
+    toErrorMessage :: Text -> String
+    toErrorMessage e = "Error while parsing " <> f <> ": " <> unpack e
 
-getBucket ini = requireKey s3BucketKey `inRequiredSection` cacheSectionDelimiter `fromIni'` ini
+getBucket :: MonadIO m => Ini -> ExceptT Text m Text
+getBucket ini = requireKey s3BucketKey `inRequiredSection` cacheSectionDelimiter `fromIni''` ini
+
+getLocalCacheDir :: MonadIO m => Ini -> ExceptT Text m (Maybe Text)
+getLocalCacheDir ini = optionalKey localCacheDirKey `inRequiredSection` cacheSectionDelimiter `fromIni''` ini
 
 getRepostiryMapEntries :: MonadIO m => Ini -> m [RomefileEntry]
 getRepostiryMapEntries = getRomefileEntries repositoryMapSectionDelimiter

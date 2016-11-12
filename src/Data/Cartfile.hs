@@ -64,4 +64,4 @@ parseCartfileResolvedLine = do
   return CartfileEntry {..}
 
 parseCartfileResolved :: String -> IO (Either Parsec.ParseError [CartfileEntry])
-parseCartfileResolved = Parsec.parseFromFile (Parsec.many1 parseCartfileResolvedLine)
+parseCartfileResolved = Parsec.parseFromFile (Parsec.many1 (Parsec.optional Parsec.spaces >> parseCartfileResolvedLine))

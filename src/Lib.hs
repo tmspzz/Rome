@@ -31,7 +31,8 @@ import qualified Data.ByteString.Lazy         as L
 import           Data.Cartfile
 import           Data.Char                    (isSpace)
 import           Data.Conduit                 (($$))
-import           Data.Conduit.Binary          (sinkFile, sourceFile , sinkLbs, sourceLbs)
+import           Data.Conduit.Binary          (sinkFile, sinkLbs, sourceFile,
+                                               sourceLbs)
 import           Data.Ini                     as INI
 import           Data.Ini.Utils               as INI
 import qualified Data.Map.Strict              as M
@@ -52,15 +53,24 @@ import           System.FilePath
 
 {- Types -}
 
-type Config                = (AWS.Env, Bool)
+type UDCEnv                = (AWS.Env{-, VerifyFlag-}, SkipLocalCacheFlag, Bool)
 type RomeMonad             = ExceptT String IO
 type RepositoryMap         = M.Map GitRepoName [FrameworkName]
 type InvertedRepositoryMap = M.Map FrameworkName GitRepoName
 
-data RomeCommand = Upload [GitRepoName]
-                  | Download [GitRepoName]
+data RomeCommand = Upload RomeUDCPayload
+                  | Download RomeUDCPayload
                   | List ListMode
                   deriving (Show, Eq)
+
+data RomeUDCPayload = RomeUDCPayload { _payload            :: [GitRepoName]
+                                    --  , _verifyFlag         :: VerifyFlag
+                                     , _skipLocalCacheFlag :: SkipLocalCacheFlag
+                                     }
+                                     deriving (Show, Eq)
+
+-- newtype VerifyFlag = VerifyFlag { _verify :: Bool } deriving (Show, Eq)
+newtype SkipLocalCacheFlag = SkipLocalCacheFlag { _skipLocalCache :: Bool } deriving (Show, Eq)
 
 data ListMode = All
                | Missing
@@ -76,13 +86,22 @@ data RomeOptions = RomeOptions { romeCommand :: RomeCommand
 carthageBuildDirecotryiOS :: String
 carthageBuildDirecotryiOS = "Carthage/Build/iOS/"
 
+{- Commnad line arguments parsing -}
 
-{- Functions -}
+-- verifyParser :: Parser VerifyFlag
+-- verifyParser = VerifyFlag <$> Opts.switch ( Opts.long "verify" <> Opts.help "Verify the framework has the same hash as specified in the Cartfile.resolved.")
+
+skipLocalCacheParser :: Parser SkipLocalCacheFlag
+skipLocalCacheParser = SkipLocalCacheFlag <$> Opts.switch ( Opts.long "skip-local-cache" <> Opts.help "Ignore the local cache when performing the operation.")
+
+udcPayloadParser :: Opts.Parser RomeUDCPayload
+udcPayloadParser = RomeUDCPayload <$> Opts.many (Opts.argument (GitRepoName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded.")) {- <*> verifyParser-} <*> skipLocalCacheParser
+
 uploadParser :: Opts.Parser RomeCommand
-uploadParser = pure Upload <*> Opts.many (Opts.argument (GitRepoName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."))
+uploadParser = pure Upload <*> udcPayloadParser
 
 downloadParser :: Opts.Parser RomeCommand
-downloadParser = pure Download <*> Opts.many (Opts.argument (GitRepoName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are downloaded."))
+downloadParser = pure Download <*> udcPayloadParser
 
 listParser :: Opts.Parser RomeCommand
 listParser = pure List <*> (
@@ -103,6 +122,8 @@ parseRomeOptions = RomeOptions <$> parseRomeCommand <*> Opts.switch ( Opts.short
 withInfo :: Opts.Parser a -> String -> Opts.ParserInfo a
 withInfo opts desc = Opts.info (Opts.helper <*> opts) $ Opts.progDesc desc
 
+{- Functions -}
+
 getCartfileEntires :: RomeMonad [CartfileEntry]
 getCartfileEntires = do
   eitherCartfileEntries <- liftIO $ parseCartfileResolved cartfileResolved
@@ -121,21 +142,21 @@ runRomeWithOptions env (RomeOptions options verbose) = do
   let ignoreNames = concatMap frameworkCommonNames ignoreMapEntries
   case options of
 
-      Upload [] -> do
+      Upload (RomeUDCPayload [] {-shouldVerify-} shouldIgnoreLocalCache) -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries respositoryMap `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        liftIO $ runReaderT (uploadFrameworksAndDsymsToCaches cacheInfo frameworkAndVersions) (env, verbose)
+        liftIO $ runReaderT (uploadFrameworksAndDsymsToCaches cacheInfo frameworkAndVersions) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
 
-      Upload gitRepoNames -> do
+      Upload (RomeUDCPayload gitRepoNames {-shouldVerify-} shouldIgnoreLocalCache) -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom  (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) respositoryMap `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        liftIO $ runReaderT (uploadFrameworksAndDsymsToCaches cacheInfo frameworkAndVersions) (env, verbose)
+        liftIO $ runReaderT (uploadFrameworksAndDsymsToCaches cacheInfo frameworkAndVersions) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
 
-      Download [] -> do
+      Download (RomeUDCPayload [] {-shouldVerify-}  shouldIgnoreLocalCache) -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries respositoryMap `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches cacheInfo frameworkAndVersions) (env, verbose)
+        liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches cacheInfo frameworkAndVersions) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
 
-      Download gitRepoNames -> do
+      Download (RomeUDCPayload gitRepoNames {-shouldVerify-} shouldIgnoreLocalCache) -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom  (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) respositoryMap `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches cacheInfo frameworkAndVersions) (env, verbose)
+        liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches cacheInfo frameworkAndVersions) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
 
       List listMode -> do
         let frameworkAndVersions = constructFrameworksAndVersionsFrom cartfileEntries respositoryMap `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
@@ -162,12 +183,12 @@ filterOutFrameworkNamesAndVersionsIfNotIn favs fns = [fv |  fv <- favs,  fst fv 
 restrictRepositoryMapToGitRepoName:: RepositoryMap -> GitRepoName -> RepositoryMap
 restrictRepositoryMapToGitRepoName repoMap repoName = maybe M.empty (M.singleton repoName) $ repoName `M.lookup` repoMap
 
-uploadFrameworksAndDsymsToCaches :: RomeCacheInfo -> [(FrameworkName, Version)] -> ReaderT (AWS.Env, Bool) IO ()
+uploadFrameworksAndDsymsToCaches :: RomeCacheInfo -> [(FrameworkName, Version)] -> ReaderT UDCEnv IO ()
 uploadFrameworksAndDsymsToCaches cacheInfo = mapM_ (uploadFrameworkAndDsymToCaches cacheInfo)
 
-uploadFrameworkAndDsymToCaches :: RomeCacheInfo -> (FrameworkName, Version) -> ReaderT (AWS.Env, Bool) IO ()
+uploadFrameworkAndDsymToCaches :: RomeCacheInfo -> (FrameworkName, Version) -> ReaderT UDCEnv IO ()
 uploadFrameworkAndDsymToCaches  (RomeCacheInfo bucketName localCacheDir) fv@(f@(FrameworkName fwn), version) = do
-  readerEnv@(env, verbose) <- ask
+  readerEnv@(env {-, shouldVerify-}, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   frameworkExists <- liftIO $ doesDirectoryExist frameworkDirectory
   dSymExists <- liftIO $ doesDirectoryExist dSYMdirectory
   when frameworkExists $ do
@@ -177,8 +198,8 @@ uploadFrameworkAndDsymToCaches  (RomeCacheInfo bucketName localCacheDir) fv@(f@(
     runMaybeT $
       MaybeT (return localCacheDir)
         >>= \dir -> liftIO $
-                      runReaderT (saveBinaryToLocalCache dir (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn) readerEnv
-    uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn
+                      unless skipLocalCache $ saveBinaryToLocalCache dir (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn verbose
+    runReaderT (uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn) (env, verbose)
   when dSymExists $ do
     when verbose $
       sayLnWithTime $ "Staring to zip: " <> dSYMdirectory
@@ -186,8 +207,8 @@ uploadFrameworkAndDsymToCaches  (RomeCacheInfo bucketName localCacheDir) fv@(f@(
     runMaybeT $
       MaybeT (return localCacheDir)
         >>= \dir -> liftIO $
-                      runReaderT (saveBinaryToLocalCache dir (Zip.fromArchive dSYMArchive) remoteDsymUploadPath dSYMNameWithDSYMExtension) readerEnv
-    uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) remoteDsymUploadPath (fwn ++ ".dSYM")
+                      unless skipLocalCache $ saveBinaryToLocalCache dir (Zip.fromArchive dSYMArchive) remoteDsymUploadPath dSYMNameWithDSYMExtension verbose
+    runReaderT (uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) remoteDsymUploadPath (fwn ++ ".dSYM")) (env, verbose)
 
   where
 
@@ -213,9 +234,8 @@ uploadBinary s3BucketName binaryZip destinationPath objectName = do
       Left e -> sayFunc $ "Error uploading " <> objectName <> ": " <> errorString e
       Right _ -> sayFunc $ "Uploaded " <> objectName <> " to: " <> destinationPath
 
-saveBinaryToLocalCache :: FilePath -> L.ByteString -> FilePath -> String -> ReaderT (AWS.Env, Bool) IO ()
-saveBinaryToLocalCache cachePath binaryZip destinationPath objectName = do
-  (_, verbose) <- ask
+saveBinaryToLocalCache :: MonadIO m => FilePath -> L.ByteString -> FilePath -> String -> Bool -> m ()
+saveBinaryToLocalCache cachePath binaryZip destinationPath objectName verbose = do
   when verbose $
     sayLnWithTime $ "Copying " <> objectName <> " to: " <> finalPath
   liftIO $ createDirectoryIfMissing True (dropFileName finalPath)
@@ -223,44 +243,60 @@ saveBinaryToLocalCache cachePath binaryZip destinationPath objectName = do
   where
     finalPath = cachePath </> destinationPath
 
-downloadFrameworksAndDsymsFromCaches :: RomeCacheInfo -> [(FrameworkName, Version)] -> ReaderT (AWS.Env, Bool) IO ()
+downloadFrameworksAndDsymsFromCaches :: RomeCacheInfo -> [(FrameworkName, Version)] -> ReaderT UDCEnv IO ()
 downloadFrameworksAndDsymsFromCaches cacheInfo = mapM_ (downloadFrameworkAndDsymFromCaches cacheInfo)
 
+downloadFrameworkAndDsymFromCaches :: RomeCacheInfo -> (FrameworkName, Version) -> ReaderT UDCEnv IO ()
 downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) fv@(f@(FrameworkName fwn), version) = do
-  readerEnv@(env, verbose) <- ask
+  readerEnv@(env{-, shouldVerify-}, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   let sayFunc = if verbose then sayLnWithTime else sayLn
-
   case localCacheDir of
     Just cacheDir -> do
-      frameworkExistsInLocalCache <- liftIO . doesFileExist $ cacheDir </> remoteFrameworkUploadPath
-      when frameworkExistsInLocalCache $ do
-        binary <- runResourceT $ sourceFile (cacheDir </> remoteFrameworkUploadPath) $$ sinkLbs
-        unzipBinary binary fwn frameworkZipName
-      unless frameworkExistsInLocalCache $ do
+      when skipLocalCache $ do
         eitherFrameworkBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remoteFrameworkUploadPath fwn
         case eitherFrameworkBinary of
           Left e -> sayFunc $ "Error downloading " <> fwn <> " : " <> errorString e
-          Right frameworkBinary -> saveBinaryToLocalCache cacheDir frameworkBinary remoteFrameworkUploadPath fwn
+          Right frameworkBinary -> unzipBinary frameworkBinary fwn frameworkZipName verbose
+      unless skipLocalCache $ do
+        frameworkExistsInLocalCache <- liftIO . doesFileExist $ cacheDir </> remoteFrameworkUploadPath
+        when frameworkExistsInLocalCache $ do
+          binary <- runResourceT $ sourceFile (cacheDir </> remoteFrameworkUploadPath) $$ sinkLbs
+          unzipBinary binary fwn frameworkZipName verbose
+        unless frameworkExistsInLocalCache $ do
+          eitherFrameworkBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remoteFrameworkUploadPath fwn
+          case eitherFrameworkBinary of
+            Left e -> sayFunc $ "Error downloading " <> fwn <> " : " <> errorString e
+            Right frameworkBinary -> do
+              saveBinaryToLocalCache cacheDir frameworkBinary remoteFrameworkUploadPath fwn verbose
+              unzipBinary frameworkBinary fwn frameworkZipName verbose
 
-      dSYMExistsInLocalCache <- liftIO . doesFileExist $ cacheDir </> remotedSYMUploadPath
-      when dSYMExistsInLocalCache $ do
-        binary <- runResourceT $ sourceFile (cacheDir </> remotedSYMUploadPath) $$ sinkLbs
-        unzipBinary binary fwn dSYMZipName
-      unless dSYMExistsInLocalCache $ do
+      when skipLocalCache $ do
         eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath (fwn ++ ".dSYM")
         case eitherdSYMBinary of
           Left e -> sayFunc $ "Error downloading " <> (fwn ++ ".dSYM") <> " : " <> errorString e
-          Right dSYMBinary -> saveBinaryToLocalCache cacheDir dSYMBinary remotedSYMUploadPath (fwn ++ ".dSYM")
+          Right dSYMBinary -> unzipBinary dSYMBinary fwn dSYMZipName verbose
+      unless skipLocalCache $ do
+        dSYMExistsInLocalCache <- liftIO . doesFileExist $ cacheDir </> remotedSYMUploadPath
+        when dSYMExistsInLocalCache $ do
+          binary <- runResourceT $ sourceFile (cacheDir </> remotedSYMUploadPath) $$ sinkLbs
+          unzipBinary binary fwn dSYMZipName verbose
+        unless dSYMExistsInLocalCache $ do
+          eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath (fwn ++ ".dSYM")
+          case eitherdSYMBinary of
+            Left e -> sayFunc $ "Error downloading " <> (fwn ++ ".dSYM") <> " : " <> errorString e
+            Right dSYMBinary -> do
+              saveBinaryToLocalCache cacheDir dSYMBinary remotedSYMUploadPath (fwn ++ ".dSYM") verbose
+              unzipBinary dSYMBinary fwn dSYMZipName verbose
 
     Nothing -> do
       eitherFrameworkBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remoteFrameworkUploadPath fwn
       case eitherFrameworkBinary of
         Left e -> sayFunc $ "Error downloading " <> fwn <> " : " <> errorString e
-        Right frameworkBinary -> unzipBinary frameworkBinary fwn frameworkZipName
+        Right frameworkBinary -> unzipBinary frameworkBinary fwn frameworkZipName verbose
       eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath (fwn ++ ".dSYM")
       case eitherdSYMBinary of
         Left e -> sayFunc $ "Error downloading " <> (fwn ++ ".dSYM") <> " : " <> errorString e
-        Right dSYMBinary -> unzipBinary dSYMBinary fwn dSYMZipName
+        Right dSYMBinary -> unzipBinary dSYMBinary fwn dSYMZipName verbose
 
   where
     s3BucketName = S3.BucketName bucketName
@@ -270,7 +306,7 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) fv@(
     remotedSYMUploadPath = fwn ++ "/" ++ dSYMZipName
 
 downloadBinary s3BucketName objectRemotePath objectName = do
-  readerEnv@(env, verbose) <- ask
+  readerEnv@(env{-, shouldVerify-}, _, verbose) <- ask
   runResourceT . AWS.runAWS env $ do
     let sayFunc = if verbose then sayLnWithTime else sayLn
     when verbose $
@@ -283,9 +319,8 @@ downloadBinary s3BucketName objectRemotePath objectName = do
   where
     objectKey = S3.ObjectKey . T.pack $ objectRemotePath
 
-unzipBinary :: MonadIO m => L.ByteString -> String -> String -> ReaderT (AWS.Env, Bool) m ()
-unzipBinary objectBinary objectName objectZipName = do
-  (_, verbose) <- ask
+unzipBinary :: MonadIO m => L.ByteString -> String -> String -> Bool -> m ()
+unzipBinary objectBinary objectName objectZipName verbose = do
   when verbose $
    sayLnWithTime $ "Staring to unzip " <> objectZipName
   liftIO $ Zip.extractFilesFromArchive (zipOptions verbose) (Zip.toArchive objectBinary)

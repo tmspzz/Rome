@@ -98,7 +98,7 @@ environment variable to your desired profile.
 
 The Romefile has three purposes:
 
-1. Specifies what S3 bucket to use - `[Cache]` section. This section is __required__.
+1. Specifies what caches to use - `[Cache]` section. This section is __required__.
 1. Allows to use custom name mappings between repository names and framework names - `[RepositoryMap]` section. This section is __optional__ and can be omitted.
 1. Allows to ignore certain framework names - `[IgnoreMap]` section. This section is __optional__ and can be omitted.
 
@@ -107,6 +107,7 @@ A Romefile looks like this:
 ```
 [Cache]
   S3-Bucket = ios-dev-bucket
+  local = /tmp/Rome
 
 [RepositoryMap]
   HockeySDK-iOS = HockeySDK
@@ -119,8 +120,10 @@ A Romefile looks like this:
 
 The Romefile is in the [INI format](https://en.wikipedia.org/wiki/INI_file)
 
-#### S3Bucket section
-This section contains the name of the S3 bucket you want Rome to use to upload/download.
+#### Cache section
+This section contains the name of:
+- the S3 bucket you want Rome to use to upload/download. (required)
+- the _absolute path_ to local directory to use as an additional cache. (optional)
 
 #### RepositoryMap
 This contains the mappings of git repository names with framework names.
@@ -234,6 +237,8 @@ Uploaded CatFramework to: CatFramework/CatFramework.framework-3.3.1.zip
 Uploaded CatFramework.dSYM to: CatFramework/CatFramework.framework.dSYM-3.3.1.zip
 ```
 
+If a local cache is specified in your `Romefile` and you wish to ignore it pass `--skip-local-cache` on the command line.
+
 #### Downloading
 
 Downloading one or more frameworks and corresponding dSYMs
@@ -252,6 +257,8 @@ Unzipped CatFramework from: CatFramework.framework-3.3.1.zip
 Downloaded CatFramework from: CatFramework/CatFramework.framework.dSYM-3.3.1.zip
 Unzipped CatFramework from: CatFramework.framework.dSYM-3.3.1.zip
 ```
+
+If a local cache is specified in your `Romefile` and you wish to ignore it pass `--skip-local-cache` on the command line.
 
 #### Listing
 

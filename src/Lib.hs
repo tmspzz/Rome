@@ -252,15 +252,20 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) fv@(
   let sayFunc = if verbose then sayLnWithTime else sayLn
   case localCacheDir of
     Just cacheDir -> do
+
+      let frameworkLocalCachePath = cacheDir </> remoteFrameworkUploadPath
+      let dSYMLocalCachePath = cacheDir </> remotedSYMUploadPath
+
       when skipLocalCache $ do
         eitherFrameworkBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remoteFrameworkUploadPath fwn
         case eitherFrameworkBinary of
           Left e -> sayFunc $ "Error downloading " <> fwn <> " : " <> errorString e
           Right frameworkBinary -> unzipBinary frameworkBinary fwn frameworkZipName verbose
       unless skipLocalCache $ do
-        frameworkExistsInLocalCache <- liftIO . doesFileExist $ cacheDir </> remoteFrameworkUploadPath
+        frameworkExistsInLocalCache <- liftIO . doesFileExist $ frameworkLocalCachePath
         when frameworkExistsInLocalCache $ do
-          binary <- runResourceT $ sourceFile (cacheDir </> remoteFrameworkUploadPath) $$ sinkLbs
+          sayFunc $ "Found " <> fwn <> " in local cache at: " <> frameworkLocalCachePath
+          binary <- runResourceT $ sourceFile frameworkLocalCachePath $$ sinkLbs
           unzipBinary binary fwn frameworkZipName verbose
         unless frameworkExistsInLocalCache $ do
           eitherFrameworkBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remoteFrameworkUploadPath fwn
@@ -271,21 +276,22 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) fv@(
               unzipBinary frameworkBinary fwn frameworkZipName verbose
 
       when skipLocalCache $ do
-        eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath (fwn ++ ".dSYM")
+        eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath dSYMName
         case eitherdSYMBinary of
-          Left e -> sayFunc $ "Error downloading " <> (fwn ++ ".dSYM") <> " : " <> errorString e
+          Left e -> sayFunc $ "Error downloading " <> dSYMName <> " : " <> errorString e
           Right dSYMBinary -> unzipBinary dSYMBinary fwn dSYMZipName verbose
       unless skipLocalCache $ do
-        dSYMExistsInLocalCache <- liftIO . doesFileExist $ cacheDir </> remotedSYMUploadPath
+        dSYMExistsInLocalCache <- liftIO . doesFileExist $ dSYMLocalCachePath
         when dSYMExistsInLocalCache $ do
-          binary <- runResourceT $ sourceFile (cacheDir </> remotedSYMUploadPath) $$ sinkLbs
+          sayFunc $ "Found " <> dSYMName <> " in local cache at: " <> dSYMLocalCachePath
+          binary <- runResourceT $ sourceFile dSYMLocalCachePath $$ sinkLbs
           unzipBinary binary fwn dSYMZipName verbose
         unless dSYMExistsInLocalCache $ do
-          eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath (fwn ++ ".dSYM")
+          eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath dSYMName
           case eitherdSYMBinary of
-            Left e -> sayFunc $ "Error downloading " <> (fwn ++ ".dSYM") <> " : " <> errorString e
+            Left e -> sayFunc $ "Error downloading " <> dSYMName <> " : " <> errorString e
             Right dSYMBinary -> do
-              saveBinaryToLocalCache cacheDir dSYMBinary remotedSYMUploadPath (fwn ++ ".dSYM") verbose
+              saveBinaryToLocalCache cacheDir dSYMBinary remotedSYMUploadPath dSYMName verbose
               unzipBinary dSYMBinary fwn dSYMZipName verbose
 
     Nothing -> do
@@ -304,6 +310,8 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) fv@(
     remoteFrameworkUploadPath = remoteFrameworkPath f version
     dSYMZipName = dSYMArchiveName fv
     remotedSYMUploadPath = fwn ++ "/" ++ dSYMZipName
+    dSYMName = fwn ++ ".dSYM"
+
 
 downloadBinary s3BucketName objectRemotePath objectName = do
   readerEnv@(env{-, shouldVerify-}, _, verbose) <- ask

@@ -22,7 +22,8 @@ import           Data.Monoid
 import           Data.Text
 import           Control.Monad.Except
 import           Control.Monad.Trans
-import           System.Path
+import           System.Directory
+import           System.FilePath
 
 
 
@@ -80,7 +81,7 @@ parseRomefile f = do
     Right ini -> do
       _bucket <- withExceptT toErrorMessage $ getBucket ini
       maybeCacheDirAsText <- withExceptT toErrorMessage $ getLocalCacheDir ini
-      let _localCacheDir = unpack <$> maybeCacheDirAsText
+      _localCacheDir <- liftIO $ mapM absolutize (unpack <$> maybeCacheDirAsText)
       repositoryMapEntries <- getRepostiryMapEntries ini
       ignoreMapEntries <- getIgnoreMapEntries ini
       let cacheInfo = RomeCacheInfo {..}
@@ -113,3 +114,11 @@ getRomefileEntries sectionDelimiter ini = do
          (FrameworkName . unpack . strip)
          (splitOn "," frameworkCommonNames)))
     (M.toList m)
+
+
+absolutize :: FilePath -> IO FilePath
+absolutize aPath
+    | "~" `isPrefixOf` pack aPath = do
+        homePath <- getHomeDirectory
+        return $ normalise $ addTrailingPathSeparator homePath ++ Prelude.tail aPath
+    | otherwise = return aPath

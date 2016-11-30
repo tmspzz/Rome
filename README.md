@@ -122,8 +122,8 @@ The Romefile is in the [INI format](https://en.wikipedia.org/wiki/INI_file)
 
 #### Cache section
 This section contains the name of:
-- the S3 bucket you want Rome to use to upload/download. (required)
-- the _absolute path_ to local directory to use as an additional cache. (optional)
+- the S3 bucket you want Rome to use to upload/download. The key `S3-Bucket` is __required__.
+- the path to local directory to use as an additional cache. The key `local` is __optional__.
 
 #### RepositoryMap
 This contains the mappings of git repository names with framework names.

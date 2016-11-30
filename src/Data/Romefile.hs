@@ -19,11 +19,13 @@ import           Data.Ini             as INI
 import           Data.Ini.Utils       as INI
 import           Data.HashMap.Strict  as M
 import           Data.Monoid
+import           Data.Maybe
 import           Data.Text
 import           Control.Monad.Except
 import           Control.Monad.Trans
 import           System.Directory
 import           System.FilePath
+import           System.Path.NameManip
 
 
 
@@ -115,10 +117,14 @@ getRomefileEntries sectionDelimiter ini = do
          (splitOn "," frameworkCommonNames)))
     (M.toList m)
 
-
+-- | Take a path and makes it absolute resolving ../ and ~
+-- See https://www.schoolofhaskell.com/user/dshevchenko/cookbook/transform-relative-path-to-an-absolute-path
 absolutize :: FilePath -> IO FilePath
 absolutize aPath
     | "~" `isPrefixOf` pack aPath = do
         homePath <- getHomeDirectory
-        return $ normalise $ addTrailingPathSeparator homePath ++ Prelude.tail aPath
-    | otherwise = return aPath
+        return $ normalise $ addTrailingPathSeparator homePath
+                             ++ Prelude.tail aPath
+    | otherwise = do
+        pathMaybeWithDots <- absolute_path aPath
+        return $ fromJust $ guess_dotdot pathMaybeWithDots

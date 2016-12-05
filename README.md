@@ -5,6 +5,11 @@
 Rome is a tool that allows developers on Apple platforms to use Amazon's S3 as a
 shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
 
+## Get Rome
+`$ brew install blender/homebrew-tap/rome`
+
+The Rome binary is also attached as a zip to each release on the [releases page](https://github.com/blender/Rome/releases) here on GitHub.
+
 ## The problem
 
 Suppose you're working a number of frameworks for you iOS project and want to
@@ -286,9 +291,6 @@ ResearchKit
 
 Note: `list` __completely ignores dSYMs__. If a dSYM is missing the corresponding
 framework is still reported as present.
-
-## Get Rome
-The Rome binary is attached as a zip to the [releases page](https://github.com/blender/Rome/releases) here on GitHub.
 
 ## License
 Rome is released under MIT License

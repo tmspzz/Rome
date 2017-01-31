@@ -23,7 +23,7 @@ import           Control.Applicative          ((<|>))
 import           Control.Lens                 hiding (List)
 import           Control.Monad
 import           Control.Monad.Except
-import           Control.Monad.Reader         (ReaderT, ask, runReaderT)
+import           Control.Monad.Reader         (ReaderT, ask, runReaderT, MonadReader)
 import           Control.Monad.Trans          (MonadIO, lift, liftIO)
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Resource (runResourceT)
@@ -89,7 +89,7 @@ carthageBuildDirecotryiOS = "Carthage/Build/iOS/"
 {- Commnad line arguments parsing -}
 
 -- verifyParser :: Parser VerifyFlag
--- verifyParser = VerifyFlag <$> Opts.switch ( Opts.long "verify" <> Opts.help "Verify the framework has the same hash as specified in the Cartfile.resolved.")
+-- verifyParser = VerifyFlag <$> Opts.switch ( Opts.long "verify" <> Opts.help "Verify that the framework has the same hash as specified in the Cartfile.resolved.")
 
 skipLocalCacheParser :: Parser SkipLocalCacheFlag
 skipLocalCacheParser = SkipLocalCacheFlag <$> Opts.switch ( Opts.long "skip-local-cache" <> Opts.help "Ignore the local cache when performing the operation.")
@@ -191,6 +191,7 @@ uploadFrameworkAndDsymToCaches  (RomeCacheInfo bucketName localCacheDir) fv@(f@(
   readerEnv@(env {-, shouldVerify-}, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   frameworkExists <- liftIO $ doesDirectoryExist frameworkDirectory
   dSymExists <- liftIO $ doesDirectoryExist dSYMdirectory
+
   when frameworkExists $ do
     when verbose $
       sayLnWithTime $ "Staring to zip: " <> frameworkDirectory
@@ -200,6 +201,7 @@ uploadFrameworkAndDsymToCaches  (RomeCacheInfo bucketName localCacheDir) fv@(f@(
         >>= \dir -> liftIO $
                       unless skipLocalCache $ saveBinaryToLocalCache dir (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn verbose
     runReaderT (uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn) (env, verbose)
+
   when dSymExists $ do
     when verbose $
       sayLnWithTime $ "Staring to zip: " <> dSYMdirectory
@@ -261,12 +263,15 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) fv@(
         case eitherFrameworkBinary of
           Left e -> sayFunc $ "Error downloading " <> fwn <> " : " <> errorString e
           Right frameworkBinary -> unzipBinary frameworkBinary fwn frameworkZipName verbose
+
       unless skipLocalCache $ do
         frameworkExistsInLocalCache <- liftIO . doesFileExist $ frameworkLocalCachePath
+
         when frameworkExistsInLocalCache $ do
           sayFunc $ "Found " <> fwn <> " in local cache at: " <> frameworkLocalCachePath
           binary <- runResourceT $ sourceFile frameworkLocalCachePath $$ sinkLbs
           unzipBinary binary fwn frameworkZipName verbose
+
         unless frameworkExistsInLocalCache $ do
           eitherFrameworkBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remoteFrameworkUploadPath fwn
           case eitherFrameworkBinary of
@@ -280,12 +285,15 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) fv@(
         case eitherdSYMBinary of
           Left e -> sayFunc $ "Error downloading " <> dSYMName <> " : " <> errorString e
           Right dSYMBinary -> unzipBinary dSYMBinary fwn dSYMZipName verbose
+
       unless skipLocalCache $ do
         dSYMExistsInLocalCache <- liftIO . doesFileExist $ dSYMLocalCachePath
+
         when dSYMExistsInLocalCache $ do
           sayFunc $ "Found " <> dSYMName <> " in local cache at: " <> dSYMLocalCachePath
           binary <- runResourceT $ sourceFile dSYMLocalCachePath $$ sinkLbs
           unzipBinary binary fwn dSYMZipName verbose
+
         unless dSYMExistsInLocalCache $ do
           eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath dSYMName
           case eitherdSYMBinary of
@@ -299,6 +307,7 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) fv@(
       case eitherFrameworkBinary of
         Left e -> sayFunc $ "Error downloading " <> fwn <> " : " <> errorString e
         Right frameworkBinary -> unzipBinary frameworkBinary fwn frameworkZipName verbose
+
       eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath (fwn ++ ".dSYM")
       case eitherdSYMBinary of
         Left e -> sayFunc $ "Error downloading " <> (fwn ++ ".dSYM") <> " : " <> errorString e
@@ -352,6 +361,7 @@ probeCachesForFramework (RomeCacheInfo bucketName localCacheDir) (f@(FrameworkNa
     frameworkZipName = frameworkArchiveName f v
     frameworkObjectKey = S3.ObjectKey . T.pack $ fwn ++ "/" ++ frameworkZipName
 
+checkIfFrameworkExistsInBucket :: AWS.MonadAWS m => BucketName -> ObjectKey -> Bool -> m Bool
 checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey verbose = do
   rs <- AWS.trying AWS._Error (AWS.send $ S3.headObject s3BucketName frameworkObjectKey)
   case rs of
@@ -432,7 +442,7 @@ replaceKnownFrameworkNamesWitGitRepoNamesInProbeResults reverseRomeMap = map (re
     replaceResultIfFrameworkNameIsInMap :: InvertedRepositoryMap -> ((FrameworkName, Version), Bool) -> ((String, Version), Bool)
     replaceResultIfFrameworkNameIsInMap reverseRomeMap ((frameworkName@(FrameworkName fwn), version), present) = ((maybe fwn unGitRepoName (M.lookup frameworkName reverseRomeMap), version), present)
 
-s3ConfigFile :: (MonadIO m) => m FilePath
+s3ConfigFile :: MonadIO m => m FilePath
 s3ConfigFile = (++ p) `liftM` liftIO getHomeDirectory
   where
       p = "/.aws/config"

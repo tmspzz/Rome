@@ -13,16 +13,16 @@ import           Control.Monad
 import           Data.Char
 import           Data.Maybe
 
-data TargetPlatform = IOS | Mac | TVOS | WatchOS
-              deriving (Eq, Show)
+data TargetPlatform = IOS | MacOS | TVOS | WatchOS
+              deriving (Ord, Eq, Show)
 
 targetPlatformName :: TargetPlatform -> String
 targetPlatformName IOS = "iOS"
-targetPlatformName Mac = "MacOS"
+targetPlatformName MacOS = "MacOS"
 targetPlatformName TVOS = "tvOS"
 targetPlatformName WatchOS = "watchOS"
 
-allTargetPlatforms = [IOS, Mac, TVOS, WatchOS]
+allTargetPlatforms = [IOS, MacOS, TVOS, WatchOS]
 
 readTargetPlatform :: String -> Maybe TargetPlatform
 readTargetPlatform str = listToMaybe matchingPlatforms

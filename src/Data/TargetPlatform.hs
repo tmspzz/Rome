@@ -18,7 +18,7 @@ data TargetPlatform = IOS | MacOS | TVOS | WatchOS
 
 targetPlatformName :: TargetPlatform -> String
 targetPlatformName IOS = "iOS"
-targetPlatformName MacOS = "MacOS"
+targetPlatformName MacOS = "macOS"
 targetPlatformName TVOS = "tvOS"
 targetPlatformName WatchOS = "watchOS"
 

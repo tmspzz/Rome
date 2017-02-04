@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Lib
                        , Data.Cartfile
+                       , Data.GitRepoAvailability
                        , Data.Romefile
                        , Data.TargetPlatform
                        , Data.Ini.Utils

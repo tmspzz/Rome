@@ -34,6 +34,7 @@ import           Data.Conduit                 (($$))
 import           Data.Conduit.Binary          (sinkFile, sinkLbs, sourceFile,
                                                sourceLbs)
 import           Data.Function
+import           Data.GitRepoAvailability
 import           Data.Ini                     as INI
 import           Data.Ini.Utils               as INI
 import           Data.List
@@ -79,27 +80,6 @@ data RomeListPayload = RomeListPayload { _listMode      :: ListMode
                                        , _listPlatforms :: [TargetPlatform]
                                        }
                                        deriving (Show, Eq)
-
-data GitRepoAvailability = GitRepoAvailability { _availabilityRepo           :: GitRepoName
-                                               , _availabilityVersion        :: Version
-                                               , _repoPlatformAvailabilities :: [PlatformAvailability]
-                                               }
-                                               deriving (Show, Eq)
-
-data FrameworkAvailability = FrameworkAvailability { _availabilityFramework           :: FrameworkVersion
-                                                   , _frameworkPlatformAvailabilities :: [PlatformAvailability]
-                                                   }
-                                                   deriving (Show, Eq)
-
-data FrameworkVersion = FrameworkVersion { _frameworkName    :: FrameworkName
-                                         , _frameworkVersion :: Version
-                                         }
-                                         deriving (Show, Eq)
-
-data PlatformAvailability = PlatformAvailability { _availabilityPlatform :: TargetPlatform
-                                                 , _isAvailable          :: Bool
-                                                 }
-                                                 deriving (Show, Eq)
 
 data ListMode = All
                | Missing

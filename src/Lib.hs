@@ -33,12 +33,12 @@ import           Data.Char                    (isLetter)
 import           Data.Conduit                 (($$))
 import           Data.Conduit.Binary          (sinkFile, sinkLbs, sourceFile,
                                                sourceLbs)
+import           Data.Either.Utils
 import           Data.Function
 import           Data.GitRepoAvailability
 import           Data.Ini                     as INI
 import           Data.Ini.Utils               as INI
 import           Data.List
-import           Data.List.Split
 import qualified Data.Map.Strict              as M
 import           Data.Maybe
 import           Data.Romefile
@@ -53,6 +53,7 @@ import           Options.Applicative          as Opts
 import           System.Directory
 import           System.Environment
 import           System.FilePath
+import           Text.Read
 
 {- Types -}
 
@@ -93,7 +94,7 @@ data RomeOptions = RomeOptions { romeCommand :: RomeCommand
 
 {- Constants -}
 carthageBuildDirectory :: TargetPlatform -> String
-carthageBuildDirectory platform = "Carthage/Build/" ++ (targetPlatformName platform) ++ "/"
+carthageBuildDirectory platform = "Carthage/Build/" ++ show platform ++ "/"
 
 {- Commnad line arguments parsing -}
 
@@ -107,12 +108,12 @@ reposParser :: Opts.Parser [GitRepoName]
 reposParser = Opts.many (Opts.argument (GitRepoName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."))
 
 platformsParser :: Opts.Parser [TargetPlatform]
-platformsParser = (nub . concat <$> Opts.some (Opts.option (eitherReader platformListOrError) (Opts.metavar "PLATFORMS" <> Opts.long "platform" <> Opts.help "Applicable platforms for the command. One of iOS, MacOS, tvOS, watchOS, or a comma-separated list of any of these values.")))
+platformsParser = (nub . concat <$> Opts.some (Opts.argument (eitherReader platformListOrError) (Opts.metavar "PLATFORMS ..." <> Opts.help "Applicable platforms for the command. One of iOS, MacOS, tvOS, watchOS, or a comma-separated list of any of these values.")))
   <|> pure allTargetPlatforms
   where
-    platformOrError str = maybe (Left $ "Unrecognized platform '" ++ str ++ "'") pure (readTargetPlatform str)
-    splitPlatforms str = (filter (not . null)) $ (filter isLetter) <$> (wordsBy (not . isLetter) str)
-    platformListOrError str = mapM platformOrError (splitPlatforms str)
+    platformOrError str     = maybeToEither ("Unrecognized platform '" ++ str ++ "'") (readMaybe str)
+    filterCommas str        = filter (not . null) $ filter isLetter <$> splitWithSeparator ',' str
+    platformListOrError str = mapM platformOrError $ filterCommas str
 
 udcPayloadParser :: Opts.Parser RomeUDCPayload
 udcPayloadParser = RomeUDCPayload <$> reposParser <*> platformsParser {- <*> verifyParser-} <*> skipLocalCacheParser
@@ -124,11 +125,11 @@ downloadParser :: Opts.Parser RomeCommand
 downloadParser = pure Download <*> udcPayloadParser
 
 listModeParser :: Opts.Parser ListMode
-listModeParser =  (
-                    (Opts.flag' Missing (Opts.long "missing" <> Opts.help "List frameworks missing from the cache. Ignores dSYMs")
+listModeParser = (
+                    Opts.flag' Missing (Opts.long "missing" <> Opts.help "List frameworks missing from the cache. Ignores dSYMs")
                     <|> Opts.flag' Present (Opts.long "present" <> Opts.help "List frameworks present in the cache. Ignores dSYMs.")
-                  )
-                  <|> Opts.flag All All (Opts.help "Reports missing or present status of frameworks in the cache. Ignores dSYMs."))
+                 )
+                <|> Opts.flag All All (Opts.help "Reports missing or present status of frameworks in the cache. Ignores dSYMs.")
 
 listPayloadParser :: Opts.Parser RomeListPayload
 listPayloadParser = RomeListPayload <$> listModeParser <*> platformsParser
@@ -377,10 +378,10 @@ unzipBinary objectBinary objectName objectZipName verbose = do
     sayLnWithTime $ "Unzipped " <> objectName <> " from: " <> objectZipName
 
 remoteFrameworkPath :: TargetPlatform -> FrameworkName -> Version -> String
-remoteFrameworkPath p f@(FrameworkName fwn) v = fwn ++ "/" ++ (targetPlatformName p) ++ "/" ++ frameworkArchiveName f v
+remoteFrameworkPath p f@(FrameworkName fwn) v = fwn ++ "/" ++ show p ++ "/" ++ frameworkArchiveName f v
 
 remoteDsymPath :: TargetPlatform -> FrameworkName -> Version -> String
-remoteDsymPath p f@(FrameworkName fwn) v = fwn ++ "/" ++ (targetPlatformName p) ++ "/" ++ dSYMArchiveName f v
+remoteDsymPath p f@(FrameworkName fwn) v = fwn ++ "/" ++ show p ++ "/" ++ dSYMArchiveName f v
 
 probeCachesForFrameworks :: RomeCacheInfo -> [FrameworkVersion] -> [TargetPlatform] -> ReaderT (AWS.Env, Bool) IO [FrameworkAvailability]
 probeCachesForFrameworks cacheInfo frameworkVersions = sequence . probeForEachFramework
@@ -388,7 +389,7 @@ probeCachesForFrameworks cacheInfo frameworkVersions = sequence . probeForEachFr
     probeForEachFramework = mapM (probeCachesForFramework cacheInfo) frameworkVersions
 
 probeCachesForFramework :: RomeCacheInfo -> FrameworkVersion -> [TargetPlatform] -> ReaderT (AWS.Env, Bool) IO FrameworkAvailability
-probeCachesForFramework cacheInfo frameworkVersion platforms = liftM (FrameworkAvailability frameworkVersion) probeForEachPlatform
+probeCachesForFramework cacheInfo frameworkVersion platforms = fmap (FrameworkAvailability frameworkVersion) probeForEachPlatform
   where
     probeForEachPlatform = mapM (probeCachesForFrameworkOnPlatform cacheInfo frameworkVersion) platforms
 
@@ -396,7 +397,7 @@ probeCachesForFrameworkOnPlatform :: RomeCacheInfo -> FrameworkVersion -> Target
 probeCachesForFrameworkOnPlatform (RomeCacheInfo bucketName localCacheDir) (FrameworkVersion fwn v) platform = do
   (env, verbose) <- ask
   let isAvailable = runResourceT . AWS.runAWS env $ checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey verbose
-  (PlatformAvailability platform) <$> isAvailable
+  PlatformAvailability platform <$> isAvailable
   where
     s3BucketName = S3.BucketName bucketName
     frameworkZipName = frameworkArchiveName fwn v
@@ -429,10 +430,12 @@ deriveFrameworkNamesAndVersion :: RepositoryMap -> [CartfileEntry] -> [Framework
 deriveFrameworkNamesAndVersion romeMap = concatMap (deriveFrameworkNameAndVersion romeMap)
 
 deriveFrameworkNameAndVersion ::  RepositoryMap -> CartfileEntry -> [FrameworkVersion]
-deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry GitHub (Location l) v) = map (\n -> FrameworkVersion n v) $ fromMaybe [FrameworkName gitHubRepositoryName] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
+deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry GitHub (Location l) v) = map (`FrameworkVersion` v) $
+  fromMaybe [FrameworkName gitHubRepositoryName] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
   where
     gitHubRepositoryName = unGitRepoName $ gitRepoNameFromCartfileEntry cfe
-deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry Git (Location l) v)    = map (\n -> FrameworkVersion n v) $ fromMaybe [FrameworkName gitRepositoryName] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
+deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry Git (Location l) v)    = map (`FrameworkVersion` v) $
+  fromMaybe [FrameworkName gitRepositoryName] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
   where
     gitRepositoryName = unGitRepoName $ gitRepoNameFromCartfileEntry cfe
 
@@ -456,10 +459,21 @@ splitWithSeparator :: Char -> String -> [String]
 splitWithSeparator a as = map T.unpack (T.split (== a) $ T.pack as)
 
 getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities :: InvertedRepositoryMap -> [FrameworkAvailability] -> [GitRepoAvailability]
-getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap = (>>=mergeRepoAvailabilities) . groupAvailabilities . map (getGitRepoAvailabilityFromFrameworkAvailability)
+getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap = concatMap mergeRepoAvailabilities . groupAvailabilities . getGitRepoAvalabilities
   where
-    repoNameForFrameworkName frameworkName = maybe (GitRepoName . unFrameworkName $ frameworkName) id (M.lookup frameworkName reverseRomeMap)
-    getGitRepoAvailabilityFromFrameworkAvailability (FrameworkAvailability (FrameworkVersion fwn v) availabilities) = GitRepoAvailability (repoNameForFrameworkName fwn) v availabilities
+    getGitRepoAvalabilities :: [FrameworkAvailability] -> [GitRepoAvailability]
+    getGitRepoAvalabilities = foldl (\rs r ->
+          case getGitRepoAvailabilityFromFrameworkAvailability r of
+            Just r  -> r:rs
+            Nothing -> rs
+        ) []
+    repoNameForFrameworkName :: FrameworkName -> Maybe GitRepoName
+    repoNameForFrameworkName frameworkName = M.lookup frameworkName reverseRomeMap
+
+    getGitRepoAvailabilityFromFrameworkAvailability :: FrameworkAvailability -> Maybe GitRepoAvailability
+    getGitRepoAvailabilityFromFrameworkAvailability (FrameworkAvailability (FrameworkVersion fwn v) availabilities) = GitRepoAvailability <$> repoNameForFrameworkName fwn <*> Just v <*> Just availabilities
+
+    groupAvailabilities :: [GitRepoAvailability] -> [[GitRepoAvailability]]
     groupAvailabilities = groupBy ((==) `on` _availabilityRepo) . sortBy (compare `on` _availabilityRepo)
 
 mergeRepoAvailabilities :: [GitRepoAvailability] -> [GitRepoAvailability]
@@ -467,12 +481,12 @@ mergeRepoAvailabilities repoAvailabilities@(x:xs) = [x { _repoPlatformAvailabili
   where
     sortAndGroupPlatformAvailabilities = groupBy ((==) `on` _availabilityPlatform) . sortBy (compare `on` _availabilityPlatform)
     groupedPlatformAvailabilities = sortAndGroupPlatformAvailabilities (repoAvailabilities >>= _repoPlatformAvailabilities)
-    bothAvailable p p' = p { _isAvailable = (_isAvailable p && _isAvailable p') }
+    bothAvailable p p' = p { _isAvailable = _isAvailable p && _isAvailable p' }
     platformAvailabilities = fmap (foldl1 bothAvailable) groupedPlatformAvailabilities
 
 formattedRepoAvailability :: ListMode -> GitRepoAvailability -> String
 formattedRepoAvailability listMode r@(GitRepoAvailability (GitRepoName rn) (Version v) pas)
-  | filteredAvailabilities == [] = ""
+  | null filteredAvailabilities = ""
   | otherwise = unwords [rn, v, ":", formattedAvailabilities]
   where
     filteredAvailabilities = filterAccordingToListMode listMode pas
@@ -485,11 +499,11 @@ filterAccordingToListMode Missing = filter (not . _isAvailable)
 filterAccordingToListMode Present = filter _isAvailable
 
 formattedPlatformAvailability :: PlatformAvailability -> String
-formattedPlatformAvailability p = (availabilityPrefix p) ++ (platformName p)
+formattedPlatformAvailability p = availabilityPrefix p ++ platformName p
   where
     availabilityPrefix (PlatformAvailability _ True) = "+"
     availabilityPrefix (PlatformAvailability _ False) = "-"
-    platformName = (targetPlatformName . _availabilityPlatform)
+    platformName = show . _availabilityPlatform
 
 s3ConfigFile :: MonadIO m => m FilePath
 s3ConfigFile = (++ p) `liftM` liftIO getHomeDirectory

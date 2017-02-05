@@ -37,7 +37,6 @@ library
                        , conduit >= 1.2
                        , conduit-extra >= 1.1
                        , ini >= 0.3.5
-                       , split >= 0.2.1.3
                        , text >= 1.2
                        , time >= 1.5.0
                        , transformers >= 0.4

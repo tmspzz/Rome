@@ -1,31 +1,35 @@
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE RecordWildCards #-}
-
 module Data.TargetPlatform
     ( allTargetPlatforms
-    , readTargetPlatform
-    , targetPlatformName
     , TargetPlatform (..)
     ) where
 
 
-import           Control.Monad
+
 import           Data.Char
 import           Data.Maybe
+import           Text.Read
+import qualified Text.Read.Lex as L
+
+
 
 data TargetPlatform = IOS | MacOS | TVOS | WatchOS
-              deriving (Ord, Eq, Show)
+              deriving (Ord, Eq)
 
-targetPlatformName :: TargetPlatform -> String
-targetPlatformName IOS = "iOS"
-targetPlatformName MacOS = "macOS"
-targetPlatformName TVOS = "tvOS"
-targetPlatformName WatchOS = "watchOS"
+instance Show TargetPlatform where
+  show IOS      = "iOS"
+  show MacOS    = "macOS"
+  show TVOS     = "tvOS"
+  show WatchOS  = "watchOS"
 
+allTargetPlatforms :: [TargetPlatform]
 allTargetPlatforms = [IOS, MacOS, TVOS, WatchOS]
 
-readTargetPlatform :: String -> Maybe TargetPlatform
-readTargetPlatform str = listToMaybe matchingPlatforms
-  where
-    lowercaseStr = toLower <$> str
-    matchingPlatforms = filter ((==lowercaseStr) . (liftM toLower) . targetPlatformName) allTargetPlatforms
+instance Read TargetPlatform where
+  readPrec = parens $ do
+    L.Ident s <- lexP
+    case map toLower s of
+       "ios"     -> return IOS
+       "macos"   -> return MacOS
+       "tvos"    -> return TVOS
+       "watchos" -> return WatchOS
+       a         -> error $ "Unrecognized platform " ++ a

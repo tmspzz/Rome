@@ -1,6 +1,3 @@
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE RecordWildCards #-}
-
 module Data.GitRepoAvailability
     ( GitRepoAvailability (..)
     , FrameworkAvailability (..)

@@ -112,7 +112,7 @@ platformsParser :: Opts.Parser [TargetPlatform]
 platformsParser = (nub . concat <$> Opts.some (Opts.option (eitherReader platformListOrError) (Opts.metavar "PLATFORMS" <> Opts.long "platform" <> Opts.help "Applicable platforms for the command. One of iOS, MacOS, tvOS, watchOS, or a comma-separated list of any of these values.")))
   <|> pure allTargetPlatforms
   where
-    platformOrError str = maybe (Left $ "Unrecognized platform '" ++ str ++ "'") pure (readMaybe str)
+    platformOrError str = maybeToEither ("Unrecognized platform '" ++ str ++ "'") (readMaybe str)
     splitPlatforms str = filter (not . null) $ filter isLetter <$> wordsBy (not . isLetter) str
     platformListOrError str = mapM platformOrError $ splitPlatforms str
 

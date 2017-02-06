@@ -12,7 +12,7 @@ The Rome binary is also attached as a zip to each release on the [releases page]
 
 ## The problem
 
-Suppose you're working a number of frameworks for you iOS project and want to
+Suppose you're working a number of frameworks for your project and want to
 share those with your team. A great way to do so is to use Carthage and
 have team members point the `Cartfile` to the new framework version (or branch, tag, commit)
 and run `carthage update`.

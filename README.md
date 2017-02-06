@@ -12,7 +12,7 @@ The Rome binary is also attached as a zip to each release on the [releases page]
 
 ## The problem
 
-Suppose you're working a number of frameworks for you iOS project and want to
+Suppose you're working a number of frameworks for your project and want to
 share those with your team. A great way to do so is to use Carthage and
 have team members point the `Cartfile` to the new framework version (or branch, tag, commit)
 and run `carthage update`.
@@ -217,9 +217,9 @@ Available options:
 
 Available commands:
   upload                   Uploads frameworks and dSYMs contained in the local
-                           Carthage/Build/iOS to S3, according to the local
-                           Cartfile.resolved
-  download                 Downloads and unpacks in Carthage/Build/iOS
+                           Carthage/Build/<platform> to S3, according to the
+                           local Cartfile.resolved
+  download                 Downloads and unpacks in Carthage/Build/<platform>
                            frameworks and dSYMs found in S3, according to the
                            local Carftfile.resolved
   list                     Lists frameworks in the cache and reports cache
@@ -235,11 +235,21 @@ Uploading one or more frameworks and corresponding dSYMs
 Referring to the `Cartfile.resolved` in [RepositoryMap](#repositorymap)
 
 ```
-$ rome upload HockeySDK-iOS awesome-framework-for-cat-names
-Uploaded HockeySDK to: bitstadium/HockeySDK.framework-3.8.6.zip
-Uploaded HockeySDK.dSYM to: bitstadium/HockeySDK.framework.dSYM-3.8.6.zip
-Uploaded CatFramework to: CatFramework/CatFramework.framework-3.3.1.zip
-Uploaded CatFramework.dSYM to: CatFramework/CatFramework.framework.dSYM-3.3.1.zip
+$ rome upload Alamofire
+Uploaded Alamofire to: Alamofire/iOS/Alamofire.framework-4.3.0.zip
+Uploaded Alamofire.dSYM to: Alamofire/iOS/Alamofire.framework.dSYM-4.3.0.zip
+Uploaded Alamofire to: Alamofire/tvOS/Alamofire.framework-4.3.0.zip
+Uploaded Alamofire.dSYM to: Alamofire/tvOS/Alamofire.framework.dSYM-4.3.0.zip
+Uploaded Alamofire to: Alamofire/watchOS/Alamofire.framework-4.3.0.zip
+Uploaded Alamofire.dSYM to: Alamofire/watchOS/Alamofire.framework.dSYM-4.3.0.zip
+```
+
+Uploading for a specific platform (all platforms are uploaded by default):
+
+```
+$ rome upload --platform ios Alamofire
+Uploaded Alamofire to: Alamofire/iOS/Alamofire.framework-4.3.0.zip
+Uploaded Alamofire.dSYM to: Alamofire/iOS/Alamofire.framework.dSYM-4.3.0.zip
 ```
 
 If a local cache is specified in your `Romefile` and you wish to ignore it pass `--skip-local-cache` on the command line.
@@ -252,15 +262,25 @@ Downloading one or more frameworks and corresponding dSYMs
 Referring to the `Cartfile.resolved` in [RepositoryMap](#repositorymap)
 
 ```
-$ rome download HockeySDK-iOS awesome-framework-for-cat-names
-Downloaded HockeySDK from: HockeySDK/HockeySDK.framework-3.8.6.zip
-Unzipped HockeySDK from: HockeySDK.framework-3.8.6.zip
-Downloaded HockeySDK.dSYM from: HockeySDK/HockeySDK.framework.dSYM-3.8.6.zip
-Unzipped HockeySDK.dSYM from: HockeySDK.framework.dSYM-3.8.6.zip
-Downloaded CatFramework from: CatFramework/CatFramework.framework-3.3.1.zip
-Unzipped CatFramework from: CatFramework.framework-3.3.1.zip
-Downloaded CatFramework from: CatFramework/CatFramework.framework.dSYM-3.3.1.zip
-Unzipped CatFramework from: CatFramework.framework.dSYM-3.3.1.zip
+$ rome download Alamofire
+Downloaded Alamofire from: Alamofire/iOS/Alamofire.framework-4.3.0.zip
+Downloaded Alamofire.dSYM from: Alamofire/iOS/Alamofire.framework.dSYM-4.3.0.zip
+Error downloading Alamofire : The specified key does not exist.
+Error downloading Alamofire.dSYM : The specified key does not exist.
+Downloaded Alamofire from: Alamofire/tvOS/Alamofire.framework-4.3.0.zip
+Downloaded Alamofire.dSYM from: Alamofire/tvOS/Alamofire.framework.dSYM-4.3.0.zip
+Downloaded Alamofire from: Alamofire/watchOS/Alamofire.framework-4.3.0.zip
+Downloaded Alamofire.dSYM from: Alamofire/watchOS/Alamofire.framework.dSYM-4.3.0.zip
+```
+
+Downloading for a specific platform (all platforms are downloaded by default):
+
+```
+$ rome download --platform ios,watchos Alamofire
+Downloaded Alamofire from: Alamofire/iOS/Alamofire.framework-4.3.0.zip
+Downloaded Alamofire.dSYM from: Alamofire/iOS/Alamofire.framework.dSYM-4.3.0.zip
+Downloaded Alamofire from: Alamofire/watchOS/Alamofire.framework-4.3.0.zip
+Downloaded Alamofire.dSYM from: Alamofire/watchOS/Alamofire.framework.dSYM-4.3.0.zip
 ```
 
 If a local cache is specified in your `Romefile` and you wish to ignore it pass `--skip-local-cache` on the command line.
@@ -268,34 +288,41 @@ If a local cache is specified in your `Romefile` and you wish to ignore it pass 
 #### Listing
 
 Listing frameworks and reporting on their availability:
+
 ```
 $ rome list
-Alamofire 3.4.1 ✔︎
-GCDKit 1.2.5 ✔︎
-HanekeSwift v0.10.1 ✔︎
-HockeySDK-iOS 3.8.6 ✔︎
-KeychainAccess v2.3.6 ✔︎
-M13Checkbox 2.1.2 ✔︎
-ResearchKit 1.3.1 ✘
+Alamofire 4.3.0 : +iOS -macOS +tvOS +watchOS
+ResearchKit 1.4.1 : +iOS -macOS -tvOS -watchOS
 ```
 
 Listing only frameworks present in the cache:
 
 ```
 $ rome list --present
-Alamofire
-GCDKit
-HanekeSwift
-HockeySDK-iOS
-KeychainAccess
-M13Checkbox
+Alamofire 4.3.0 : +iOS +tvOS +watchOS
+ResearchKit 1.4.1 : +iOS
 ```
 
 Listing only frameworks missing from the cache:
 
 ```
 $ rome list --missing
-ResearchKit
+Alamofire 4.3.0 : -macOS
+ResearchKit 1.4.1 : -macOS -tvOS -watchOS
+```
+
+Listing frameworks missing for specific platforms:
+
+```
+$ rome list --missing --platform watchos,tvos
+ResearchKit 1.4.1 : -tvOS -watchOS
+```
+
+Forwarding a list of missing frameworks to Carthage for building:
+
+```
+$ rome list --missing --platform ios | awk '{print $1}' | xargs carthage build --platform ios
+*** xcodebuild output can be found in ...
 ```
 
 Note: `list` __completely ignores dSYMs__. If a dSYM is missing the corresponding

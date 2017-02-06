@@ -39,6 +39,7 @@ import           Data.GitRepoAvailability
 import           Data.Ini                     as INI
 import           Data.Ini.Utils               as INI
 import           Data.List
+import           Data.List.Split
 import qualified Data.Map.Strict              as M
 import           Data.Maybe
 import           Data.Romefile
@@ -108,12 +109,12 @@ reposParser :: Opts.Parser [GitRepoName]
 reposParser = Opts.many (Opts.argument (GitRepoName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."))
 
 platformsParser :: Opts.Parser [TargetPlatform]
-platformsParser = (nub . concat <$> Opts.some (Opts.argument (eitherReader platformListOrError) (Opts.metavar "PLATFORMS ..." <> Opts.help "Applicable platforms for the command. One of iOS, MacOS, tvOS, watchOS, or a comma-separated list of any of these values.")))
+platformsParser = (nub . concat <$> Opts.some (Opts.option (eitherReader platformListOrError) (Opts.metavar "PLATFORMS" <> Opts.long "platform" <> Opts.help "Applicable platforms for the command. One of iOS, MacOS, tvOS, watchOS, or a comma-separated list of any of these values.")))
   <|> pure allTargetPlatforms
   where
-    platformOrError str     = maybeToEither ("Unrecognized platform '" ++ str ++ "'") (readMaybe str)
-    filterCommas str        = filter (not . null) $ filter isLetter <$> splitWithSeparator ',' str
-    platformListOrError str = mapM platformOrError $ filterCommas str
+    platformOrError str = maybe (Left $ "Unrecognized platform '" ++ str ++ "'") pure (readMaybe str)
+    splitPlatforms str = filter (not . null) $ filter isLetter <$> wordsBy (not . isLetter) str
+    platformListOrError str = mapM platformOrError $ splitPlatforms str
 
 udcPayloadParser :: Opts.Parser RomeUDCPayload
 udcPayloadParser = RomeUDCPayload <$> reposParser <*> platformsParser {- <*> verifyParser-} <*> skipLocalCacheParser
@@ -462,16 +463,13 @@ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities :: InvertedRepositoryM
 getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap = concatMap mergeRepoAvailabilities . groupAvailabilities . getGitRepoAvalabilities
   where
     getGitRepoAvalabilities :: [FrameworkAvailability] -> [GitRepoAvailability]
-    getGitRepoAvalabilities = foldl (\rs r ->
-          case getGitRepoAvailabilityFromFrameworkAvailability r of
-            Just r  -> r:rs
-            Nothing -> rs
-        ) []
-    repoNameForFrameworkName :: FrameworkName -> Maybe GitRepoName
-    repoNameForFrameworkName frameworkName = M.lookup frameworkName reverseRomeMap
+    getGitRepoAvalabilities = fmap getGitRepoAvailabilityFromFrameworkAvailability
 
-    getGitRepoAvailabilityFromFrameworkAvailability :: FrameworkAvailability -> Maybe GitRepoAvailability
-    getGitRepoAvailabilityFromFrameworkAvailability (FrameworkAvailability (FrameworkVersion fwn v) availabilities) = GitRepoAvailability <$> repoNameForFrameworkName fwn <*> Just v <*> Just availabilities
+    repoNameForFrameworkName :: FrameworkName -> GitRepoName
+    repoNameForFrameworkName frameworkName = fromMaybe (GitRepoName . unFrameworkName $ frameworkName) (M.lookup frameworkName reverseRomeMap)
+
+    getGitRepoAvailabilityFromFrameworkAvailability :: FrameworkAvailability -> GitRepoAvailability
+    getGitRepoAvailabilityFromFrameworkAvailability (FrameworkAvailability (FrameworkVersion fwn v) availabilities) = GitRepoAvailability (repoNameForFrameworkName fwn) v availabilities
 
     groupAvailabilities :: [GitRepoAvailability] -> [[GitRepoAvailability]]
     groupAvailabilities = groupBy ((==) `on` _availabilityRepo) . sortBy (compare `on` _availabilityRepo)

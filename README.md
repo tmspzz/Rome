@@ -112,7 +112,7 @@ A Romefile looks like this:
 ```
 [Cache]
   S3-Bucket = ios-dev-bucket
-  local = /tmp/Rome
+  local = ~/Library/Caches/Rome/
 
 [RepositoryMap]
   HockeySDK-iOS = HockeySDK
@@ -132,16 +132,26 @@ This section contains the name of:
 
 #### RepositoryMap
 This contains the mappings of git repository names with framework names.
-This is particularly useful inn case you are not using github and the "Organization/FrameworkName" convention.
+This is particularly useful in case you are not using github and the "Organization/FrameworkName" convention.
 
 Example:
 
 Suppose you have the following in your `Cartfile`
 
 ```
+github "Alamofire/Alamofire" ~> 4.3.0
 github "bitstadium/HockeySDK-iOS" "3.8.6"
 git "http://stash.myAnimalStartup.com/scm/iossdk/awesome-framework-for-cat-names.git" ~> 3.3.1
 git "http://stash.myAnimalStartup.com/scm/iossdk/better-dog-names.git" ~> 0.4.4
+```
+
+which translates to the following `Carftfile.resolved`
+
+```
+github "Alamofire/Alamofire" "4.3.0"
+github "bitstadium/HockeySDK-iOS" "3.8.6"
+git "http://stash.myAnimalStartup.com/scm/iossdk/awesome-framework-for-cat-names.git" "3.3.1"
+git "http://stash.myAnimalStartup.com/scm/iossdk/better-dog-names.git" "0.4.4"
 ```
 
 but your framework names are actually `HockeySDK`, `CatFramework` and `DogFramework`

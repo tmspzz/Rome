@@ -167,29 +167,30 @@ runRomeWithOptions env (RomeOptions options verbose) = do
   cartfileEntries <- getCartfileEntires
   RomeFileParseResult { .. } <- getRomefileEntries
   let respositoryMap = toRomeFilesEntriesMap repositoryMapEntries
+  let reverseRepositoryMap = toInvertedRomeFilesEntriesMap repositoryMapEntries
   let ignoreNames = concatMap frameworkCommonNames ignoreMapEntries
   case options of
 
       Upload (RomeUDCPayload [] platforms {-shouldVerify-} shouldIgnoreLocalCache) -> do
         let frameworkVersions = constructFrameworksAndVersionsFrom cartfileEntries respositoryMap `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        liftIO $ runReaderT (uploadFrameworksAndDsymsToCaches cacheInfo frameworkVersions platforms) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
+        liftIO $ runReaderT (uploadFrameworksAndDsymsToCaches cacheInfo reverseRepositoryMap frameworkVersions platforms) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
 
       Upload (RomeUDCPayload gitRepoNames platforms {-shouldVerify-} shouldIgnoreLocalCache) -> do
         let frameworkVersions = constructFrameworksAndVersionsFrom  (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) respositoryMap `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        liftIO $ runReaderT (uploadFrameworksAndDsymsToCaches cacheInfo frameworkVersions platforms) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
+        liftIO $ runReaderT (uploadFrameworksAndDsymsToCaches cacheInfo reverseRepositoryMap frameworkVersions platforms) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
 
       Download (RomeUDCPayload [] platforms {-shouldVerify-}  shouldIgnoreLocalCache) -> do
         let frameworkVersions = constructFrameworksAndVersionsFrom cartfileEntries respositoryMap `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches cacheInfo frameworkVersions platforms) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
+        liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches cacheInfo reverseRepositoryMap frameworkVersions platforms) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
 
       Download (RomeUDCPayload gitRepoNames platforms {-shouldVerify-} shouldIgnoreLocalCache) -> do
         let frameworkVersions = constructFrameworksAndVersionsFrom  (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) respositoryMap `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches cacheInfo frameworkVersions platforms) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
+        liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches cacheInfo reverseRepositoryMap frameworkVersions platforms) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
 
       List (RomeListPayload listMode platforms) -> do
         let frameworkVersions = constructFrameworksAndVersionsFrom cartfileEntries respositoryMap `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        availabilities <- liftIO $ runReaderT (probeCachesForFrameworks cacheInfo frameworkVersions platforms) (env, verbose)
-        let repoAvailabilities = getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities (toInvertedRomeFilesEntriesMap repositoryMapEntries) availabilities
+        availabilities <- liftIO $ runReaderT (probeCachesForFrameworks cacheInfo reverseRepositoryMap frameworkVersions platforms) (env, verbose)
+        let repoAvailabilities = getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRepositoryMap availabilities
         let repoLines = filter (not . null) $ fmap (formattedRepoAvailability listMode) repoAvailabilities
         mapM_ sayLn repoLines
 
@@ -212,13 +213,13 @@ filterOutFrameworkNamesAndVersionsIfNotIn favs fns = [fv |  fv <- favs,  _framew
 restrictRepositoryMapToGitRepoName:: RepositoryMap -> GitRepoName -> RepositoryMap
 restrictRepositoryMapToGitRepoName repoMap repoName = maybe M.empty (M.singleton repoName) $ repoName `M.lookup` repoMap
 
-uploadFrameworksAndDsymsToCaches :: RomeCacheInfo -> [FrameworkVersion] -> [TargetPlatform] -> ReaderT UDCEnv IO ()
-uploadFrameworksAndDsymsToCaches cacheInfo fvs = mapM_ (sequence . uploadFramework)
+uploadFrameworksAndDsymsToCaches :: RomeCacheInfo -> InvertedRepositoryMap -> [FrameworkVersion] -> [TargetPlatform] -> ReaderT UDCEnv IO ()
+uploadFrameworksAndDsymsToCaches cacheInfo reverseRomeMap fvs = mapM_ (sequence . uploadFramework)
   where
-    uploadFramework = mapM (uploadFrameworkAndDsymToCaches cacheInfo) fvs
+    uploadFramework = mapM (uploadFrameworkAndDsymToCaches cacheInfo reverseRomeMap) fvs
 
-uploadFrameworkAndDsymToCaches :: RomeCacheInfo -> FrameworkVersion -> TargetPlatform -> ReaderT UDCEnv IO ()
-uploadFrameworkAndDsymToCaches  (RomeCacheInfo bucketName localCacheDir) fv@(FrameworkVersion f@(FrameworkName fwn) version) platform = do
+uploadFrameworkAndDsymToCaches :: RomeCacheInfo -> InvertedRepositoryMap -> FrameworkVersion -> TargetPlatform -> ReaderT UDCEnv IO ()
+uploadFrameworkAndDsymToCaches  (RomeCacheInfo bucketName localCacheDir) reverseRomeMap fv@(FrameworkVersion f@(FrameworkName fwn) version) platform = do
   readerEnv@(env {-, shouldVerify-}, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   frameworkExists <- liftIO $ doesDirectoryExist frameworkDirectory
   dSymExists <- liftIO $ doesDirectoryExist dSYMdirectory
@@ -249,10 +250,10 @@ uploadFrameworkAndDsymToCaches  (RomeCacheInfo bucketName localCacheDir) fv@(Fra
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
     platformBuildDirectory = carthageBuildDirectory platform
     frameworkDirectory = platformBuildDirectory ++ frameworkNameWithFrameworkExtension
-    remoteFrameworkUploadPath = remoteFrameworkPath platform f version
+    remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
     dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension ++ ".dSYM"
     dSYMdirectory = platformBuildDirectory ++ dSYMNameWithDSYMExtension
-    remoteDsymUploadPath = remoteDsymPath platform f version
+    remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
     zipDir dir verbose = liftIO $ Zip.addFilesToArchive (zipOptions verbose) Zip.emptyArchive [dir]
 
 uploadBinary s3BucketName binaryZip destinationPath objectName = do
@@ -277,13 +278,13 @@ saveBinaryToLocalCache cachePath binaryZip destinationPath objectName verbose = 
   where
     finalPath = cachePath </> destinationPath
 
-downloadFrameworksAndDsymsFromCaches :: RomeCacheInfo -> [FrameworkVersion] -> [TargetPlatform] -> ReaderT UDCEnv IO ()
-downloadFrameworksAndDsymsFromCaches cacheInfo fvs = mapM_ (sequence . downloadFramework)
+downloadFrameworksAndDsymsFromCaches :: RomeCacheInfo -> InvertedRepositoryMap -> [FrameworkVersion] -> [TargetPlatform] -> ReaderT UDCEnv IO ()
+downloadFrameworksAndDsymsFromCaches cacheInfo reverseRomeMap fvs = mapM_ (sequence . downloadFramework)
   where
-    downloadFramework = mapM (downloadFrameworkAndDsymFromCaches cacheInfo) fvs
+    downloadFramework = mapM (downloadFrameworkAndDsymFromCaches cacheInfo reverseRomeMap) fvs
 
-downloadFrameworkAndDsymFromCaches :: RomeCacheInfo -> FrameworkVersion -> TargetPlatform -> ReaderT UDCEnv IO ()
-downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) fv@(FrameworkVersion f@(FrameworkName fwn) version) platform = do
+downloadFrameworkAndDsymFromCaches :: RomeCacheInfo -> InvertedRepositoryMap -> FrameworkVersion -> TargetPlatform -> ReaderT UDCEnv IO ()
+downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) reverseRomeMap fv@(FrameworkVersion f@(FrameworkName fwn) version) platform = do
   readerEnv@(env{-, shouldVerify-}, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   let sayFunc = if verbose then sayLnWithTime else sayLn
   case localCacheDir of
@@ -350,9 +351,9 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) fv@(
   where
     s3BucketName = S3.BucketName bucketName
     frameworkZipName = frameworkArchiveName f version
-    remoteFrameworkUploadPath = remoteFrameworkPath platform f version
+    remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
     dSYMZipName = dSYMArchiveName f version
-    remotedSYMUploadPath = remoteDsymPath platform f version
+    remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
     dSYMName = fwn ++ ".dSYM"
 
 
@@ -378,31 +379,36 @@ unzipBinary objectBinary objectName objectZipName verbose = do
   when verbose $
     sayLnWithTime $ "Unzipped " <> objectName <> " from: " <> objectZipName
 
-remoteFrameworkPath :: TargetPlatform -> FrameworkName -> Version -> String
-remoteFrameworkPath p f@(FrameworkName fwn) v = fwn ++ "/" ++ show p ++ "/" ++ frameworkArchiveName f v
+remoteFrameworkPath :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> Version -> String
+remoteFrameworkPath p r f v = remoteCacheDirectory p r f ++ frameworkArchiveName f v
 
-remoteDsymPath :: TargetPlatform -> FrameworkName -> Version -> String
-remoteDsymPath p f@(FrameworkName fwn) v = fwn ++ "/" ++ show p ++ "/" ++ dSYMArchiveName f v
+remoteDsymPath :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> Version -> String
+remoteDsymPath p r f v = remoteCacheDirectory p r f ++ dSYMArchiveName f v
 
-probeCachesForFrameworks :: RomeCacheInfo -> [FrameworkVersion] -> [TargetPlatform] -> ReaderT (AWS.Env, Bool) IO [FrameworkAvailability]
-probeCachesForFrameworks cacheInfo frameworkVersions = sequence . probeForEachFramework
+remoteCacheDirectory :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> String
+remoteCacheDirectory p r f = repoName ++ "/" ++ show p ++ "/"
   where
-    probeForEachFramework = mapM (probeCachesForFramework cacheInfo) frameworkVersions
+    repoName = unGitRepoName $ repoNameForFrameworkName r f
 
-probeCachesForFramework :: RomeCacheInfo -> FrameworkVersion -> [TargetPlatform] -> ReaderT (AWS.Env, Bool) IO FrameworkAvailability
-probeCachesForFramework cacheInfo frameworkVersion platforms = fmap (FrameworkAvailability frameworkVersion) probeForEachPlatform
+probeCachesForFrameworks :: RomeCacheInfo -> InvertedRepositoryMap -> [FrameworkVersion] -> [TargetPlatform] -> ReaderT (AWS.Env, Bool) IO [FrameworkAvailability]
+probeCachesForFrameworks cacheInfo reverseRomeMap frameworkVersions = sequence . probeForEachFramework
   where
-    probeForEachPlatform = mapM (probeCachesForFrameworkOnPlatform cacheInfo frameworkVersion) platforms
+    probeForEachFramework = mapM (probeCachesForFramework cacheInfo reverseRomeMap) frameworkVersions
 
-probeCachesForFrameworkOnPlatform :: RomeCacheInfo -> FrameworkVersion -> TargetPlatform -> ReaderT (AWS.Env, Bool) IO PlatformAvailability
-probeCachesForFrameworkOnPlatform (RomeCacheInfo bucketName localCacheDir) (FrameworkVersion fwn v) platform = do
+probeCachesForFramework :: RomeCacheInfo -> InvertedRepositoryMap -> FrameworkVersion -> [TargetPlatform] -> ReaderT (AWS.Env, Bool) IO FrameworkAvailability
+probeCachesForFramework cacheInfo reverseRomeMap frameworkVersion platforms = fmap (FrameworkAvailability frameworkVersion) probeForEachPlatform
+  where
+    probeForEachPlatform = mapM (probeCachesForFrameworkOnPlatform cacheInfo reverseRomeMap frameworkVersion) platforms
+
+probeCachesForFrameworkOnPlatform :: RomeCacheInfo -> InvertedRepositoryMap -> FrameworkVersion -> TargetPlatform -> ReaderT (AWS.Env, Bool) IO PlatformAvailability
+probeCachesForFrameworkOnPlatform (RomeCacheInfo bucketName localCacheDir) reverseRomeMap (FrameworkVersion fwn v) platform = do
   (env, verbose) <- ask
   let isAvailable = runResourceT . AWS.runAWS env $ checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey verbose
   PlatformAvailability platform <$> isAvailable
   where
     s3BucketName = S3.BucketName bucketName
     frameworkZipName = frameworkArchiveName fwn v
-    frameworkObjectKey = S3.ObjectKey . T.pack $ remoteFrameworkPath platform fwn v
+    frameworkObjectKey = S3.ObjectKey . T.pack $ remoteFrameworkPath platform reverseRomeMap fwn v
 
 checkIfFrameworkExistsInBucket :: AWS.MonadAWS m => BucketName -> ObjectKey -> Bool -> m Bool
 checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey verbose = do
@@ -465,11 +471,8 @@ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap = conca
     getGitRepoAvalabilities :: [FrameworkAvailability] -> [GitRepoAvailability]
     getGitRepoAvalabilities = fmap getGitRepoAvailabilityFromFrameworkAvailability
 
-    repoNameForFrameworkName :: FrameworkName -> GitRepoName
-    repoNameForFrameworkName frameworkName = fromMaybe (GitRepoName . unFrameworkName $ frameworkName) (M.lookup frameworkName reverseRomeMap)
-
     getGitRepoAvailabilityFromFrameworkAvailability :: FrameworkAvailability -> GitRepoAvailability
-    getGitRepoAvailabilityFromFrameworkAvailability (FrameworkAvailability (FrameworkVersion fwn v) availabilities) = GitRepoAvailability (repoNameForFrameworkName fwn) v availabilities
+    getGitRepoAvailabilityFromFrameworkAvailability (FrameworkAvailability (FrameworkVersion fwn v) availabilities) = GitRepoAvailability (repoNameForFrameworkName reverseRomeMap fwn) v availabilities
 
     groupAvailabilities :: [GitRepoAvailability] -> [[GitRepoAvailability]]
     groupAvailabilities = groupBy ((==) `on` _availabilityRepo) . sortBy (compare `on` _availabilityRepo)
@@ -537,3 +540,6 @@ toInvertedRomeFilesEntriesMap = M.fromList . concatMap romeFileEntryToListOfTupl
 
 romeFileEntryToTuple :: RomefileEntry -> (GitRepoName, [FrameworkName])
 romeFileEntryToTuple RomefileEntry {..} = (gitRepositoryName, frameworkCommonNames)
+
+repoNameForFrameworkName :: InvertedRepositoryMap -> FrameworkName -> GitRepoName
+repoNameForFrameworkName reverseRomeMap frameworkName = fromMaybe (GitRepoName . unFrameworkName $ frameworkName) (M.lookup frameworkName reverseRomeMap)

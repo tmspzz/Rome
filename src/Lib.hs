@@ -23,16 +23,19 @@ import           Control.Applicative          ((<|>))
 import           Control.Lens                 hiding (List)
 import           Control.Monad
 import           Control.Monad.Except
-import           Control.Monad.Reader         (ReaderT, ask, runReaderT, MonadReader)
+import           Control.Monad.Reader         (MonadReader, ReaderT, ask,
+                                               runReaderT)
 import           Control.Monad.Trans          (MonadIO, lift, liftIO)
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Resource (runResourceT)
-import qualified Data.ByteString.Lazy         as L
+import qualified Data.ByteString              as BS
+import qualified Data.ByteString.Lazy         as LBS
 import           Data.Cartfile
 import           Data.Char                    (isLetter)
-import           Data.Conduit                 (($$))
-import           Data.Conduit.Binary          (sinkFile, sinkLbs, sourceFile,
-                                               sourceLbs)
+import qualified Data.Conduit                 as C (Conduit, Sink, await, yield, ($$),
+                                                    (=$=))
+import qualified Data.Conduit.Binary          as C (sinkFile, sinkLbs,
+                                                    sourceFile, sourceLbs)
 import           Data.Either.Utils
 import           Data.Function
 import           Data.GitRepoAvailability
@@ -94,8 +97,8 @@ data RomeOptions = RomeOptions { romeCommand :: RomeCommand
 
 
 {- Constants -}
-carthageBuildDirectory :: TargetPlatform -> String
-carthageBuildDirectory platform = "Carthage/Build/" ++ show platform ++ "/"
+carthageBuildDirectory :: TargetPlatform -> FilePath
+carthageBuildDirectory platform = "Carthage" </> "Build" </> show platform
 
 {- Commnad line arguments parsing -}
 
@@ -249,16 +252,16 @@ uploadFrameworkAndDsymToCaches  (RomeCacheInfo bucketName localCacheDir) reverse
     s3BucketName = S3.BucketName bucketName
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
     platformBuildDirectory = carthageBuildDirectory platform
-    frameworkDirectory = platformBuildDirectory ++ frameworkNameWithFrameworkExtension
+    frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
     remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
     dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension ++ ".dSYM"
-    dSYMdirectory = platformBuildDirectory ++ dSYMNameWithDSYMExtension
+    dSYMdirectory = platformBuildDirectory </> dSYMNameWithDSYMExtension
     remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
-    zipDir dir verbose = liftIO $ Zip.addFilesToArchive (zipOptions verbose) Zip.emptyArchive [dir]
+    zipDir dir verbose = liftIO $ Zip.addFilesToArchive (zipOptions False) Zip.emptyArchive [dir]
 
 uploadBinary s3BucketName binaryZip destinationPath objectName = do
-  let objectKey = S3.ObjectKey $ T.pack destinationPath
   (env, verbose) <- ask
+  let objectKey = S3.ObjectKey $ T.pack destinationPath
   runResourceT . AWS.runAWS env $ do
     let body = AWS.toBody binaryZip
     let sayFunc = if verbose then sayLnWithTime else sayLn
@@ -269,12 +272,12 @@ uploadBinary s3BucketName binaryZip destinationPath objectName = do
       Left e -> sayFunc $ "Error uploading " <> objectName <> ": " <> errorString e
       Right _ -> sayFunc $ "Uploaded " <> objectName <> " to: " <> destinationPath
 
-saveBinaryToLocalCache :: MonadIO m => FilePath -> L.ByteString -> FilePath -> String -> Bool -> m ()
+saveBinaryToLocalCache :: MonadIO m => FilePath -> LBS.ByteString -> FilePath -> String -> Bool -> m ()
 saveBinaryToLocalCache cachePath binaryZip destinationPath objectName verbose = do
   when verbose $
     sayLnWithTime $ "Copying " <> objectName <> " to: " <> finalPath
   liftIO $ createDirectoryIfMissing True (dropFileName finalPath)
-  liftIO . runResourceT $ sourceLbs binaryZip $$ sinkFile finalPath
+  liftIO . runResourceT $ C.sourceLbs binaryZip C.$$ C.sinkFile finalPath
   where
     finalPath = cachePath </> destinationPath
 
@@ -304,7 +307,7 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) reve
 
         when frameworkExistsInLocalCache $ do
           sayFunc $ "Found " <> fwn <> " in local cache at: " <> frameworkLocalCachePath
-          binary <- runResourceT $ sourceFile frameworkLocalCachePath $$ sinkLbs
+          binary <- runResourceT $ C.sourceFile frameworkLocalCachePath C.$$ C.sinkLbs
           unzipBinary binary fwn frameworkZipName verbose
 
         unless frameworkExistsInLocalCache $ do
@@ -326,7 +329,7 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) reve
 
         when dSYMExistsInLocalCache $ do
           sayFunc $ "Found " <> dSYMName <> " in local cache at: " <> dSYMLocalCachePath
-          binary <- runResourceT $ sourceFile dSYMLocalCachePath $$ sinkLbs
+          binary <- runResourceT $ C.sourceFile dSYMLocalCachePath C.$$ C.sinkLbs
           unzipBinary binary fwn dSYMZipName verbose
 
         unless dSYMExistsInLocalCache $ do
@@ -345,7 +348,7 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) reve
 
       eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath (fwn ++ ".dSYM")
       case eitherdSYMBinary of
-        Left e -> sayFunc $ "Error downloading " <> (fwn ++ ".dSYM") <> " : " <> errorString e
+        Left e -> sayFunc $ "Error downloading " <> dSYMName <> " : " <> errorString e
         Right dSYMBinary -> unzipBinary dSYMBinary fwn dSYMZipName verbose
 
   where
@@ -364,18 +367,38 @@ downloadBinary s3BucketName objectRemotePath objectName = do
     when verbose $
       sayFunc $ "Started downloading " <> objectName <> " from: " <> objectRemotePath
     rs <- AWS.send $ S3.getObject s3BucketName objectKey
-    binary <- view S3.gorsBody rs `AWS.sinkBody` sinkLbs
+    let cotentLength = fromMaybe 0 (view S3.gorsContentLength rs)
+    binary <- view S3.gorsBody rs `AWS.sinkBody` sink verbose cotentLength
     sayFunc $ "Downloaded " <> objectName <> " from: " <> objectRemotePath
     return binary
 
   where
     objectKey = S3.ObjectKey . T.pack $ objectRemotePath
+    sink verbose totalLength = if verbose then printProgress objectName totalLength C.=$= C.sinkLbs else C.sinkLbs
 
-unzipBinary :: MonadIO m => L.ByteString -> String -> String -> Bool -> m ()
+    printProgress :: MonadIO m => String -> Int -> C.Conduit BS.ByteString m BS.ByteString
+    printProgress objectName totalLength = loop totalLength 0 0
+      where
+        roundedSizeInMB = roundBytesToMegabytes totalLength
+        loop t consumedLen lastLen = C.await >>= maybe (return ()) (\bs -> do
+            let len = consumedLen + BS.length bs
+            let diffGreaterThan1MB = len - lastLen >= 1024*1024
+            when ( diffGreaterThan1MB || len == t) $
+               sayLnWithTime $ "Downloaded " ++ show (roundBytesToMegabytes len) ++ " MB of " ++ show roundedSizeInMB ++ " MB for " ++ objectName
+            C.yield bs
+            let a = if diffGreaterThan1MB then len else lastLen
+            loop t len a)
+
+roundBytesToMegabytes :: Integral a => a -> Double
+roundBytesToMegabytes n = fromInteger (round (nInMB * (10^2))) / (10.0^^2)
+  where
+    nInMB = fromIntegral n / (1024*1024)
+
+unzipBinary :: MonadIO m => LBS.ByteString -> String -> String -> Bool -> m ()
 unzipBinary objectBinary objectName objectZipName verbose = do
   when verbose $
    sayLnWithTime $ "Staring to unzip " <> objectZipName
-  liftIO $ Zip.extractFilesFromArchive (zipOptions verbose) (Zip.toArchive objectBinary)
+  liftIO $ Zip.extractFilesFromArchive (zipOptions False) (Zip.toArchive objectBinary)
   when verbose $
     sayLnWithTime $ "Unzipped " <> objectName <> " from: " <> objectZipName
 
@@ -386,7 +409,7 @@ remoteDsymPath :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> Ve
 remoteDsymPath p r f v = remoteCacheDirectory p r f ++ dSYMArchiveName f v
 
 remoteCacheDirectory :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> String
-remoteCacheDirectory p r f = repoName ++ "/" ++ show p ++ "/"
+remoteCacheDirectory p r f = repoName </> show p ++ "/"
   where
     repoName = unGitRepoName $ repoNameForFrameworkName r f
 

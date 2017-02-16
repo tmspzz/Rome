@@ -16,10 +16,14 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Lib
+                       , CommandParsers
+                       , Configuration
+                       , Types
+                       , Types.Commands
+                       , Types.TargetPlatform
+                       , Utils
                        , Data.Cartfile
-                       , Data.GitRepoAvailability
                        , Data.Romefile
-                       , Data.TargetPlatform
                        , Data.Ini.Utils
                        , Text.Parsec.Utils
 

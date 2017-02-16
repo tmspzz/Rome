@@ -1,7 +1,7 @@
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 
 module Data.Romefile
@@ -15,14 +15,14 @@ module Data.Romefile
     )
 where
 
-import           Data.Ini             as INI
-import           Data.Ini.Utils       as INI
-import           Data.HashMap.Strict  as M
-import           Data.Monoid
-import           Data.Maybe
-import           Data.Text
 import           Control.Monad.Except
 import           Control.Monad.Trans
+import           Data.HashMap.Strict   as M
+import           Data.Ini              as INI
+import           Data.Ini.Utils        as INI
+import           Data.Maybe
+import           Data.Monoid
+import           Data.Text
 import           System.Directory
 import           System.FilePath
 import           System.Path.NameManip
@@ -36,17 +36,17 @@ newtype FrameworkName = FrameworkName { unFrameworkName :: String }
 newtype GitRepoName   = GitRepoName { unGitRepoName :: String }
                         deriving (Eq, Show, Ord)
 
-data RomefileEntry    = RomefileEntry { gitRepositoryName   :: GitRepoName
+data RomefileEntry    = RomefileEntry { gitRepositoryName    :: GitRepoName
                                       , frameworkCommonNames :: [FrameworkName]
                                       }
                                       deriving (Show, Eq)
 
-data RomeFileParseResult = RomeFileParseResult { cacheInfo :: RomeCacheInfo
+data RomeFileParseResult = RomeFileParseResult { cacheInfo            :: RomeCacheInfo
                                                , repositoryMapEntries :: [RomefileEntry]
-                                               , ignoreMapEntries :: [RomefileEntry]
+                                               , ignoreMapEntries     :: [RomefileEntry]
                                                }
 
-data RomeCacheInfo = RomeCacheInfo { _bucket :: Text
+data RomeCacheInfo = RomeCacheInfo { _bucket        :: Text
                                    , _localCacheDir :: Maybe FilePath
                                    }
 

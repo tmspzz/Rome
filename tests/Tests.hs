@@ -2,11 +2,12 @@ module Main where
 
 import           Control.Monad
 
-import           Lib
 import           Data.Cartfile
-import           Data.GitRepoAvailability
 import           Data.Romefile
-import qualified Data.Text as T
+import qualified Data.Text       as T
+import           Lib
+import           Types
+import           Utils
 
 import           Test.Hspec
 import           Test.QuickCheck
@@ -44,12 +45,12 @@ prop_filterOutFrameworkNamesAndVersionsIfNotIn_model ls ns = map _frameworkName 
 prop_split_length :: Char -> String -> Property
 prop_split_length sep ls =
   not (null ls) ==>
-    length (splitWithSeparator sep ls) == 1 + length (filter (== sep) ls)
+    length (splitWithSeparator sep (T.pack ls)) == 1 + length (filter (== sep) ls)
 
 prop_split_string :: String -> Property
 prop_split_string ls =
   not (null ls) ==>
-    map T.pack (splitWithSeparator '/' ls) == T.split (=='/') (T.pack ls)
+    splitWithSeparator '/' (T.pack ls) == T.split (=='/') (T.pack ls)
 
 main :: IO ()
 main =

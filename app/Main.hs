@@ -1,5 +1,6 @@
 module Main where
 
+import           CommandParsers     (parseRomeOptions)
 import           Control.Monad.Except
 import           Lib
 import           Network.AWS          as AWS
@@ -9,7 +10,6 @@ import           Options.Applicative  as Opts
 
 romeVersion :: String
 romeVersion = "0.9.0.19"
-
 
 
 

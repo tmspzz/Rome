@@ -6,12 +6,7 @@
 
 
 {- Exports -}
-module Lib
-    ( runRomeWithOptions
-    , discoverRegion
-    , filterByNameEqualTo
-    , filterOutFrameworkNamesAndVersionsIfNotIn
-    ) where
+module Lib where
 
 
 
@@ -33,17 +28,15 @@ import qualified Data.Conduit                 as C (Conduit, Sink, await, yield,
                                                     ($$), (=$=))
 import qualified Data.Conduit.Binary          as C (sinkFile, sinkLbs,
                                                     sourceFile, sourceLbs)
-import           Data.Function                (on)
 import           Data.Ini                     as INI
 import           Data.Ini.Utils               as INI
-import           Data.List
 import           Data.Maybe                   (fromMaybe)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import qualified Data.Text                    as T
 import qualified Network.AWS                  as AWS
-import           Network.AWS.Data
-import           Network.AWS.S3               as S3
+import qualified Network.AWS.Data             as AWS
+import qualified Network.AWS.S3               as S3
 import           System.Directory
 import           System.Environment
 import           System.FilePath
@@ -54,7 +47,10 @@ import           Utils
 
 
 
-runRomeWithOptions :: AWS.Env -> RomeOptions -> RomeMonad ()
+-- | Runs Rome with `RomeOptions` on a given a `AWS.Env`.
+runRomeWithOptions :: AWS.Env -- ^ The `AWS.Env` on which to run Rome.
+                   -> RomeOptions -- ^ The `RomeOptions` to run Rome with.
+                   -> RomeMonad ()
 runRomeWithOptions env (RomeOptions options verbose) = do
   cartfileEntries <- getCartfileEntires
   RomeFileParseResult { .. } <- getRomefileEntries
@@ -86,12 +82,26 @@ runRomeWithOptions env (RomeOptions options verbose) = do
         let repoLines = filter (not . null) $ fmap (formattedRepoAvailability listMode) repoAvailabilities
         mapM_ sayLn repoLines
 
-uploadFrameworksAndDsymsToCaches :: RomeCacheInfo -> InvertedRepositoryMap -> [FrameworkVersion] -> [TargetPlatform] -> ReaderT UDCEnv IO ()
+
+
+-- | Uploads a list of `FrameworkVersion` from which it derives dSYMs to a cache specified as `RomeCacheInfo`.
+uploadFrameworksAndDsymsToCaches :: RomeCacheInfo -- ^ The chache definition.
+                                 -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                                 -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` to upload.
+                                 -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
+                                 -> ReaderT UDCEnv IO ()
 uploadFrameworksAndDsymsToCaches cacheInfo reverseRomeMap fvs = mapM_ (sequence . uploadFramework)
   where
     uploadFramework = mapM (uploadFrameworkAndDsymToCaches cacheInfo reverseRomeMap) fvs
 
-uploadFrameworkAndDsymToCaches :: RomeCacheInfo -> InvertedRepositoryMap -> FrameworkVersion -> TargetPlatform -> ReaderT UDCEnv IO ()
+
+
+-- | Uploads a `FrameworkVersion` from which it derives dSYMs to a cache specified as `RomeCacheInfo`.
+uploadFrameworkAndDsymToCaches :: RomeCacheInfo -- ^ The chache definition.
+                               -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                               -> FrameworkVersion -- ^ The `FrameworkVersion` to upload.
+                               -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
+                               -> ReaderT UDCEnv IO ()
 uploadFrameworkAndDsymToCaches  (RomeCacheInfo bucketName localCacheDir) reverseRomeMap fv@(FrameworkVersion f@(FrameworkName fwn) version) platform = do
   readerEnv@(env {-, shouldVerify-}, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   frameworkExists <- liftIO $ doesDirectoryExist frameworkDirectory
@@ -129,6 +139,9 @@ uploadFrameworkAndDsymToCaches  (RomeCacheInfo bucketName localCacheDir) reverse
     remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
     zipDir dir verbose = liftIO $ Zip.addFilesToArchive [Zip.OptRecursive] Zip.emptyArchive [dir]
 
+
+
+-- | Uploads an artificat to an `S3.BucketName` at a given path in the bucket.
 uploadBinary s3BucketName binaryZip destinationPath objectName = do
   (env, verbose) <- ask
   let objectKey = S3.ObjectKey $ T.pack destinationPath
@@ -142,7 +155,15 @@ uploadBinary s3BucketName binaryZip destinationPath objectName = do
       Left e -> sayFunc $ "Error uploading " <> objectName <> ": " <> awsErrorToString e
       Right _ -> sayFunc $ "Uploaded " <> objectName <> " to: " <> destinationPath
 
-saveBinaryToLocalCache :: MonadIO m => FilePath -> LBS.ByteString -> FilePath -> String -> Bool -> m ()
+
+
+-- | Saves a ByteString to file in a given base directory.
+saveBinaryToLocalCache :: MonadIO m => FilePath -- ^ The path of the base directory.
+                       -> LBS.ByteString -- ^ The `ByteString` to save.
+                       -> FilePath -- ^ The destination path inised the base directory.
+                       -> String -- ^ A colloquial name for the artifact printed when verbose is `True`.
+                       -> Bool -- ^ A verbostiry flag.
+                       -> m ()
 saveBinaryToLocalCache cachePath binaryZip destinationPath objectName verbose = do
   when verbose $
     sayLnWithTime $ "Copying " <> objectName <> " to: " <> finalPath
@@ -151,12 +172,26 @@ saveBinaryToLocalCache cachePath binaryZip destinationPath objectName verbose = 
   where
     finalPath = cachePath </> destinationPath
 
-downloadFrameworksAndDsymsFromCaches :: RomeCacheInfo -> InvertedRepositoryMap -> [FrameworkVersion] -> [TargetPlatform] -> ReaderT UDCEnv IO ()
+
+
+-- | Downloads a list `FrameworkVersion` from which it derives dSYMs from a cache specified as `RomeCacheInfo`.
+downloadFrameworksAndDsymsFromCaches :: RomeCacheInfo -- ^ The chache definition.
+                                     -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                                     -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` to download.
+                                     -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
+                                     -> ReaderT UDCEnv IO ()
 downloadFrameworksAndDsymsFromCaches cacheInfo reverseRomeMap fvs = mapM_ (sequence . downloadFramework)
   where
     downloadFramework = mapM (downloadFrameworkAndDsymFromCaches cacheInfo reverseRomeMap) fvs
 
-downloadFrameworkAndDsymFromCaches :: RomeCacheInfo -> InvertedRepositoryMap -> FrameworkVersion -> TargetPlatform -> ReaderT UDCEnv IO ()
+
+
+-- | Downloads a `FrameworkVersion` from which it derives dSYMs from a cache specified as `RomeCacheInfo`.
+downloadFrameworkAndDsymFromCaches :: RomeCacheInfo -- ^ The chache definition.
+                                   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                                   -> FrameworkVersion -- ^ The `FrameworkVersion` to download.
+                                   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
+                                   -> ReaderT UDCEnv IO ()
 downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) reverseRomeMap fv@(FrameworkVersion f@(FrameworkName fwn) version) platform = do
   readerEnv@(env{-, shouldVerify-}, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   let sayFunc = if verbose then sayLnWithTime else sayLn
@@ -230,6 +265,8 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) reve
     dSYMName = fwn ++ ".dSYM"
 
 
+
+-- | Downloads an artificat stored at a given path from an `S3.BucketName`.
 downloadBinary s3BucketName objectRemotePath objectName = do
   readerEnv@(env{-, shouldVerify-}, _, verbose) <- ask
   runResourceT . AWS.runAWS env $ do
@@ -259,7 +296,15 @@ downloadBinary s3BucketName objectRemotePath objectName = do
             let a = if diffGreaterThan1MB then len else lastLen
             loop t len a)
 
-unzipBinary :: MonadIO m => LBS.ByteString -> String -> String -> Bool -> m ()
+
+
+-- | Unzips a zipped (as in zip compression) `LBS.ByteString` in the current directory.
+unzipBinary :: MonadIO m
+            => LBS.ByteString -- ^ `LBS.The ByteString`.
+            -> String -- ^ A colloquial name for the `LBS.ByteString` printed when verbose is `True`.
+            -> String -- ^ A colloquial name for the artifact printed when verbose is `True`. Does not influence the artifact's name on disk.
+            -> Bool -- ^ A verbostiry flag.
+            -> m ()
 unzipBinary objectBinary objectName objectZipName verbose = do
   when verbose $
    sayLnWithTime $ "Staring to unzip " <> objectZipName
@@ -267,54 +312,67 @@ unzipBinary objectBinary objectName objectZipName verbose = do
   when verbose $
     sayLnWithTime $ "Unzipped " <> objectName <> " from: " <> objectZipName
 
-probeCachesForFrameworks :: RomeCacheInfo -> InvertedRepositoryMap -> [FrameworkVersion] -> [TargetPlatform] -> ReaderT (AWS.Env, Bool) IO [FrameworkAvailability]
+
+
+-- | Probes the caches described by `RomeCacheInfo` to check whether a list of `FrameworkVersion` is present or not
+-- | in the caches for each `TargetPlatform`
+probeCachesForFrameworks :: RomeCacheInfo -- ^ The chache definition.
+                         -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                         -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` to probe for.
+                         -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
+                         -> ReaderT (AWS.Env, Bool) IO [FrameworkAvailability]
 probeCachesForFrameworks cacheInfo reverseRomeMap frameworkVersions = sequence . probeForEachFramework
   where
     probeForEachFramework = mapM (probeCachesForFramework cacheInfo reverseRomeMap) frameworkVersions
 
-probeCachesForFramework :: RomeCacheInfo -> InvertedRepositoryMap -> FrameworkVersion -> [TargetPlatform] -> ReaderT (AWS.Env, Bool) IO FrameworkAvailability
+
+
+-- | Probes the caches described by `RomeCacheInfo` to check whether a `FrameworkVersion` is present or not in each `TargetPlatform`
+probeCachesForFramework :: RomeCacheInfo -- ^ The chache definition.
+                        -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                        -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
+                        -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
+                        -> ReaderT (AWS.Env, Bool) IO FrameworkAvailability
 probeCachesForFramework cacheInfo reverseRomeMap frameworkVersion platforms = fmap (FrameworkAvailability frameworkVersion) probeForEachPlatform
   where
     probeForEachPlatform = mapM (probeCachesForFrameworkOnPlatform cacheInfo reverseRomeMap frameworkVersion) platforms
 
-probeCachesForFrameworkOnPlatform :: RomeCacheInfo -> InvertedRepositoryMap -> FrameworkVersion -> TargetPlatform -> ReaderT (AWS.Env, Bool) IO PlatformAvailability
+
+-- | Probes the caches described by `RomeCacheInfo` to check whether a `FrameworkVersion` is present or not for a `TargetPlatform`.
+probeCachesForFrameworkOnPlatform :: RomeCacheInfo -- ^ The chache definition.
+                                  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                                  -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
+                                  -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
+                                  -> ReaderT (AWS.Env, Bool) IO PlatformAvailability
 probeCachesForFrameworkOnPlatform (RomeCacheInfo bucketName localCacheDir) reverseRomeMap (FrameworkVersion fwn v) platform = do
   (env, verbose) <- ask
-  let isAvailable = runResourceT . AWS.runAWS env $ checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey verbose
+  let isAvailable = runResourceT . AWS.runAWS env $ checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey
   PlatformAvailability platform <$> isAvailable
   where
     s3BucketName = S3.BucketName bucketName
     frameworkZipName = frameworkArchiveName fwn v
     frameworkObjectKey = S3.ObjectKey . T.pack $ remoteFrameworkPath platform reverseRomeMap fwn v
 
-checkIfFrameworkExistsInBucket :: AWS.MonadAWS m => BucketName -> ObjectKey -> Bool -> m Bool
-checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey verbose = do
+
+
+-- | Probes a `S3.BucketName` to check whether an `S3.ObjectKey` is present or not.
+checkIfFrameworkExistsInBucket :: AWS.MonadAWS m
+                               => S3.BucketName -- ^ The name of the bucket.
+                               -> S3.ObjectKey -- ^ The `S3.ObjectKey` to look for.
+                               -> m Bool
+checkIfFrameworkExistsInBucket s3BucketName frameworkObjectKey = do
   rs <- AWS.trying AWS._Error (AWS.send $ S3.headObject s3BucketName frameworkObjectKey)
   case rs of
     Left e -> return False
     Right hoResponse -> return True
 
-getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities :: InvertedRepositoryMap -> [FrameworkAvailability] -> [GitRepoAvailability]
-getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap = concatMap mergeRepoAvailabilities . groupAvailabilities . getGitRepoAvalabilities
-  where
-    getGitRepoAvalabilities :: [FrameworkAvailability] -> [GitRepoAvailability]
-    getGitRepoAvalabilities = fmap getGitRepoAvailabilityFromFrameworkAvailability
 
-    getGitRepoAvailabilityFromFrameworkAvailability :: FrameworkAvailability -> GitRepoAvailability
-    getGitRepoAvailabilityFromFrameworkAvailability (FrameworkAvailability (FrameworkVersion fwn v) availabilities) = GitRepoAvailability (repoNameForFrameworkName reverseRomeMap fwn) v availabilities
 
-    groupAvailabilities :: [GitRepoAvailability] -> [[GitRepoAvailability]]
-    groupAvailabilities = groupBy ((==) `on` _availabilityRepo) . sortBy (compare `on` _availabilityRepo)
-
-mergeRepoAvailabilities :: [GitRepoAvailability] -> [GitRepoAvailability]
-mergeRepoAvailabilities repoAvailabilities@(x:xs) = [x { _repoPlatformAvailabilities = platformAvailabilities }]
-  where
-    sortAndGroupPlatformAvailabilities = groupBy ((==) `on` _availabilityPlatform) . sortBy (compare `on` _availabilityPlatform)
-    groupedPlatformAvailabilities = sortAndGroupPlatformAvailabilities (repoAvailabilities >>= _repoPlatformAvailabilities)
-    bothAvailable p p' = p { _isAvailable = _isAvailable p && _isAvailable p' }
-    platformAvailabilities = fmap (foldl1 bothAvailable) groupedPlatformAvailabilities
-
-formattedRepoAvailability :: ListMode -> GitRepoAvailability -> String
+-- | Given a `ListMode` and a `GitRepoAvailability` produces a `String`
+-- describing the `GitRepoAvailability` for a given `ListMode`.
+formattedRepoAvailability :: ListMode -- ^ A given `ListMode`.
+                          -> GitRepoAvailability -- ^ A given `GitRepoAvailability`.
+                          -> String
 formattedRepoAvailability listMode r@(GitRepoAvailability (GitRepoName rn) (Version v) pas)
   | null filteredAvailabilities = ""
   | otherwise = unwords [rn, v, ":", formattedAvailabilities]
@@ -322,25 +380,39 @@ formattedRepoAvailability listMode r@(GitRepoAvailability (GitRepoName rn) (Vers
     filteredAvailabilities = filterAccordingToListMode listMode pas
     formattedAvailabilities = unwords (formattedPlatformAvailability <$> filteredAvailabilities)
 
-filterAccordingToListMode :: ListMode -> [PlatformAvailability] -> [PlatformAvailability]
+
+
+-- | Filters a list of `PlatformAvailability` according to a `ListMode`
+filterAccordingToListMode :: ListMode -- ^ A given `ListMode`
+                          -> [PlatformAvailability] -- ^ A given list of `PlatformAvailability`
+                          -> [PlatformAvailability]
 filterAccordingToListMode Commands.All     = id
 filterAccordingToListMode Commands.Missing = filter (not . _isAvailable)
 filterAccordingToListMode Commands.Present = filter _isAvailable
 
+
+
+-- | Disceovers which `AWS.Region` to use by looking either at the _AWS_PROFILE_ environment variable
+-- | or by falling back to using _default_. The region is then read from `Configuration.getS3ConfigFile`.
 discoverRegion :: RomeMonad AWS.Region
 discoverRegion = do
   f <- getS3ConfigFile
   profile <- liftIO $ lookupEnv "AWS_PROFILE"
   getRegionFromFile f (fromMaybe "default" profile)
 
-getRegionFromFile :: FilePath -> String -> RomeMonad AWS.Region
+
+
+-- | Reads a `AWS.Region` from file for a given profile
+getRegionFromFile :: FilePath -- ^ The path to the file containing the `AWS.Region`
+                  -> String -- ^ The name of the profile to use
+                  -> RomeMonad AWS.Region
 getRegionFromFile f profile = do
   i <- liftIO (INI.readIniFile f)
   case i of
     Left e -> throwError e
     Right ini -> do
       region <- withExceptT (\e -> "Could not parse " <> f <> ": " <> T.unpack e) $ INI.requireKey "region" `INI.inRequiredSection` T.pack profile `INI.fromIni''` ini
-      let eitherAWSRegion = fromText region :: Either String AWS.Region
+      let eitherAWSRegion = AWS.fromText region :: Either String AWS.Region
       case eitherAWSRegion of
         Left e  -> throwError e
         Right r -> return r

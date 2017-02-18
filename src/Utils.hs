@@ -5,22 +5,22 @@
 
 module Utils where
 
-import           Control.Lens        hiding (List)
-import           Control.Monad.Trans (MonadIO, lift, liftIO)
+import           Control.Lens         hiding (List)
+import           Control.Monad.Trans  (MonadIO, lift, liftIO)
 import           Data.Cartfile
-import           Data.Maybe          (fromMaybe)
+import           Data.Function        (on)
+import           Data.List
+import qualified Data.Map.Strict      as M
+import           Data.Maybe           (fromMaybe)
 import           Data.Monoid
 import           Data.Romefile
-import qualified Data.Text           as T
+import qualified Data.Text            as T
 import           Data.Time
-import qualified Network.AWS         as AWS (Error, ErrorMessage (..),
-                                             serviceMessage, _ServiceError)
-import Types
-import Types.TargetPlatform
-import qualified Data.Map.Strict              as M
+import qualified Network.AWS          as AWS (Error, ErrorMessage (..),
+                                              serviceMessage, _ServiceError)
 import           System.FilePath
-
-
+import           Types
+import           Types.TargetPlatform
 
 
 
@@ -105,7 +105,6 @@ formattedPlatformAvailability p = availabilityPrefix p ++ platformName p
     availabilityPrefix (PlatformAvailability _ False) = "-"
     platformName = show . _availabilityPlatform
 
-
 deriveFrameworkNamesAndVersion :: RepositoryMap -> [CartfileEntry] -> [FrameworkVersion]
 deriveFrameworkNamesAndVersion romeMap = concatMap (deriveFrameworkNameAndVersion romeMap)
 
@@ -119,9 +118,28 @@ deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry Git (Location l) v)    
   where
     gitRepositoryName = unGitRepoName $ gitRepoNameFromCartfileEntry cfe
 
-
 constructFrameworksAndVersionsFrom :: [CartfileEntry] -> RepositoryMap -> [FrameworkVersion]
 constructFrameworksAndVersionsFrom cartfileEntries repositoryMap = deriveFrameworkNamesAndVersion repositoryMap cartfileEntries
 
 filterRepoMapByGitRepoNames :: RepositoryMap -> [GitRepoName] -> RepositoryMap
 filterRepoMapByGitRepoNames repoMap gitRepoNames = M.unions $ map (restrictRepositoryMapToGitRepoName repoMap) gitRepoNames
+
+getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities :: InvertedRepositoryMap -> [FrameworkAvailability] -> [GitRepoAvailability]
+getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap = concatMap mergeRepoAvailabilities . groupAvailabilities . getGitRepoAvalabilities
+  where
+    getGitRepoAvalabilities :: [FrameworkAvailability] -> [GitRepoAvailability]
+    getGitRepoAvalabilities = fmap getGitRepoAvailabilityFromFrameworkAvailability
+
+    getGitRepoAvailabilityFromFrameworkAvailability :: FrameworkAvailability -> GitRepoAvailability
+    getGitRepoAvailabilityFromFrameworkAvailability (FrameworkAvailability (FrameworkVersion fwn v) availabilities) = GitRepoAvailability (repoNameForFrameworkName reverseRomeMap fwn) v availabilities
+
+    groupAvailabilities :: [GitRepoAvailability] -> [[GitRepoAvailability]]
+    groupAvailabilities = groupBy ((==) `on` _availabilityRepo) . sortBy (compare `on` _availabilityRepo)
+
+mergeRepoAvailabilities :: [GitRepoAvailability] -> [GitRepoAvailability]
+mergeRepoAvailabilities repoAvailabilities@(x:xs) = [x { _repoPlatformAvailabilities = platformAvailabilities }]
+  where
+    sortAndGroupPlatformAvailabilities = groupBy ((==) `on` _availabilityPlatform) . sortBy (compare `on` _availabilityPlatform)
+    groupedPlatformAvailabilities = sortAndGroupPlatformAvailabilities (repoAvailabilities >>= _repoPlatformAvailabilities)
+    bothAvailable p p' = p { _isAvailable = _isAvailable p && _isAvailable p' }
+    platformAvailabilities = fmap (foldl1 bothAvailable) groupedPlatformAvailabilities

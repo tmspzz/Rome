@@ -16,7 +16,6 @@ import           Data.Char
 import           Data.Text              as T
 import qualified Data.HashMap.Strict    as M
 import           Data.Monoid
-import           Control.Exception
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Data.Ini
@@ -56,10 +55,10 @@ requireSection section = do
     Just _ -> return section
 
 inRequiredSection ::  (MonadReader Ini m, MonadError Text m) => ReaderT (Ini, Text) m b -> Text -> m b
-inRequiredSection reader section = do
+inRequiredSection r section = do
   ini <- ask
   s <- requireSection section
-  runReaderT reader (ini, s)
+  runReaderT r (ini, s)
 
 inOptionalSection :: (MonadReader Ini m) => Text -> a -> ReaderT (Ini, Text) (ExceptT Text m) a -> m a
 inOptionalSection section defaultValue exceptingReader = do
@@ -68,6 +67,7 @@ inOptionalSection section defaultValue exceptingReader = do
     Left _ -> return defaultValue
     Right a -> return a
 
+invalidError :: MonadError Text m => Maybe Text -> Text -> m Text
 invalidError Nothing  e = throwError e
 invalidError (Just k) e = throwError $ "Key " <> k <> " " <> e
 
@@ -81,8 +81,8 @@ fromIni'' = runReaderT
 example :: Ini -> IO ()
 example ini = do
   r <- requireKey "k" `inRequiredSection` "text" `fromIni'` ini
-  t <- inOptionalSection "section" "default" (requireKey "k") `fromIni'` ini
-  s <- inOptionalSection "section" (Just "default") (optionalKey "k") `fromIni''` ini
+  _ <- inOptionalSection "section" "default" (requireKey "k") `fromIni'` ini
+  _ <- inOptionalSection "section" (Just "default") (optionalKey "k") `fromIni''` ini
   case r of
     Right _ -> print r
     Left _  -> undefined

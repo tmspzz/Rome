@@ -2,7 +2,6 @@ module Configuration where
 
 
 import           Control.Monad.Except
-import           Control.Monad.Trans  (liftIO)
 import           Data.Cartfile
 import           Data.Romefile
 import           System.Directory

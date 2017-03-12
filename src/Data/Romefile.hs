@@ -16,7 +16,6 @@ module Data.Romefile
 where
 
 import           Control.Monad.Except
-import           Control.Monad.Trans
 import           Data.HashMap.Strict   as M
 import           Data.Ini              as INI
 import           Data.Ini.Utils        as INI

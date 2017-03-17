@@ -6,7 +6,7 @@
 module Utils where
 
 import           Control.Lens         hiding (List)
-import           Control.Monad.Trans  (MonadIO, lift, liftIO)
+import           Control.Monad.Trans  (MonadIO, liftIO)
 import           Data.Cartfile
 import           Data.Function        (on)
 import           Data.List
@@ -24,6 +24,7 @@ import           Types.TargetPlatform
 
 
 
+-- | Turns an `AWS.Error` to `String` or defaults to "Unexpected Error".
 awsErrorToString :: AWS.Error -> String
 awsErrorToString e = fromErrorMessage $ fromMaybe (AWS.ErrorMessage "Unexpected Error") maybeServiceError
   where
@@ -31,73 +32,154 @@ awsErrorToString e = fromErrorMessage $ fromMaybe (AWS.ErrorMessage "Unexpected 
     fromErrorMessage :: AWS.ErrorMessage -> String
     fromErrorMessage (AWS.ErrorMessage t) = T.unpack t
 
+
+
+-- | Prints a `String` doing the lifting for you.
 sayLn :: MonadIO m => String -> m ()
 sayLn = liftIO . putStrLn
 
+
+
+-- | Prints a message adding a time stamp before it.
 sayLnWithTime :: MonadIO m => String -> m ()
 sayLnWithTime line = do
   time <- liftIO getZonedTime
   sayLn $ formatTime defaultTimeLocale "%T %F" time <> " - " <> line
 
-roundBytesToMegabytes :: Integral a => a -> Double
+
+
+-- | Given a number n representing bytes, gives an approximation in Megabytes.
+roundBytesToMegabytes :: Integral n => n -> Double
 roundBytesToMegabytes n = fromInteger (round (nInMB * (10^2))) / (10.0^^2)
   where
     nInMB = fromIntegral n / (1024*1024)
 
+
+
+-- | Splits a `T.Text` in substrings at every occurence of a given character.
 splitWithSeparator :: Char -> T.Text -> [T.Text]
 splitWithSeparator a = T.split (== a)
 
+
+
+-- | Appends the string ".framework" to a `FrameworkName`.
 appendFrameworkExtensionTo :: FrameworkName -> String
 appendFrameworkExtensionTo (FrameworkName a) = a ++ ".framework"
 
+
+
+-- | Given a `FrameworkName` and a `Version` produces a name for a Zip archive.
 frameworkArchiveName :: FrameworkName -> Version -> String
 frameworkArchiveName f (Version v)  = appendFrameworkExtensionTo f ++ "-" ++ v ++ ".zip"
 
+
+
+-- | Given a `FrameworkName` and a `Version` produces a name
+-- | for a dSYM Zip archive.
 dSYMArchiveName :: FrameworkName -> Version -> String
 dSYMArchiveName f (Version v) = appendFrameworkExtensionTo f ++ ".dSYM" ++ "-" ++ v ++ ".zip"
 
 filterCartfileEntriesByGitRepoNames :: [GitRepoName] -> [CartfileEntry] -> [CartfileEntry]
 filterCartfileEntriesByGitRepoNames repoNames cartfileEntries = [c | c <- cartfileEntries, gitRepoNameFromCartfileEntry c `elem` repoNames]
 
+
+
+-- | Given a `CartfileEntry` produces a `GitRepoName`.
+--
+-- >>> gitRepoNameFromCartfileEntry $ CartfileEntry Git (Location "https://repo.acme.inc/acmeFramework.git") (Version "1.2.3")
+-- GitRepoName {unGitRepoName = "acmeFramework"}
+--
+-- >>> gitRepoNameFromCartfileEntry $ CartfileEntry GitHub (Location "acme/acmeFramework") (Version "1.2.3")
+-- GitRepoName {unGitRepoName = "acmeFramework"}
 gitRepoNameFromCartfileEntry :: CartfileEntry -> GitRepoName
 gitRepoNameFromCartfileEntry (CartfileEntry GitHub (Location l) _) = GitRepoName . T.unpack . last . splitWithSeparator '/' . T.pack $ l
 gitRepoNameFromCartfileEntry (CartfileEntry Git (Location l) _) = GitRepoName . T.unpack . T.replace ".git" "" . last . splitWithSeparator '/' . T.pack $ l
 
-filterByNameEqualTo :: [FrameworkVersion] -> FrameworkName -> [FrameworkVersion]
-filterByNameEqualTo fs s = filter (\(FrameworkVersion name version) -> name == s) fs
 
+
+-- | Given a lsit of `FrameworkVersion` and a `FrameworkName` returns
+-- | a list for `FrameworkVersion` elements matching `FrameworkName`.
+filterByNameEqualTo :: [FrameworkVersion] -> FrameworkName -> [FrameworkVersion]
+filterByNameEqualTo fs s = filter (\(FrameworkVersion name _) -> name == s) fs
+
+
+
+-- | Given a list of `FrameworkVersion` and a list of `FrameworkName`
+-- | filters out of the list of `FrameworkVersion` elements that don't apper
+-- | in the list of `FrameworkName`.
 filterOutFrameworkNamesAndVersionsIfNotIn :: [FrameworkVersion] -> [FrameworkName] -> [FrameworkVersion]
 filterOutFrameworkNamesAndVersionsIfNotIn favs fns = [fv |  fv <- favs,  _frameworkName fv `notElem` fns]
 
+
+
+-- | Given a `RepositoryMap` and a `GitRepoName` returns a `RepositoryMap`
+-- | with that one `GitRepoName` or an empty `RepositoryMap`.
 restrictRepositoryMapToGitRepoName:: RepositoryMap -> GitRepoName -> RepositoryMap
 restrictRepositoryMapToGitRepoName repoMap repoName = maybe M.empty (M.singleton repoName) $ repoName `M.lookup` repoMap
 
+
+
+-- | Builds a string representing the remote path to framework zip archive.
 remoteFrameworkPath :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> Version -> String
 remoteFrameworkPath p r f v = remoteCacheDirectory p r f ++ frameworkArchiveName f v
 
+
+
+-- | Builds a `String` representing the remote path to dSYM zip archive
 remoteDsymPath :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> Version -> String
 remoteDsymPath p r f v = remoteCacheDirectory p r f ++ dSYMArchiveName f v
 
+
+
+-- | Builds a `String` representing the name of the remote cache directory for a
+-- | given conbination of `TargetPlatform` and `FrameworkName` based on an
+-- | `InvertedRepositoryMap`.
 remoteCacheDirectory :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> String
 remoteCacheDirectory p r f = repoName </> show p ++ "/"
   where
     repoName = unGitRepoName $ repoNameForFrameworkName r f
 
+
+
+-- | Constructs a `RepositoryMap` from a list of `RomefileEntry`s.
+-- | The keys are `GitRepoName`s.
 toRepositoryMap :: [RomefileEntry] -> RepositoryMap
 toRepositoryMap = M.fromList . map romeFileEntryToTuple
 
+
+
+-- | Constructs an `InvertedRepositoryMap` from a list of `RomefileEntry`s.
+-- | The keys are `FrameworkName`s.
 toInvertedRepositoryMap :: [RomefileEntry] -> InvertedRepositoryMap
 toInvertedRepositoryMap = M.fromList . concatMap romeFileEntryToListOfTuples
   where listify (fs, g) = map (\f -> (f,g)) fs
         flipTuple = uncurry (flip (,))
         romeFileEntryToListOfTuples = listify . flipTuple . romeFileEntryToTuple
 
+
+
+-- | Creates a tuple out of a `RomefileEntry`.
 romeFileEntryToTuple :: RomefileEntry -> (GitRepoName, [FrameworkName])
 romeFileEntryToTuple RomefileEntry {..} = (gitRepositoryName, frameworkCommonNames)
 
+
+
+-- | Performs a lookup in an `InvertedRepositoryMap` for a certain `FrameworkName`.
+-- | Creates a `GitRepoName` from just the `frameworkName` of a `FrameworkName`
+-- | in case the lookup fails.
 repoNameForFrameworkName :: InvertedRepositoryMap -> FrameworkName -> GitRepoName
 repoNameForFrameworkName reverseRomeMap frameworkName = fromMaybe (GitRepoName . unFrameworkName $ frameworkName) (M.lookup frameworkName reverseRomeMap)
 
+
+
+-- | Given a `PlatformAvailability` produces a human readable `String`
+-- | representing the availability.
+--
+-- >>> formattedPlatformAvailability $ PlatformAvailability IOS True
+-- "+iOS"
+--
+-- >>> formattedPlatformAvailability $ PlatformAvailability MacOS False
+-- "-macOS"
 formattedPlatformAvailability :: PlatformAvailability -> String
 formattedPlatformAvailability p = availabilityPrefix p ++ platformName p
   where
@@ -105,25 +187,39 @@ formattedPlatformAvailability p = availabilityPrefix p ++ platformName p
     availabilityPrefix (PlatformAvailability _ False) = "-"
     platformName = show . _availabilityPlatform
 
+
+
+-- | Given a `RepositoryMap` and a list of `CartfileEntry` creates a list of
+-- | `FrameworkVersion`s. See `deriveFrameworkNameAndVersion` for details.
 deriveFrameworkNamesAndVersion :: RepositoryMap -> [CartfileEntry] -> [FrameworkVersion]
 deriveFrameworkNamesAndVersion romeMap = concatMap (deriveFrameworkNameAndVersion romeMap)
 
+
+
+-- | Given a `RepositoryMap` and a `CartfileEntry` creates a list of
+-- | `FrameworkVersion` by attaching the `Version` information from the
+-- | `FrameworkName` in the `CartfileEntry`.
 deriveFrameworkNameAndVersion ::  RepositoryMap -> CartfileEntry -> [FrameworkVersion]
-deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry GitHub (Location l) v) = map (`FrameworkVersion` v) $
+deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry GitHub (Location _) v) = map (`FrameworkVersion` v) $
   fromMaybe [FrameworkName gitHubRepositoryName] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
   where
     gitHubRepositoryName = unGitRepoName $ gitRepoNameFromCartfileEntry cfe
-deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry Git (Location l) v)    = map (`FrameworkVersion` v) $
+deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry Git (Location _) v)    = map (`FrameworkVersion` v) $
   fromMaybe [FrameworkName gitRepositoryName] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
   where
     gitRepositoryName = unGitRepoName $ gitRepoNameFromCartfileEntry cfe
 
-constructFrameworksAndVersionsFrom :: [CartfileEntry] -> RepositoryMap -> [FrameworkVersion]
-constructFrameworksAndVersionsFrom cartfileEntries repositoryMap = deriveFrameworkNamesAndVersion repositoryMap cartfileEntries
 
+
+-- | Given a `RepositoryMap` and a list of `GitRepoName`s produces another
+-- | `RepositoryMap` containing only those `GitRepoName`s.
 filterRepoMapByGitRepoNames :: RepositoryMap -> [GitRepoName] -> RepositoryMap
 filterRepoMapByGitRepoNames repoMap gitRepoNames = M.unions $ map (restrictRepositoryMapToGitRepoName repoMap) gitRepoNames
 
+
+
+-- | Given an `InvertedRepositoryMap` and a list of `FrameworkAvailability`s
+-- | produces the corresponding list of `GitRepoAvailability`s.
 getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities :: InvertedRepositoryMap -> [FrameworkAvailability] -> [GitRepoAvailability]
 getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap = concatMap mergeRepoAvailabilities . groupAvailabilities . getGitRepoAvalabilities
   where
@@ -136,10 +232,33 @@ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap = conca
     groupAvailabilities :: [GitRepoAvailability] -> [[GitRepoAvailability]]
     groupAvailabilities = groupBy ((==) `on` _availabilityRepo) . sortBy (compare `on` _availabilityRepo)
 
-mergeRepoAvailabilities :: [GitRepoAvailability] -> [GitRepoAvailability]
-mergeRepoAvailabilities repoAvailabilities@(x:xs) = [x { _repoPlatformAvailabilities = platformAvailabilities }]
-  where
-    sortAndGroupPlatformAvailabilities = groupBy ((==) `on` _availabilityPlatform) . sortBy (compare `on` _availabilityPlatform)
-    groupedPlatformAvailabilities = sortAndGroupPlatformAvailabilities (repoAvailabilities >>= _repoPlatformAvailabilities)
-    bothAvailable p p' = p { _isAvailable = _isAvailable p && _isAvailable p' }
-    platformAvailabilities = fmap (foldl1 bothAvailable) groupedPlatformAvailabilities
+    -- | Given a list of `GitRepoAvailability`s produces a singleton list of
+    -- | `GitRepoAvailability`s containing all `PlatformAvailability`s of the
+    -- | original list.
+    --
+    -- >>> let g1 = GitRepoAvailability (GitRepoName "Alamofire") (Version "1") [PlatformAvailability IOS True]
+    -- >>> let g2 = GitRepoAvailability (GitRepoName "Alamofire") (Version "2") [PlatformAvailability MacOS True]
+    -- >>> let g3 = GitRepoAvailability (GitRepoName "CoreStore") (Version "3") [PlatformAvailability TVOS True]
+    -- >>> mergeRepoAvailabilities [g1, g2, g3]
+    -- [GitRepoAvailability {_availabilityRepo = GitRepoName {unGitRepoName = "Alamofire"}
+    --                      , _availabilityVersion = Version {unVersion = "1"}
+    --                      , _repoPlatformAvailabilities = [PlatformAvailability {_availabilityPlatform = iOS, _isAvailable = True}
+    --                                                      ,PlatformAvailability {_availabilityPlatform = macOS, _isAvailable = True}
+    --                                                      ,PlatformAvailability {_availabilityPlatform = tvOS, _isAvailable = True}]
+    --                      }
+    -- ]
+    mergeRepoAvailabilities :: [GitRepoAvailability] -> [GitRepoAvailability]
+    mergeRepoAvailabilities [] = []
+    mergeRepoAvailabilities repoAvailabilities@(x:_) = [x { _repoPlatformAvailabilities = platformAvailabilities }]
+      where
+        groupedPlatformAvailabilities :: [[PlatformAvailability]]
+        groupedPlatformAvailabilities = sortAndGroupPlatformAvailabilities (repoAvailabilities >>= _repoPlatformAvailabilities)
+
+        bothAvailable :: PlatformAvailability -> PlatformAvailability -> PlatformAvailability
+        bothAvailable p p' = p { _isAvailable = _isAvailable p && _isAvailable p' }
+
+        platformAvailabilities :: [PlatformAvailability]
+        platformAvailabilities = fmap (foldl1 bothAvailable) groupedPlatformAvailabilities
+
+        sortAndGroupPlatformAvailabilities :: [PlatformAvailability] -> [[PlatformAvailability]]
+        sortAndGroupPlatformAvailabilities = groupBy ((==) `on` _availabilityPlatform) . sortBy (compare `on` _availabilityPlatform)

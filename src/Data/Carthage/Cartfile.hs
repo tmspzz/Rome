@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Data.Cartfile
+module Data.Carthage.Cartfile
     ( parseCartfileResolved
     , cartfileResolved
     , CartfileEntry (..)
@@ -11,16 +11,16 @@ module Data.Cartfile
     ) where
 
 
-import           Control.Applicative ((<|>))
+import           Control.Applicative  ((<|>))
+import qualified Text.Parsec          as Parsec
+import qualified Text.Parsec.String   as Parsec
+import qualified Text.Parsec.Utils    as Parsec
 
-import qualified Text.Parsec         as Parsec
-import qualified Text.Parsec.String  as Parsec
-import qualified Text.Parsec.Utils   as Parsec
+import           Data.Carthage.Common
 
 newtype Location = Location { unLocation :: String }
                    deriving (Eq, Show, Ord)
-newtype Version  = Version { unVersion :: String }
-                   deriving (Eq, Show, Ord)
+
 
 data RepoHosting = GitHub | Git
   deriving (Eq, Show)

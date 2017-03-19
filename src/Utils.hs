@@ -5,22 +5,23 @@
 
 module Utils where
 
-import           Control.Lens         hiding (List)
-import           Control.Monad.Trans  (MonadIO, liftIO)
-import           Data.Cartfile
-import           Data.Function        (on)
+import           Control.Lens                 hiding (List)
+import           Control.Monad.Trans          (MonadIO, liftIO)
+import           Data.Carthage.Cartfile
+import           Data.Carthage.TargetPlatform
+import           Data.Function                (on)
 import           Data.List
-import qualified Data.Map.Strict      as M
-import           Data.Maybe           (fromMaybe)
+import qualified Data.Map.Strict              as M
+import           Data.Maybe                   (fromMaybe)
 import           Data.Monoid
 import           Data.Romefile
-import qualified Data.Text            as T
+import qualified Data.Text                    as T
 import           Data.Time
-import qualified Network.AWS          as AWS (Error, ErrorMessage (..),
-                                              serviceMessage, _ServiceError)
+import qualified Network.AWS                  as AWS (Error, ErrorMessage (..),
+                                                      serviceMessage,
+                                                      _ServiceError)
 import           System.FilePath
 import           Types
-import           Types.TargetPlatform
 
 
 
@@ -79,6 +80,10 @@ frameworkArchiveName f (Version v)  = appendFrameworkExtensionTo f ++ "-" ++ v +
 dSYMArchiveName :: FrameworkName -> Version -> String
 dSYMArchiveName f (Version v) = appendFrameworkExtensionTo f ++ ".dSYM" ++ "-" ++ v ++ ".zip"
 
+
+
+-- | Given a list of `CartfileEntry`s  and a list of `GitRepoName`s
+-- | produces a list of `CartfileEntry`s filtered by `GitRepoName`s
 filterCartfileEntriesByGitRepoNames :: [GitRepoName] -> [CartfileEntry] -> [CartfileEntry]
 filterCartfileEntriesByGitRepoNames repoNames cartfileEntries = [c | c <- cartfileEntries, gitRepoNameFromCartfileEntry c `elem` repoNames]
 
@@ -141,6 +146,13 @@ remoteCacheDirectory p r f = repoName </> show p ++ "/"
 
 
 
+-- | Builds a `String` representing the name of the VersionFile for a given
+-- | `GitRepoNameAndVersion`
+remoteVersionFilePath :: GitRepoNameAndVersion -> String
+remoteVersionFilePath (gitRepoName, version) = unGitRepoName gitRepoName </> versionFileNameForGitRepoNameVersioned gitRepoName version
+
+
+
 -- | Constructs a `RepositoryMap` from a list of `RomefileEntry`s.
 -- | The keys are `GitRepoName`s.
 toRepositoryMap :: [RomefileEntry] -> RepositoryMap
@@ -169,6 +181,35 @@ romeFileEntryToTuple RomefileEntry {..} = (gitRepositoryName, frameworkCommonNam
 -- | in case the lookup fails.
 repoNameForFrameworkName :: InvertedRepositoryMap -> FrameworkName -> GitRepoName
 repoNameForFrameworkName reverseRomeMap frameworkName = fromMaybe (GitRepoName . unFrameworkName $ frameworkName) (M.lookup frameworkName reverseRomeMap)
+
+
+-- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVersion` produces
+-- | a list of __unique__ `GitRepoName`s
+repoNamesForFrameworkVersion :: InvertedRepositoryMap -> [FrameworkVersion] -> [GitRepoName]
+repoNamesForFrameworkVersion reverseRomeMap = nub . map (repoNameForFrameworkName reverseRomeMap . _frameworkName)
+
+
+
+-- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVersion` produces
+-- | a list of __unique__ `GitRepoNameAndVersion`s
+repoNamesAndVersionForFrameworkVersions :: InvertedRepositoryMap -> [FrameworkVersion] -> [GitRepoNameAndVersion]
+repoNamesAndVersionForFrameworkVersions reverseRomeMap frameworkNames = nub $
+  zip (map (repoNameForFrameworkName reverseRomeMap . _frameworkName) frameworkNames)
+      (map _frameworkVersion frameworkNames)
+
+
+
+-- | Given a `GitRepoName` produces the appropriate file name for the corresponding
+-- | Carthage VersionFile
+versionFileNameForGitRepoName :: GitRepoName -> String
+versionFileNameForGitRepoName grn = "." <> unGitRepoName grn <> ".version"
+
+
+
+-- | Given a `GitRepoName` produces the appropriate file name for the corresponding
+-- | Carthage VersionFile with appenended `Version` information
+versionFileNameForGitRepoNameVersioned :: GitRepoName -> Version -> String
+versionFileNameForGitRepoNameVersioned grn version = versionFileNameForGitRepoName grn <> "-" <> unVersion version
 
 
 

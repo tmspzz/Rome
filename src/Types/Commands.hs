@@ -1,7 +1,7 @@
 module Types.Commands where
 
 import           Data.Romefile
-import           Types.TargetPlatform
+import           Data.Carthage.TargetPlatform
 
 data RomeCommand = Upload RomeUDCPayload
                   | Download RomeUDCPayload

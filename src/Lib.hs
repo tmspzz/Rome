@@ -21,9 +21,10 @@ import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Resource (runResourceT)
 import qualified Data.ByteString              as BS
 import qualified Data.ByteString.Lazy         as LBS
-import           Data.Cartfile
-import qualified Data.Conduit                 as C (Conduit, await, yield,
-                                                    ($$), (=$=))
+import           Data.Carthage.Cartfile
+import           Data.Carthage.TargetPlatform
+import qualified Data.Conduit                 as C (Conduit, await, yield, ($$),
+                                                    (=$=))
 import qualified Data.Conduit.Binary          as C (sinkFile, sinkLbs,
                                                     sourceFile, sourceLbs)
 import           Data.Ini                     as INI
@@ -40,7 +41,6 @@ import           System.Environment
 import           System.FilePath
 import           Types
 import           Types.Commands               as Commands
-import           Types.TargetPlatform
 import           Utils
 
 
@@ -58,28 +58,100 @@ runRomeWithOptions env (RomeOptions options verbose) = do
   case options of
 
       Upload (RomeUDCPayload [] platforms {-shouldVerify-} shouldIgnoreLocalCache) -> do
-        let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        liftIO $ runReaderT (uploadFrameworksAndDsymsToCaches cacheInfo reverseRepositoryMap frameworkVersions platforms) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
+        liftIO $ runReaderT (uploadFrameworksAndDsymsToCaches cacheInfo reverseRepositoryMap frameworkVersions platforms) readerEnv
+        liftIO $ runReaderT (uploadVersionFilesToCaches cacheInfo gitRepoNamesAndVersions) readerEnv
+        where
+          frameworkVersions :: [FrameworkVersion]
+          frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
+
+          gitRepoNamesAndVersions :: [GitRepoNameAndVersion]
+          gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVersions reverseRepositoryMap frameworkVersions
+
+          readerEnv :: (AWS.Env, SkipLocalCacheFlag, Bool)
+          readerEnv = (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
 
       Upload (RomeUDCPayload gitRepoNames platforms {-shouldVerify-} shouldIgnoreLocalCache) -> do
-        let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        liftIO $ runReaderT (uploadFrameworksAndDsymsToCaches cacheInfo reverseRepositoryMap frameworkVersions platforms) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
+        liftIO $ runReaderT (uploadFrameworksAndDsymsToCaches cacheInfo reverseRepositoryMap frameworkVersions platforms) readerEnv
+        liftIO $ runReaderT (uploadVersionFilesToCaches cacheInfo gitRepoNamesAndVersions) readerEnv
+        where
+          frameworkVersions :: [FrameworkVersion]
+          frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
+
+          gitRepoNamesAndVersions :: [GitRepoNameAndVersion]
+          gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVersions reverseRepositoryMap frameworkVersions
+
+          readerEnv :: (AWS.Env, SkipLocalCacheFlag, Bool)
+          readerEnv = (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
 
       Download (RomeUDCPayload [] platforms {-shouldVerify-}  shouldIgnoreLocalCache) -> do
-        let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches cacheInfo reverseRepositoryMap frameworkVersions platforms) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
+        liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches cacheInfo reverseRepositoryMap frameworkVersions platforms) readerEnv
+        liftIO $ runReaderT (downloadVersionFilesToCaches cacheInfo gitRepoNamesAndVersions) readerEnv
+        where
+          frameworkVersions :: [FrameworkVersion]
+          frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
+
+          gitRepoNamesAndVersions :: [GitRepoNameAndVersion]
+          gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVersions reverseRepositoryMap frameworkVersions
+
+          readerEnv :: (AWS.Env, SkipLocalCacheFlag, Bool)
+          readerEnv = (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
+
 
       Download (RomeUDCPayload gitRepoNames platforms {-shouldVerify-} shouldIgnoreLocalCache) -> do
-        let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches cacheInfo reverseRepositoryMap frameworkVersions platforms) (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
+        liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches cacheInfo reverseRepositoryMap frameworkVersions platforms) readerEnv
+        liftIO $ runReaderT (downloadVersionFilesToCaches cacheInfo gitRepoNamesAndVersions) readerEnv
+        where
+          frameworkVersions :: [FrameworkVersion]
+          frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
+
+          gitRepoNamesAndVersions :: [GitRepoNameAndVersion]
+          gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVersions reverseRepositoryMap frameworkVersions
+
+          readerEnv :: (AWS.Env, SkipLocalCacheFlag, Bool)
+          readerEnv = (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
 
       List (RomeListPayload listMode platforms) -> do
-        let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
         availabilities <- liftIO $ runReaderT (probeCachesForFrameworks cacheInfo reverseRepositoryMap frameworkVersions platforms) (env, verbose)
         let repoAvailabilities = getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRepositoryMap availabilities
         let repoLines = filter (not . null) $ fmap (formattedRepoAvailability listMode) repoAvailabilities
         mapM_ sayLn repoLines
+        where
+          frameworkVersions :: [FrameworkVersion]
+          frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
 
+
+-- | Uploads VersionFiles to a cache specified as `RomeCacheInfo`
+-- | given a list of `GitRepoNameAndVersion`
+uploadVersionFilesToCaches :: RomeCacheInfo -- ^ The chache definition.
+                           -> [GitRepoNameAndVersion] -- ^ A list of `GitRepoName` and `Version` information.
+                           -> ReaderT UDCEnv IO ()
+uploadVersionFilesToCaches cacheInfo = mapM_ (uploadVersionFileToCaches cacheInfo)
+
+
+
+-- | Uploads one VersionFile from a cache specified as `RomeCacheInfo`
+-- | given a `GitRepoNameAndVersion`
+uploadVersionFileToCaches :: RomeCacheInfo -- ^ The chache definition.
+                          -> GitRepoNameAndVersion -- ^ The `GitRepoName` and `Version` information.
+                          -> ReaderT UDCEnv IO ()
+uploadVersionFileToCaches (RomeCacheInfo bucketName localCacheDir) gitRepoNameAndVersion  = do
+  (env {-, shouldVerify-}, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+  versionFileExists <- liftIO $ doesFileExist versionFileLocalPath
+
+  when versionFileExists $ do
+     versionFileContent <- liftIO $ LBS.readFile versionFileLocalPath
+     runMaybeT $
+       MaybeT (return localCacheDir)
+         >>= \dir -> liftIO $
+                       unless skipLocalCache $ saveBinaryToLocalCache dir versionFileContent versionFileRemotePath versionFileName verbose
+     runReaderT (uploadBinary s3BucketName versionFileContent versionFileRemotePath versionFileName) (env, verbose)
+
+  where
+
+    s3BucketName = S3.BucketName bucketName
+    versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
+    versionFileLocalPath = carthageBuildDirectory </> versionFileName
+    versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion
 
 
 -- | Uploads a list of `FrameworkVersion` from which it derives dSYMs to a cache specified as `RomeCacheInfo`.
@@ -129,7 +201,7 @@ uploadFrameworkAndDsymToCaches  (RomeCacheInfo bucketName localCacheDir) reverse
 
     s3BucketName = S3.BucketName bucketName
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-    platformBuildDirectory = carthageBuildDirectory platform
+    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
     frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
     remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
     dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension ++ ".dSYM"
@@ -156,7 +228,8 @@ uploadBinary s3BucketName binaryZip destinationPath objectName = do
 
 
 -- | Saves a ByteString to file in a given base directory.
-saveBinaryToLocalCache :: MonadIO m => FilePath -- ^ The path of the base directory.
+saveBinaryToLocalCache :: MonadIO m
+                       => FilePath -- ^ The path of the base directory.
                        -> LBS.ByteString -- ^ The `ByteString` to save.
                        -> FilePath -- ^ The destination path inised the base directory.
                        -> String -- ^ A colloquial name for the artifact printed when verbose is `True`.
@@ -165,10 +238,74 @@ saveBinaryToLocalCache :: MonadIO m => FilePath -- ^ The path of the base direct
 saveBinaryToLocalCache cachePath binaryZip destinationPath objectName verbose = do
   when verbose $
     sayLnWithTime $ "Copying " <> objectName <> " to: " <> finalPath
-  liftIO $ createDirectoryIfMissing True (dropFileName finalPath)
-  liftIO . runResourceT $ C.sourceLbs binaryZip C.$$ C.sinkFile finalPath
+  liftIO $ saveBinaryToFile binaryZip finalPath
   where
     finalPath = cachePath </> destinationPath
+
+
+-- | Saves a ByteString to file
+saveBinaryToFile :: MonadIO m
+                 => LBS.ByteString -- ^ The `ByteString` to save.
+                 -> FilePath -- ^ The destination path.
+                 -> m ()
+saveBinaryToFile binaryArtifact destinationPath = do
+  liftIO $ createDirectoryIfMissing True (dropFileName destinationPath)
+  liftIO . runResourceT $ C.sourceLbs binaryArtifact C.$$ C.sinkFile destinationPath
+
+
+-- | Downloads VersionFiles from a cache specified as `RomeCacheInfo`
+-- | given a list of `GitRepoNameAndVersion`
+downloadVersionFilesToCaches :: RomeCacheInfo -- ^ The chache definition.
+                             -> [GitRepoNameAndVersion] -- ^ A list of `GitRepoName`s and `Version`s information.
+                             -> ReaderT UDCEnv IO ()
+downloadVersionFilesToCaches cacheInfo = mapM_ (downloadVersionFileToCaches cacheInfo)
+
+
+-- | Downloads one VersionFile from a cache specified as `RomeCacheInfo`
+-- | given a `GitRepoNameAndVersion`
+downloadVersionFileToCaches :: RomeCacheInfo -- ^ The chache definition.
+                            -> GitRepoNameAndVersion -- ^ The `GitRepoName` and `Version` information.
+                            -> ReaderT UDCEnv IO ()
+downloadVersionFileToCaches (RomeCacheInfo bucketName localCacheDir) gitRepoNameAndVersion  = do
+  (_ {-, shouldVerify-}, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+  let sayFunc = if verbose then sayLnWithTime else sayLn
+
+  case localCacheDir of
+    Just cacheDir -> do
+      when skipLocalCache $ do
+        eitherdVersionFileBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName versionFileRemotePath versionFileName
+        case eitherdVersionFileBinary of
+          Left e -> sayFunc $ "Error downloading " <> versionFileName <> " : " <> awsErrorToString e
+          Right versionFileBinary -> saveBinaryToFile versionFileBinary versionFileLocalPath
+
+      unless skipLocalCache $ do
+        let versionFileLocalCalchePath = cacheDir </> versionFileRemotePath
+        versionFileExistsInLocalCache <- liftIO . doesFileExist $ versionFileLocalCalchePath
+
+        when versionFileExistsInLocalCache $ do
+          sayFunc $ "Found " <> versionFileName <> " in local cache at: " <> versionFileLocalCalchePath
+          versionFileBinary <- runResourceT $ C.sourceFile versionFileLocalCalchePath C.$$ C.sinkLbs
+          saveBinaryToFile versionFileBinary versionFileLocalPath
+
+        unless versionFileExistsInLocalCache $ do
+          eitherdVersionFileBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName versionFileRemotePath versionFileName
+          case eitherdVersionFileBinary of
+            Left e -> sayFunc $ "Error downloading " <> versionFileName <> " : " <> awsErrorToString e
+            Right versionFileBinary -> do
+              saveBinaryToLocalCache cacheDir versionFileBinary versionFileRemotePath versionFileName verbose
+              saveBinaryToFile versionFileBinary versionFileLocalPath
+
+    Nothing -> do
+      eitherdVersionFileBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName versionFileRemotePath versionFileName
+      case eitherdVersionFileBinary of
+        Left e -> sayFunc $ "Error downloading " <> versionFileName <> " : " <> awsErrorToString e
+        Right versionFileBinary -> saveBinaryToFile versionFileBinary versionFileLocalPath
+
+  where
+    s3BucketName = S3.BucketName bucketName
+    versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
+    versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion
+    versionFileLocalPath = carthageBuildDirectory </> versionFileName
 
 
 

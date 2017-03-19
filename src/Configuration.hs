@@ -2,12 +2,12 @@ module Configuration where
 
 
 import           Control.Monad.Except
-import           Data.Cartfile
+import           Data.Carthage.Cartfile
+import           Data.Carthage.TargetPlatform
 import           Data.Romefile
 import           System.Directory
 import           System.FilePath
 import           Types
-import           Types.TargetPlatform
 
 
 getCartfileEntires :: RomeMonad [CartfileEntry]
@@ -25,5 +25,8 @@ getS3ConfigFile = (</> awsConfigFilePath) `liftM` liftIO getHomeDirectory
   where
       awsConfigFilePath = ".aws/config"
 
-carthageBuildDirectory :: TargetPlatform -> FilePath
-carthageBuildDirectory platform = "Carthage" </> "Build" </> show platform
+carthageBuildDirectoryForPlatform :: TargetPlatform -> FilePath
+carthageBuildDirectoryForPlatform platform = carthageBuildDirectory </> show platform
+
+carthageBuildDirectory :: FilePath
+carthageBuildDirectory = "Carthage" </> "Build"

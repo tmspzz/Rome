@@ -1,11 +1,9 @@
 module Main where
 
 import           Control.Monad
-
-import           Data.Cartfile
+import           Data.Carthage.Cartfile
 import           Data.Romefile
-import qualified Data.Text       as T
-import           Lib
+import qualified Data.Text              as T
 import           Types
 import           Utils
 

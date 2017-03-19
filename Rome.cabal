@@ -1,5 +1,5 @@
 name:                Rome
-version:             0.9.0.20
+version:             0.10.0.21
 synopsis:            An S3 cache for Carthage
 description:         Please see README.md
 homepage:            https://github.com/blender/Rome
@@ -20,9 +20,11 @@ library
                        , Configuration
                        , Types
                        , Types.Commands
-                       , Types.TargetPlatform
                        , Utils
-                       , Data.Cartfile
+                       , Data.Carthage.Cartfile
+                       , Data.Carthage.TargetPlatform
+                       , Data.Carthage.Common
+                       , Data.Carthage.VersionFile
                        , Data.Romefile
                        , Data.Ini.Utils
                        , Text.Parsec.Utils
@@ -49,6 +51,7 @@ library
                        , zip-archive >= 0.2
                        , resourcet >= 1.1
                        , optparse-applicative >= 0.12
+                       , aeson >= 0.11
 
   ghc-options:         -Wall -fno-warn-unused-do-bind
 

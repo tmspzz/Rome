@@ -2,15 +2,15 @@
 
 module CommandParsers where
 
-import           Data.Char            (isLetter)
-import           Data.Either.Utils    (maybeToEither)
-import           Data.List            (nub)
-import           Data.List.Split      (wordsBy)
+import           Data.Carthage.TargetPlatform
+import           Data.Char                    (isLetter)
+import           Data.Either.Utils            (maybeToEither)
+import           Data.List                    (nub)
+import           Data.List.Split              (wordsBy)
 import           Data.Romefile
-import           Options.Applicative  as Opts
-import           Text.Read            (readMaybe)
+import           Options.Applicative          as Opts
+import           Text.Read                    (readMaybe)
 import           Types.Commands
-import           Types.TargetPlatform
 
 
 

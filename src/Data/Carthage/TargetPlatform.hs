@@ -1,4 +1,4 @@
-module Types.TargetPlatform where
+module Data.Carthage.TargetPlatform where
 
 
 import           Text.Read
@@ -23,6 +23,7 @@ instance Read TargetPlatform where
    case map toLower s of
       "ios"     -> return IOS
       "macos"   -> return MacOS
+      "mac"     -> return MacOS
       "tvos"    -> return TVOS
       "watchos" -> return WatchOS
       a         -> error $ "Unrecognized platform " ++ a

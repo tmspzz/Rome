@@ -239,7 +239,8 @@ Available commands:
 
 #### Uploading
 
-Uploading one or more frameworks and corresponding dSYMs
+Uploading one or more frameworks, corresponding dSYMs and [Carthage version files](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
+if present
 (an empty list of frameworks will upload all frameworks found in `Cartfile.resolved`):
 
 Referring to the `Cartfile.resolved` in [RepositoryMap](#repositorymap)
@@ -266,7 +267,9 @@ If a local cache is specified in your `Romefile` and you wish to ignore it pass 
 
 #### Downloading
 
-Downloading one or more frameworks and corresponding dSYMs
+Downloading one or more frameworks, corresponding dSYMs and
+[Carthage version files](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
+if present
 (an empty list of frameworks will download all frameworks found in `Cartfile.resolved`):
 
 Referring to the `Cartfile.resolved` in [RepositoryMap](#repositorymap)
@@ -335,8 +338,9 @@ $ rome list --missing --platform ios | awk '{print $1}' | xargs carthage build -
 *** xcodebuild output can be found in ...
 ```
 
-Note: `list` __completely ignores dSYMs__. If a dSYM is missing the corresponding
-framework is still reported as present.
+Note: `list` __completely ignores dSYMs and Carthage version files__. If a dSYM
+or [Carthage version file](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
+if present) is missing, the corresponding framework is still reported as present.
 
 ## License
 Rome is released under MIT License

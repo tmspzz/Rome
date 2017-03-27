@@ -16,7 +16,7 @@ and I will gladly add you to the user list.
 ## Use Rome with fastlane
 
 You can integrate rome into your [fastlane](https://github.com/fastlane/fastlane) automation with the
-[fastlane pluging for rome](https://github.com/netbe/fastlane-plugin-rome).
+[fastlane plugin for rome](https://github.com/netbe/fastlane-plugin-rome).
 
 ## The problem
 

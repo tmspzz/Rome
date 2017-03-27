@@ -10,6 +10,14 @@ shared cache for frameworks built with [Carthage](https://github.com/Carthage/Ca
 
 The Rome binary is also attached as a zip to each release on the [releases page](https://github.com/blender/Rome/releases) here on GitHub.
 
+Using Rome? Let me know by [opening an issue](https://github.com/blender/Rome/issues/new)
+and I will gladly add you to the user list.
+
+## Use Rome with fastlane
+
+You can integrate rome into your [fastlane](https://github.com/fastlane/fastlane) automation with the
+[fastlane pluging for rome](https://github.com/netbe/fastlane-plugin-rome).
+
 ## The problem
 
 Suppose you're working a number of frameworks for your project and want to
@@ -341,6 +349,10 @@ $ rome list --missing --platform ios | awk '{print $1}' | xargs carthage build -
 Note: `list` __completely ignores dSYMs and Carthage version files__. If a dSYM
 or [Carthage version file](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
 if present) is missing, the corresponding framework is still reported as present.
+
+## Who uses Rome?
+
+- https://www.sharecare.com/
 
 ## License
 Rome is released under MIT License

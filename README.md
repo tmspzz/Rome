@@ -41,21 +41,21 @@ person in your team to build the framework) or the consumer.
 
 ### Producer workflow
 
-```
+```bash
 $ vi Cartfile # point to the new version of the framework
 $ carthage update && rome upload
 ```
 
 ### Consumer workflow
 
-```
+```bash
 $ vi Cartfile # point to the new version of the framework
 $ carthage update --no-build && rome download
 ```
 
 or
 
-```
+```bash
 $ vi Cartfile.resolved # point to the new version of the framework
 $ rome download
 ```
@@ -222,7 +222,7 @@ Multiple aliases are supported in `[IgnoreMap]` too
 
 Getting help:
 
-```
+```bash
 $ rome --help
 S3 cache tool for Carthage
 
@@ -253,7 +253,7 @@ if present
 
 Referring to the `Cartfile.resolved` in [RepositoryMap](#repositorymap)
 
-```
+```bash
 $ rome upload Alamofire
 Uploaded Alamofire to: Alamofire/iOS/Alamofire.framework-4.3.0.zip
 Uploaded Alamofire.dSYM to: Alamofire/iOS/Alamofire.framework.dSYM-4.3.0.zip
@@ -265,7 +265,7 @@ Uploaded Alamofire.dSYM to: Alamofire/watchOS/Alamofire.framework.dSYM-4.3.0.zip
 
 Uploading for a specific platform (all platforms are uploaded by default):
 
-```
+```bash
 $ rome upload --platform ios Alamofire
 Uploaded Alamofire to: Alamofire/iOS/Alamofire.framework-4.3.0.zip
 Uploaded Alamofire.dSYM to: Alamofire/iOS/Alamofire.framework.dSYM-4.3.0.zip
@@ -282,7 +282,7 @@ if present
 
 Referring to the `Cartfile.resolved` in [RepositoryMap](#repositorymap)
 
-```
+```bash
 $ rome download Alamofire
 Downloaded Alamofire from: Alamofire/iOS/Alamofire.framework-4.3.0.zip
 Downloaded Alamofire.dSYM from: Alamofire/iOS/Alamofire.framework.dSYM-4.3.0.zip
@@ -296,7 +296,7 @@ Downloaded Alamofire.dSYM from: Alamofire/watchOS/Alamofire.framework.dSYM-4.3.0
 
 Downloading for a specific platform (all platforms are downloaded by default):
 
-```
+```bash
 $ rome download --platform ios,watchos Alamofire
 Downloaded Alamofire from: Alamofire/iOS/Alamofire.framework-4.3.0.zip
 Downloaded Alamofire.dSYM from: Alamofire/iOS/Alamofire.framework.dSYM-4.3.0.zip
@@ -310,7 +310,7 @@ If a local cache is specified in your `Romefile` and you wish to ignore it pass 
 
 Listing frameworks and reporting on their availability:
 
-```
+```bash
 $ rome list
 Alamofire 4.3.0 : +iOS -macOS +tvOS +watchOS
 ResearchKit 1.4.1 : +iOS -macOS -tvOS -watchOS
@@ -318,7 +318,7 @@ ResearchKit 1.4.1 : +iOS -macOS -tvOS -watchOS
 
 Listing only frameworks present in the cache:
 
-```
+```bash
 $ rome list --present
 Alamofire 4.3.0 : +iOS +tvOS +watchOS
 ResearchKit 1.4.1 : +iOS
@@ -326,7 +326,7 @@ ResearchKit 1.4.1 : +iOS
 
 Listing only frameworks missing from the cache:
 
-```
+```bash
 $ rome list --missing
 Alamofire 4.3.0 : -macOS
 ResearchKit 1.4.1 : -macOS -tvOS -watchOS
@@ -334,14 +334,14 @@ ResearchKit 1.4.1 : -macOS -tvOS -watchOS
 
 Listing frameworks missing for specific platforms:
 
-```
+```bash
 $ rome list --missing --platform watchos,tvos
 ResearchKit 1.4.1 : -tvOS -watchOS
 ```
 
 Forwarding a list of missing frameworks to Carthage for building:
 
-```
+```bash
 $ rome list --missing --platform ios | awk '{print $1}' | xargs carthage build --platform ios
 *** xcodebuild output can be found in ...
 ```

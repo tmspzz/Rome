@@ -10,7 +10,7 @@ data TargetPlatform = IOS | MacOS | TVOS | WatchOS
 
 instance Show TargetPlatform where
  show IOS      = "iOS"
- show MacOS    = "macOS"
+ show MacOS    = "Mac"
  show TVOS     = "tvOS"
  show WatchOS  = "watchOS"
 

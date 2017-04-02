@@ -59,8 +59,8 @@ listParser = List <$> listPayloadParser
 parseRomeCommand :: Opts.Parser RomeCommand
 parseRomeCommand = Opts.subparser $
   Opts.command "upload" (uploadParser `withInfo` "Uploads frameworks and dSYMs contained in the local Carthage/Build/<platform> to S3, according to the local Cartfile.resolved")
-  <> Opts.command "download" (downloadParser `withInfo` "Downloads and unpacks in Carthage/Build/<platform> frameworks and dSYMs found in S3, according to the local Carftfile.resolved")
-  <> Opts.command "list" (listParser `withInfo` "Lists frameworks in the cache and reports cache misses/hits, according to the local Carftfile.resolved. Ignores dSYMs.")
+  <> Opts.command "download" (downloadParser `withInfo` "Downloads and unpacks in Carthage/Build/<platform> frameworks and dSYMs found in S3, according to the local Cartfile.resolved")
+  <> Opts.command "list" (listParser `withInfo` "Lists frameworks in the cache and reports cache misses/hits, according to the local Cartfile.resolved. Ignores dSYMs.")
 
 parseRomeOptions :: Opts.Parser RomeOptions
 parseRomeOptions = RomeOptions <$> parseRomeCommand <*> Opts.switch ( Opts.short 'v' <> help "Show verbose output" )

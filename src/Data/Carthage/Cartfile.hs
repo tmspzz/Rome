@@ -16,7 +16,10 @@ import qualified Text.Parsec          as Parsec
 import qualified Text.Parsec.String   as Parsec
 import qualified Text.Parsec.Utils    as Parsec
 
+import           Control.Monad.Trans  (MonadIO, liftIO)
 import           Data.Carthage.Common
+import           Data.Maybe           (fromJust, isJust)
+
 
 newtype Location = Location { unLocation :: String }
                    deriving (Eq, Show, Ord)
@@ -45,7 +48,7 @@ parseGit :: Parsec.Parsec String () RepoHosting
 parseGit = Parsec.string "git" >> Parsec.many1 Parsec.space >> pure Git
 
 repoHosting :: Parsec.Parsec String () RepoHosting
-repoHosting = Parsec.try parseGit <|> parseGitHub
+repoHosting = Parsec.try parseGit <|> Parsec.try parseGitHub
 
 quotedContent :: Parsec.Parsec String () String
 quotedContent = do
@@ -60,8 +63,12 @@ parseCartfileResolvedLine = do
   location <- fmap Location quotedContent
   Parsec.many1 Parsec.space
   version <- fmap Version quotedContent
-  Parsec.endOfLine
   return CartfileEntry {..}
 
-parseCartfileResolved :: String -> IO (Either Parsec.ParseError [CartfileEntry])
-parseCartfileResolved = Parsec.parseFromFile (Parsec.many1 (Parsec.optional Parsec.spaces >> parseCartfileResolvedLine))
+parseCartfileResolved :: MonadIO m => String -> m (Either Parsec.ParseError [CartfileEntry])
+parseCartfileResolved f = liftIO $ do
+  parseResult <- Parsec.parseFromFile (Parsec.many1 (Parsec.optional Parsec.spaces
+                                        >> Parsec.optionMaybe parseCartfileResolvedLine
+                                        >>= \cartFileLines -> Parsec.manyTill Parsec.anyChar Parsec.endOfLine
+                                            >> return cartFileLines)) f
+  return $ parseResult >>= \r -> pure [fromJust x | x <- r, isJust x]

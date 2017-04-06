@@ -5,6 +5,7 @@
 
 module Utils where
 
+import           Configuration                (carthageBuildDirectoryForPlatform)
 import           Control.Lens                 hiding (List)
 import           Control.Monad.Trans          (MonadIO, liftIO)
 import           Data.Carthage.Cartfile
@@ -153,6 +154,14 @@ remoteVersionFilePath (gitRepoName, version) = unGitRepoName gitRepoName </> ver
 
 
 
+-- | Builds a `String` representing the path to the Carthage build directory for
+-- | a combination of `TargetPlatform` and `FrameworkName` representing
+-- | the path to the framework's bundle
+frameworkBuildBundleForPlatform :: TargetPlatform -> FrameworkName -> String
+frameworkBuildBundleForPlatform p f = carthageBuildDirectoryForPlatform p </> appendFrameworkExtensionTo f
+
+
+
 -- | Constructs a `RepositoryMap` from a list of `RomefileEntry`s.
 -- | The keys are `GitRepoName`s.
 toRepositoryMap :: [RomefileEntry] -> RepositoryMap
@@ -181,6 +190,7 @@ romeFileEntryToTuple RomefileEntry {..} = (gitRepositoryName, frameworkCommonNam
 -- | in case the lookup fails.
 repoNameForFrameworkName :: InvertedRepositoryMap -> FrameworkName -> GitRepoName
 repoNameForFrameworkName reverseRomeMap frameworkName = fromMaybe (GitRepoName . unFrameworkName $ frameworkName) (M.lookup frameworkName reverseRomeMap)
+
 
 
 -- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVersion` produces

@@ -39,6 +39,7 @@ import qualified Network.AWS.S3               as S3
 import           System.Directory
 import           System.Environment
 import           System.FilePath
+import qualified Turtle
 import           Types
 import           Types.Commands               as Commands
 import           Utils
@@ -341,6 +342,7 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) reve
         case eitherFrameworkBinary of
           Left e -> sayFunc $ "Error downloading " <> fwn <> " : " <> awsErrorToString e
           Right frameworkBinary -> unzipBinary frameworkBinary fwn frameworkZipName verbose
+                                   <* makeExecutable platform f
 
       unless skipLocalCache $ do
         frameworkExistsInLocalCache <- liftIO . doesFileExist $ frameworkLocalCachePath
@@ -348,7 +350,8 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) reve
         when frameworkExistsInLocalCache $ do
           sayFunc $ "Found " <> fwn <> " in local cache at: " <> frameworkLocalCachePath
           binary <- runResourceT $ C.sourceFile frameworkLocalCachePath C.$$ C.sinkLbs
-          unzipBinary binary fwn frameworkZipName verbose
+          unzipBinary binary fwn frameworkZipName verbose <* makeExecutable platform f
+
 
         unless frameworkExistsInLocalCache $ do
           eitherFrameworkBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remoteFrameworkUploadPath fwn
@@ -356,13 +359,15 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) reve
             Left e -> sayFunc $ "Error downloading " <> fwn <> " : " <> awsErrorToString e
             Right frameworkBinary -> do
               saveBinaryToLocalCache cacheDir frameworkBinary remoteFrameworkUploadPath fwn verbose
-              unzipBinary frameworkBinary fwn frameworkZipName verbose
+              unzipBinary frameworkBinary fwn frameworkZipName verbose <* makeExecutable platform f
+
 
       when skipLocalCache $ do
         eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath dSYMName
         case eitherdSYMBinary of
           Left e -> sayFunc $ "Error downloading " <> dSYMName <> " : " <> awsErrorToString e
           Right dSYMBinary -> unzipBinary dSYMBinary fwn dSYMZipName verbose
+
 
       unless skipLocalCache $ do
         dSYMExistsInLocalCache <- liftIO . doesFileExist $ dSYMLocalCachePath
@@ -372,6 +377,7 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) reve
           binary <- runResourceT $ C.sourceFile dSYMLocalCachePath C.$$ C.sinkLbs
           unzipBinary binary fwn dSYMZipName verbose
 
+
         unless dSYMExistsInLocalCache $ do
           eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath dSYMName
           case eitherdSYMBinary of
@@ -380,16 +386,20 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) reve
               saveBinaryToLocalCache cacheDir dSYMBinary remotedSYMUploadPath dSYMName verbose
               unzipBinary dSYMBinary fwn dSYMZipName verbose
 
+
     Nothing -> do
       eitherFrameworkBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remoteFrameworkUploadPath fwn
       case eitherFrameworkBinary of
         Left e -> sayFunc $ "Error downloading " <> fwn <> " : " <> awsErrorToString e
         Right frameworkBinary -> unzipBinary frameworkBinary fwn frameworkZipName verbose
+                                 <* makeExecutable platform f
+
 
       eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath (fwn ++ ".dSYM")
       case eitherdSYMBinary of
         Left e -> sayFunc $ "Error downloading " <> dSYMName <> " : " <> awsErrorToString e
         Right dSYMBinary -> unzipBinary dSYMBinary fwn dSYMZipName verbose
+
 
   where
     s3BucketName = S3.BucketName bucketName
@@ -398,6 +408,14 @@ downloadFrameworkAndDsymFromCaches (RomeCacheInfo bucketName localCacheDir) reve
     dSYMZipName = dSYMArchiveName f version
     remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
     dSYMName = fwn ++ ".dSYM"
+
+    makeExecutable :: MonadIO m => TargetPlatform -> FrameworkName -> m Turtle.Permissions
+    makeExecutable p fname = Turtle.chmod Turtle.executable
+                            (
+                              Turtle.fromString $
+                                frameworkBuildBundleForPlatform p fname
+                                </> unFrameworkName fname
+                            )
 
 
 

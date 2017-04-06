@@ -12,14 +12,13 @@ module Data.Carthage.Cartfile
 
 
 import           Control.Applicative  ((<|>))
+import           Control.Monad.Trans  (MonadIO, liftIO)
+import           Data.Maybe
 import qualified Text.Parsec          as Parsec
 import qualified Text.Parsec.String   as Parsec
 import qualified Text.Parsec.Utils    as Parsec
 
-import           Control.Monad.Trans  (MonadIO, liftIO)
 import           Data.Carthage.Common
-import           Data.Maybe           (fromJust, isJust)
-
 
 newtype Location = Location { unLocation :: String }
                    deriving (Eq, Show, Ord)
@@ -48,7 +47,7 @@ parseGit :: Parsec.Parsec String () RepoHosting
 parseGit = Parsec.string "git" >> Parsec.many1 Parsec.space >> pure Git
 
 repoHosting :: Parsec.Parsec String () RepoHosting
-repoHosting = Parsec.try parseGit <|> Parsec.try parseGitHub
+repoHosting = Parsec.try parseGit <|> parseGitHub
 
 quotedContent :: Parsec.Parsec String () String
 quotedContent = do
@@ -60,15 +59,14 @@ quotedContent = do
 parseCartfileResolvedLine :: Parsec.Parsec String () CartfileEntry
 parseCartfileResolvedLine = do
   hosting <- repoHosting
-  location <- fmap Location quotedContent
+  location <- Location <$> quotedContent
   Parsec.many1 Parsec.space
-  version <- fmap Version quotedContent
+  version <- Version <$> quotedContent
   return CartfileEntry {..}
 
+parseMaybeCartfileEntry :: Parsec.Parsec String () (Maybe CartfileEntry)
+parseMaybeCartfileEntry = Parsec.optional Parsec.spaces
+                           *> (parseCartfileResolvedLine `Parsec.onceOrConsumeTill` Parsec.endOfLine)
+
 parseCartfileResolved :: MonadIO m => String -> m (Either Parsec.ParseError [CartfileEntry])
-parseCartfileResolved f = liftIO $ do
-  parseResult <- Parsec.parseFromFile (Parsec.many1 (Parsec.optional Parsec.spaces
-                                        >> Parsec.optionMaybe parseCartfileResolvedLine
-                                        >>= \cartFileLines -> Parsec.manyTill Parsec.anyChar Parsec.endOfLine
-                                            >> return cartFileLines)) f
-  return $ parseResult >>= \r -> pure [fromJust x | x <- r, isJust x]
+parseCartfileResolved = liftIO . Parsec.parseFromFile (catMaybes <$> (parseMaybeCartfileEntry `Parsec.manyTill` Parsec.eof))

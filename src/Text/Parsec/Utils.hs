@@ -30,4 +30,4 @@ onceAndConsumeTill :: (Parsec.Stream s Identity Char)
                    -> Parsec.Parsec s u (Maybe a)
 onceAndConsumeTill p end = Parsec.optionMaybe (Parsec.try p) <* consume
                            where
-                             consume = do { end; return () } <|> Parsec.anyChar *> consume
+                             consume = Parsec.try end <|> Parsec.anyChar *> consume

@@ -3,7 +3,7 @@
 module Text.Parsec.Utils
     ( parseWhiteSpaces
     , parseUnquotedString
-    , onceOrConsumeTill
+    , onceAndConsumeTill
     ) where
 
 
@@ -24,11 +24,10 @@ parseUnquotedString = Parsec.many1 (Parsec.noneOf ['"', ' ', '\t', '\n', '\'', '
 -- | @onceOrConsumeTill p@ end@ tries to apply the parser @p@ /once/ and consumes
 -- | the input until @end@. Returns a `Maybe` of the value of @p@.
 -- | Thanks to Tobias Mayer, Berlin Haskell Group.
-onceOrConsumeTill :: (Parsec.Stream s Identity t, Show t)
-                  => Parsec.Parsec s u a
-                  -> Parsec.Parsec s u b
-                  -> Parsec.Parsec s u (Maybe a)
-onceOrConsumeTill p end = Parsec.optionMaybe p <* consume
+onceAndConsumeTill :: (Parsec.Stream s Identity Char)
+                   => Parsec.Parsec s u a
+                   -> Parsec.Parsec s u b
+                   -> Parsec.Parsec s u (Maybe a)
+onceAndConsumeTill p end = Parsec.optionMaybe (Parsec.try p) <* consume
                            where
-                             consume = do { end; return ()}
-                               <|> Parsec.anyToken *> consume
+                             consume = do { end; return () } <|> Parsec.anyChar *> consume

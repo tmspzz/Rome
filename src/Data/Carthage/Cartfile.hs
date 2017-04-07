@@ -66,7 +66,7 @@ parseCartfileResolvedLine = do
 
 parseMaybeCartfileEntry :: Parsec.Parsec String () (Maybe CartfileEntry)
 parseMaybeCartfileEntry = Parsec.optional Parsec.spaces
-                           *> (parseCartfileResolvedLine `Parsec.onceOrConsumeTill` Parsec.endOfLine)
+                          *> (parseCartfileResolvedLine `Parsec.onceAndConsumeTill` Parsec.endOfLine)
 
 parseCartfileResolved :: MonadIO m => String -> m (Either Parsec.ParseError [CartfileEntry])
-parseCartfileResolved = liftIO . Parsec.parseFromFile (catMaybes <$> (parseMaybeCartfileEntry `Parsec.manyTill` Parsec.eof))
+parseCartfileResolved = liftIO . Parsec.parseFromFile (catMaybes <$> Parsec.many (Parsec.try parseMaybeCartfileEntry))

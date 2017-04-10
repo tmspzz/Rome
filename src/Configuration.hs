@@ -12,7 +12,7 @@ import           Types
 
 getCartfileEntires :: RomeMonad [CartfileEntry]
 getCartfileEntires = do
-  eitherCartfileEntries <- liftIO $ parseCartfileResolved cartfileResolved
+  eitherCartfileEntries <- parseCartfileResolved cartfileResolved
   case eitherCartfileEntries of
     Left e -> throwError $ "Carfile.resolved parse error: " ++ show e
     Right cartfileEntries -> return cartfileEntries

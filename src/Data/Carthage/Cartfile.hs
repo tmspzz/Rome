@@ -12,6 +12,8 @@ module Data.Carthage.Cartfile
 
 
 import           Control.Applicative  ((<|>))
+import           Control.Monad.Trans  (MonadIO, liftIO)
+import           Data.Maybe
 import qualified Text.Parsec          as Parsec
 import qualified Text.Parsec.String   as Parsec
 import qualified Text.Parsec.Utils    as Parsec
@@ -57,11 +59,14 @@ quotedContent = do
 parseCartfileResolvedLine :: Parsec.Parsec String () CartfileEntry
 parseCartfileResolvedLine = do
   hosting <- repoHosting
-  location <- fmap Location quotedContent
+  location <- Location <$> quotedContent
   Parsec.many1 Parsec.space
-  version <- fmap Version quotedContent
-  Parsec.endOfLine
+  version <- Version <$> quotedContent
   return CartfileEntry {..}
 
-parseCartfileResolved :: String -> IO (Either Parsec.ParseError [CartfileEntry])
-parseCartfileResolved = Parsec.parseFromFile (Parsec.many1 (Parsec.optional Parsec.spaces >> parseCartfileResolvedLine))
+parseMaybeCartfileEntry :: Parsec.Parsec String () (Maybe CartfileEntry)
+parseMaybeCartfileEntry = Parsec.optional Parsec.spaces
+                          *> (parseCartfileResolvedLine `Parsec.onceAndConsumeTill` Parsec.endOfLine)
+
+parseCartfileResolved :: MonadIO m => String -> m (Either Parsec.ParseError [CartfileEntry])
+parseCartfileResolved = liftIO . Parsec.parseFromFile (catMaybes <$> Parsec.many (Parsec.try parseMaybeCartfileEntry))

@@ -12,10 +12,16 @@ module Data.Romefile
     , GitRepoName (..)
     , RomeFileParseResult (..)
     , RomeCacheInfo (..)
+    , cacheInfo
+    , repositoryMapEntries
+    , ignoreMapEntries
+    , bucket
+    , localCacheDir
     )
 where
 
 import           Control.Monad.Except
+import           Control.Lens
 import           Data.HashMap.Strict   as M
 import           Data.Ini              as INI
 import           Data.Ini.Utils        as INI
@@ -30,24 +36,45 @@ import           System.Path.NameManip
 
 
 newtype FrameworkName = FrameworkName { unFrameworkName :: String }
-                        deriving (Eq, Show, Ord)
+                                      deriving (Eq, Show, Ord)
 
 newtype GitRepoName   = GitRepoName { unGitRepoName :: String }
-                        deriving (Eq, Show, Ord)
+                                    deriving (Eq, Show, Ord)
 
 data RomefileEntry    = RomefileEntry { gitRepositoryName    :: GitRepoName
                                       , frameworkCommonNames :: [FrameworkName]
                                       }
                                       deriving (Show, Eq)
 
-data RomeFileParseResult = RomeFileParseResult { cacheInfo            :: RomeCacheInfo
-                                               , repositoryMapEntries :: [RomefileEntry]
-                                               , ignoreMapEntries     :: [RomefileEntry]
+data RomeFileParseResult = RomeFileParseResult { _cacheInfo            :: RomeCacheInfo
+                                               , _repositoryMapEntries :: [RomefileEntry]
+                                               , _ignoreMapEntries     :: [RomefileEntry]
                                                }
 
-data RomeCacheInfo = RomeCacheInfo { _bucket        :: Text
+cacheInfo :: Lens' RomeFileParseResult RomeCacheInfo
+cacheInfo = lens _cacheInfo (\parseResult n -> parseResult { _cacheInfo = n })
+
+repositoryMapEntries :: Lens' RomeFileParseResult [RomefileEntry]
+repositoryMapEntries = lens _repositoryMapEntries (\parseResult n -> parseResult { _repositoryMapEntries = n })
+
+ignoreMapEntries :: Lens' RomeFileParseResult [RomefileEntry]
+ignoreMapEntries = lens _ignoreMapEntries (\parseResult n -> parseResult { _ignoreMapEntries = n })
+
+
+
+
+
+data RomeCacheInfo = RomeCacheInfo { _bucket        :: Maybe Text
                                    , _localCacheDir :: Maybe FilePath
                                    }
+
+bucket :: Lens' RomeCacheInfo (Maybe Text)
+bucket = lens _bucket (\cInfo n -> cInfo { _bucket = n })
+
+localCacheDir :: Lens' RomeCacheInfo (Maybe FilePath)
+localCacheDir = lens _localCacheDir (\cInfo n -> cInfo { _localCacheDir = n })
+
+
 
 -- |The name of the Romefile
 romefile :: String
@@ -83,16 +110,16 @@ parseRomefile f = do
       _bucket <- withExceptT toErrorMessage $ getBucket ini
       maybeCacheDirAsText <- withExceptT toErrorMessage $ getLocalCacheDir ini
       _localCacheDir <- liftIO $ mapM absolutize (unpack <$> maybeCacheDirAsText)
-      repositoryMapEntries <- getRepostiryMapEntries ini
-      ignoreMapEntries <- getIgnoreMapEntries ini
-      let cacheInfo = RomeCacheInfo {..}
+      _repositoryMapEntries <- getRepostiryMapEntries ini
+      _ignoreMapEntries <- getIgnoreMapEntries ini
+      let _cacheInfo = RomeCacheInfo {..}
       return RomeFileParseResult { .. }
   where
     toErrorMessage :: Text -> String
     toErrorMessage e = "Error while parsing " <> f <> ": " <> unpack e
 
-getBucket :: MonadIO m => Ini -> ExceptT Text m Text
-getBucket ini = requireKey s3BucketKey `inRequiredSection` cacheSectionDelimiter `fromIni''` ini
+getBucket :: MonadIO m => Ini -> ExceptT Text m (Maybe Text)
+getBucket ini = optionalKey s3BucketKey `inRequiredSection` cacheSectionDelimiter `fromIni''` ini
 
 getLocalCacheDir :: MonadIO m => Ini -> ExceptT Text m (Maybe Text)
 getLocalCacheDir ini = optionalKey localCacheDirKey `inRequiredSection` cacheSectionDelimiter `fromIni''` ini

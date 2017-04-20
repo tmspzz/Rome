@@ -350,6 +350,23 @@ Note: `list` __completely ignores dSYMs and Carthage version files__. If a dSYM
 or [Carthage version file](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
 if present) is missing, the corresponding framework is still reported as present.
 
+## Troubleshooting
+
+### Getting "Image not found" when running an application using binaries
+
+Implicit dependencies of frameworks when using binaries are not copied over by Xcode automatically despite "Always Embed Standard Libraries" set to **YES** (see [56](/blender/Rome/issues/56)).
+
+Here is an example with ReactiveCocoa, which depends on CoreLocation and MapKit. If ReactiveCocoa is built via Carthage or as a Xcode subproject, CoreLocation and MapKit are copied into the app's bundle. On the other hand, when using the binary, Xcode has no clue of that and does not copy the necessary frameworks even if "Always Embed Standard Libraries" is set to yes.
+
+To fix that, add an explicit import statement to one of your files:
+
+```swift
+// Implicit ReactiveCocoa Dependencies
+
+import CoreLocation
+import MapKit
+```
+
 ## Who uses Rome?
 
 - https://www.sharecare.com/

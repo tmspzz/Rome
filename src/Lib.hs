@@ -95,41 +95,6 @@ runRomeWithOptions (RomeOptions options verbose) = do
               let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames in
               downloadArtifacts (skipLocalCache, verbose) mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
 
-        -- case (mS3Bucket, mlCacheDir) of
-        --   (Just b,  l)   -> do
-        --     env <- getAWSRegion
-        --     let readerEnv = (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
-        --     liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches (S3.BucketName b) l reverseRepositoryMap frameworkVersions platforms) readerEnv
-        --     liftIO $ runReaderT (downloadVersionFilesToCaches  (S3.BucketName b) l gitRepoNamesAndVersions) readerEnv
-        --   (Nothing, Just l)   -> undefined
-        --   (Nothing, Nothing)  -> throwError bothCacheKeysMissingMessage
-        -- where
-        --   frameworkVersions :: [FrameworkVersion]
-        --   frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        --
-        --   gitRepoNamesAndVersions :: [GitRepoNameAndVersion]
-        --   gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVersions reverseRepositoryMap frameworkVersions
-
-
-
-      -- Download (RomeUDCPayload gitRepoNames platforms {-shouldVerify-} shouldIgnoreLocalCache) ->
-
-        -- case (mS3Bucket, mlCacheDir) of
-        --   (Just b,  l)   -> do
-        --     env <- getAWSRegion
-        --     let readerEnv = (env{-, shouldVerify-}, shouldIgnoreLocalCache, verbose)
-        --     liftIO $ runReaderT (downloadFrameworksAndDsymsFromCaches (S3.BucketName b) l reverseRepositoryMap frameworkVersions platforms) readerEnv
-        --     liftIO $ runReaderT (downloadVersionFilesToCaches  (S3.BucketName b) l gitRepoNamesAndVersions) readerEnv
-        --   (Nothing, Just l)   -> undefined
-        --   (Nothing, Nothing)  -> throwError bothCacheKeysMissingMessage
-        -- where
-        --   frameworkVersions :: [FrameworkVersion]
-        --   frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
-        --
-        --   gitRepoNamesAndVersions :: [GitRepoNameAndVersion]
-        --   gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVersions reverseRepositoryMap frameworkVersions
-
-
       List (RomeListPayload listMode platforms) ->
         case (mS3Bucket, mlCacheDir) of
           (Just b,  l)   -> do
@@ -355,11 +320,11 @@ uploadFrameworkToS3 frameworkArchive
 
 
 uploadDsymToS3 :: Zip.Archive
-                    -> S3.BucketName
-                    -> InvertedRepositoryMap
-                    -> FrameworkVersion
-                    -> TargetPlatform
-                    -> ReaderT (AWS.Env, Bool) IO ()
+               -> S3.BucketName
+               -> InvertedRepositoryMap
+               -> FrameworkVersion
+               -> TargetPlatform
+               -> ReaderT (AWS.Env, Bool) IO ()
 uploadDsymToS3 dSYMArchive
                s3BucketName
                reverseRomeMap
@@ -599,46 +564,46 @@ downloadVersionFileFromCaches :: S3.BucketName -- ^ The chache definition.
                               -> Maybe FilePath
                               -> GitRepoNameAndVersion -- ^ The `GitRepoName` and `Version` information.
                               -> ReaderT UDCEnv IO ()
-downloadVersionFileFromCaches s3BucketName lDir gitRepoNameAndVersion  = do
-  undefined
-  -- (_ {-, shouldVerify-}, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
-  -- let sayFunc = if verbose then sayLnWithTime else sayLn
-  --
-  -- case lDir of
-  --   Just cacheDir -> do
-  --     when skipLocalCache $ do
-  --       eitherdVersionFileBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName versionFileRemotePath versionFileName
-  --       case eitherdVersionFileBinary of
-  --         Left e -> sayFunc $ "Error downloading " <> versionFileName <> " : " <> awsErrorToString e
-  --         Right versionFileBinary -> saveBinaryToFile versionFileBinary versionFileLocalPath
-  --
-  --     unless skipLocalCache $ do
-  --       let versionFileLocalCalchePath = cacheDir </> versionFileRemotePath
-  --       versionFileExistsInLocalCache <- liftIO . doesFileExist $ versionFileLocalCalchePath
-  --
-  --       when versionFileExistsInLocalCache $ do
-  --         sayFunc $ "Found " <> versionFileName <> " in local cache at: " <> versionFileLocalCalchePath
-  --         versionFileBinary <- runResourceT $ C.sourceFile versionFileLocalCalchePath C.$$ C.sinkLbs
-  --         saveBinaryToFile versionFileBinary versionFileLocalPath
-  --
-  --       unless versionFileExistsInLocalCache $ do
-  --         eitherdVersionFileBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName versionFileRemotePath versionFileName
-  --         case eitherdVersionFileBinary of
-  --           Left e -> sayFunc $ "Error downloading " <> versionFileName <> " : " <> awsErrorToString e
-  --           Right versionFileBinary -> do
-  --             saveBinaryToLocalCache cacheDir versionFileBinary versionFileRemotePath versionFileName verbose
-  --             saveBinaryToFile versionFileBinary versionFileLocalPath
-  --
-  --   Nothing -> do
-  --     eitherdVersionFileBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName versionFileRemotePath versionFileName
-  --     case eitherdVersionFileBinary of
-  --       Left e -> sayFunc $ "Error downloading " <> versionFileName <> " : " <> awsErrorToString e
-  --       Right versionFileBinary -> saveBinaryToFile versionFileBinary versionFileLocalPath
-  --
-  -- where
-  --   versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
-  --   versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion
-  --   versionFileLocalPath = carthageBuildDirectory </> versionFileName
+downloadVersionFileFromCaches s3BucketName (Just lCacheDir) gitRepoNameAndVersion = do
+  (env, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+
+  when skipLocalCache $
+    downloadVersionFileFromCaches s3BucketName Nothing gitRepoNameAndVersion
+
+  unless skipLocalCache $ do
+    eitherVersionFileBinary <- runExceptT $ getVersionFileFromLocalCache lCacheDir gitRepoNameAndVersion
+    case eitherVersionFileBinary of
+      Right versionFileBinary -> liftIO $ saveBinaryToLocalCache lCacheDir versionFileBinary versionFileRemotePath versionFileName verbose
+      Left e -> liftIO $ do
+        let sayFunc = if verbose then sayLnWithTime else sayLn
+        sayFunc e
+        runReaderT
+          ( do
+            let sayFunc2 = if verbose then sayLnWithTime else sayLn
+            e2 <- runExceptT $ do
+              versionFileBinary <- getVersionFileFromS3 s3BucketName gitRepoNameAndVersion
+              saveBinaryToFile versionFileBinary versionFileLocalPath
+              saveBinaryToLocalCache lCacheDir versionFileBinary versionFileRemotePath versionFileName verbose
+            whenError sayFunc2 e2
+           ) (env, verbose)
+
+  where
+    versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
+    versionFileLocalPath = carthageBuildDirectory </> versionFileName
+    versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion
+
+downloadVersionFileFromCaches s3BucketName Nothing gitRepoNameAndVersion = do
+  (env, _, verbose) <- ask
+  let sayFunc = if verbose then sayLnWithTime else sayLn
+  eitherError <- liftIO $ runReaderT
+                          (runExceptT $ do
+                            versionFileBinary <- getVersionFileFromS3 s3BucketName gitRepoNameAndVersion
+                            saveBinaryToFile versionFileBinary versionFileLocalPath)
+                          (env, verbose)
+  whenError sayFunc eitherError
+  where
+    versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
+    versionFileLocalPath = carthageBuildDirectory </> versionFileName
 
 
 
@@ -668,22 +633,9 @@ downloadFrameworkAndDsymFromCaches s3BucketName
                                    fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
                                    platform = do
   (env, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
-  let sayFunc = if verbose then sayLnWithTime else sayLn
 
-  when skipLocalCache $ do
-    eitherFrameworkError <- liftIO $ runReaderT
-                            (runExceptT $ getAndUnzipFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform)
-                            (env, verbose)
-    whenError sayFunc eitherFrameworkError
-    eitherDSYMError <- liftIO $ runReaderT
-                       (runExceptT $ getAndUnzipDSYMFromS3 s3BucketName reverseRomeMap fVersion platform)
-                       (env, verbose)
-    whenError sayFunc eitherDSYMError
-
-
-
-
-
+  when skipLocalCache $
+    downloadFrameworkAndDsymFromCaches s3BucketName Nothing reverseRomeMap fVersion platform
 
   unless skipLocalCache $ do
 
@@ -691,16 +643,16 @@ downloadFrameworkAndDsymFromCaches s3BucketName
     case eitherFrameworkSuccess of
       Right _ -> return ()
       Left  e -> liftIO $ do
-                  let sayFunc2 = if verbose then sayLnWithTime else sayLn
-                  sayFunc2 e
+                  let sayFunc = if verbose then sayLnWithTime else sayLn
+                  sayFunc e
                   runReaderT
                     ( do
-                      let sayFunc3 = if verbose then sayLnWithTime else sayLn
+                      let sayFunc2 = if verbose then sayLnWithTime else sayLn
                       e2 <- runExceptT $ do
                         frameworkBinary <- getFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform
                         saveBinaryToLocalCache lCacheDir frameworkBinary remoteFrameworkUploadPath fwn verbose
                         unzipBinary frameworkBinary fwn frameworkZipName verbose <* makeExecutable platform f
-                      whenError sayFunc3 e2
+                      whenError sayFunc2 e2
                      ) (env, verbose)
 
 
@@ -708,16 +660,16 @@ downloadFrameworkAndDsymFromCaches s3BucketName
     case eitherDSYMSuccess of
      Right _ -> return ()
      Left  e -> liftIO $ do
-                 let sayFunc2 = if verbose then sayLnWithTime else sayLn
-                 sayFunc2 e
+                 let sayFunc = if verbose then sayLnWithTime else sayLn
+                 sayFunc e
                  runReaderT
                    ( do
-                     let sayFunc3 = if verbose then sayLnWithTime else sayLn
+                     let sayFunc2 = if verbose then sayLnWithTime else sayLn
                      e2 <- runExceptT $ do
                        dSYMBinary <- getDSYMFromS3 s3BucketName reverseRomeMap fVersion platform
                        saveBinaryToLocalCache lCacheDir dSYMBinary remotedSYMUploadPath dSYMName verbose
                        unzipBinary dSYMBinary dSYMName dSYMZipName verbose
-                     whenError sayFunc3 e2
+                     whenError sayFunc2 e2
                     ) (env, verbose)
 
   where
@@ -739,91 +691,15 @@ downloadFrameworkAndDsymFromCaches s3BucketName
                           (runExceptT $ getAndUnzipFrameworkFromS3 s3BucketName reverseRomeMap frameworkVersion platform)
                           (env, verbose)
   whenError sayFunc eitherError
+  eitherDSYMError <- liftIO $ runReaderT
+                     (runExceptT $ getAndUnzipDSYMFromS3 s3BucketName reverseRomeMap frameworkVersion platform)
+                     (env, verbose)
+  whenError sayFunc eitherDSYMError
 
 
 whenError :: Monad m => (l -> m ()) -> Either l r -> m ()
 whenError say (Left e)  = say e
 whenError _ (Right _) = return ()
-
-
-
-  -- let sayFunc = if verbose then sayLnWithTime else sayLn
-  -- case mlCacheDir of
-  --   Just cacheDir -> do
-  --
-  --     let frameworkLocalCachePath = cacheDir </> remoteFrameworkUploadPath
-  --     let dSYMLocalCachePath = cacheDir </> remotedSYMUploadPath
-  --
-  --     when skipLocalCache $ do
-  --       eitherFrameworkBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remoteFrameworkUploadPath fwn
-  --       case eitherFrameworkBinary of
-  --         Left e -> sayFunc $ "Error downloading " <> fwn <> " : " <> awsErrorToString e
-  --         Right frameworkBigetFrameworkFromS3nary -> unzipBinary frameworkBinary fwn frameworkZipName verbose
-  --                                  <* makeExecutable platform f
-  --
-  --     unless skipLocalCache $ do
-  --       frameworkExistsInLocalCache <- liftIO . doesFileExist $ frameworkLocalCachePath
-  --
-  --       when frameworkExistsInLocalCache $ do
-  --         sayFunc $ "Found " <> fwn <> " in local cache at: " <> frameworkLocalCachePath
-  --         binary <- runResourceT $ C.sourceFile frameworkLocalCachePath C.$$ C.sinkLbs
-  --         unzipBinary binary fwn frameworkZipName verbose <* makeExecutable platform f
-  --
-  --
-  --       unless frameworkExistsInLocalCache $ do
-  --         eitherFrameworkBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remoteFrameworkUploadPath fwn
-  --         case eitherFrameworkBinary of
-  --           Left e -> sayFunc $ "Error downloading " <> fwn <> " : " <> awsErrorToString e
-  --           Right frameworkBinary -> do
-  --             saveBinaryToLocalCache cacheDir frameworkBinary remoteFrameworkUploadPath fwn verbose
-  --             unzipBinary frameworkBinary fwn frameworkZipName verbose <* makeExecutable platform f
-  --
-  --
-  --     when skipLocalCache $ do
-  --       eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath dSYMName
-  --       case eitherdSYMBinary of
-  --         Left e -> sayFunc $ "Error downloading " <> dSYMName <> " : " <> awsErrorToString e
-  --         Right dSYMBinary -> unzipBinary dSYMBinary fwn dSYMZipName verbose
-  --
-  --
-  --     unless skipLocalCache $ do
-  --       dSYMExistsInLocalCache <- liftIO . doesFileExist $ dSYMLocalCachePath
-  --
-  --       when dSYMExistsInLocalCache $ do
-  --         sayFunc $ "Found " <> dSYMName <> " in local cache at: " <> dSYMLocalCachePath
-  --         binary <- runResourceT $ C.sourceFile dSYMLocalCachePath C.$$ C.sinkLbs
-  --         unzipBinary binary fwn dSYMZipName verbose
-  --
-  --
-  --       unless dSYMExistsInLocalCache $ do
-  --         eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath dSYMName
-  --         case eitherdSYMBinary of
-  --           Left e -> sayFunc $ "Error downloading " <> dSYMName <> " : " <> awsErrorToString e
-  --           Right dSYMBinary -> do
-  --             saveBinaryToLocalCache cacheDir dSYMBinary remotedSYMUploadPath dSYMName verbose
-  --             unzipBinary dSYMBinary fwn dSYMZipName verbose
-  --
-  --
-  --   Nothing -> do
-  --     eitherFrameworkBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remoteFrameworkUploadPath fwn
-  --     case eitherFrameworkBinary of
-  --       Left e -> sayFunc $ "Error downloading " <> fwn <> " : " <> awsErrorToString e
-  --       Right frameworkBinary -> unzipBinary frameworkBinary fwn frameworkZipName verbose
-  --                                <* makeExecutable platform f
-  --
-  --
-  --     eitherdSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath (fwn ++ ".dSYM")
-  --     case eitherdSYMBinary of
-  --       Left e -> sayFunc $ "Error downloading " <> dSYMName <> " : " <> awsErrorToString e
-  --       Right dSYMBinary -> unzipBinary dSYMBinary fwn dSYMZipName verbose
-  --
-  --
-  -- where
-  --   frameworkZipName = frameworkArchiveName f version
-  --   remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
-  --   dSYMZipName = dSYMArchiveName f version
-  --   remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
-  --   dSYMName = fwn ++ ".dSYM"
 
 
 
@@ -834,6 +710,7 @@ makeExecutable p fname = Turtle.chmod Turtle.executable
                             frameworkBuildBundleForPlatform p fname
                             </> unFrameworkName fname
                         )
+
 
 
 getFrameworkFromLocalCache :: MonadIO m
@@ -872,6 +749,23 @@ getDSYMFromLocalCache lCacheDir
   where
     dSYMLocalCachePath = lCacheDir </> remotedSYMUploadPath
     remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
+
+
+getVersionFileFromLocalCache :: MonadIO m
+                             => FilePath
+                             -> GitRepoNameAndVersion
+                             -> ExceptT String m LBS.ByteString
+getVersionFileFromLocalCache lCacheDir gitRepoNameAndVersion =  do
+  versionFileExistsInLocalCache <- liftIO . doesFileExist $ versionFileLocalCalchePath
+
+  if versionFileExistsInLocalCache
+    then liftIO . runResourceT $ C.sourceFile versionFileLocalCalchePath C.$$ C.sinkLbs
+    else throwError $ "Error: could not find " <> versionFileName <> " in local cache at : " <> versionFileLocalCalchePath
+  where
+    versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
+    versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion
+    versionFileLocalCalchePath = lCacheDir </> versionFileRemotePath
+
 
 
 
@@ -1001,10 +895,10 @@ getAndUnzipDSYMFromS3 s3BucketName
 
 
 getDSYMFromS3 :: S3.BucketName
-                 -> InvertedRepositoryMap
-                 -> FrameworkVersion
-                 -> TargetPlatform
-                 -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
+              -> InvertedRepositoryMap
+              -> FrameworkVersion
+              -> TargetPlatform
+              -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
 getDSYMFromS3 s3BucketName
               reverseRomeMap
               (FrameworkVersion f@(FrameworkName fwn) version)
@@ -1016,6 +910,20 @@ getDSYMFromS3 s3BucketName
   where
     remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
     dSYMName = fwn ++ ".dSYM"
+
+
+
+getVersionFileFromS3 :: S3.BucketName
+                     -> GitRepoNameAndVersion
+                     -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
+getVersionFileFromS3 s3BucketName gitRepoNameAndVersion = do
+  eitherVersionFileBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName versionFileRemotePath versionFileName
+  case eitherVersionFileBinary of
+    Left e -> throwError $ "Error: could not download " <> versionFileName <> " : " <> awsErrorToString e
+    Right versionFileBinary -> return versionFileBinary
+  where
+    versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
+    versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion
 
 
 

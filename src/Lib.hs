@@ -114,30 +114,51 @@ listArtifacts mS3BucketName
               reverseRepositoryMap
               frameworkVersions
               platforms = do
-  (SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+  (_, verbose) <- ask
+  let sayFunc = if verbose then sayLnWithTime else sayLn
+  repoAvailabilities <- getRepoAvailabilityFromCaches mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
+  mapM_ sayFunc $ repoLines repoAvailabilities
+  where
+    repoLines repoAvailabilities = filter (not . null) $ fmap (formattedRepoAvailability listMode) repoAvailabilities
 
-  case (mS3BucketName, mlCacheDir) of
 
-    (Just s3BucketName,  _) -> do
-      env <- lift getAWSRegion
-      let readerEnv = (env, verbose)
-      availabilities <- liftIO $ runReaderT (probeS3ForFrameworks s3BucketName reverseRepositoryMap frameworkVersions platforms) readerEnv
-      let repoAvailabilities = getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRepositoryMap availabilities
-      let repoLines = filter (not . null) $ fmap (formattedRepoAvailability listMode) repoAvailabilities
-      let sayFunc = if verbose then sayLnWithTime else sayLn
-      mapM_ sayFunc repoLines
 
-    (Nothing, Just lCacheDir) -> do
-      when skipLocalCache $
-        throwError conflictingSkipLocalCacheOptionMessage
+getRepoAvailabilityFromCaches :: Maybe S3.BucketName
+                              -> Maybe FilePath
+                              -> InvertedRepositoryMap
+                              -> [FrameworkVersion]
+                              -> [TargetPlatform]
+                              -> ReaderT (SkipLocalCacheFlag, Bool) RomeMonad [GitRepoAvailability]
+getRepoAvailabilityFromCaches (Just s3BucketName)
+                              _
+                              reverseRepositoryMap
+                              frameworkVersions
+                              platforms = do
+  env <- lift getAWSRegion
+  (_, verbose) <- ask
+  let readerEnv = (env, verbose)
+  availabilities <- liftIO $ runReaderT (probeS3ForFrameworks s3BucketName reverseRepositoryMap frameworkVersions platforms) readerEnv
+  return $ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRepositoryMap availabilities
 
-      availabilities <- probeLocalCacheForFrameworks lCacheDir reverseRepositoryMap frameworkVersions platforms
-      let repoAvailabilities = getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRepositoryMap availabilities
-      let repoLines = filter (not . null) $ fmap (formattedRepoAvailability listMode) repoAvailabilities
-      let sayFunc = if verbose then sayLnWithTime else sayLn
-      mapM_ sayFunc repoLines
+getRepoAvailabilityFromCaches Nothing
+                              (Just lCacheDir)
+                              reverseRepositoryMap
+                              frameworkVersions
+                              platforms = do
+  (SkipLocalCacheFlag skipLocalCache, _) <- ask
+  when skipLocalCache $
+    throwError conflictingSkipLocalCacheOptionMessage
 
-    (Nothing, Nothing) -> throwError bothCacheKeysMissingMessage
+  availabilities <- probeLocalCacheForFrameworks lCacheDir reverseRepositoryMap frameworkVersions platforms
+  return $ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRepositoryMap availabilities
+
+getRepoAvailabilityFromCaches Nothing
+                              Nothing
+                              _
+                              _
+                              _ = throwError bothCacheKeysMissingMessage
+
+
 
 
 downloadArtifacts :: Maybe S3.BucketName

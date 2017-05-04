@@ -846,7 +846,7 @@ getDSYMFromLocalCache lCacheDir
   where
     dSYMLocalCachePath = lCacheDir </> remotedSYMUploadPath
     remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
-
+    dSYMName = fwn <> ".dSYM"
 
 getVersionFileFromLocalCache :: MonadIO m
                              => FilePath

@@ -952,10 +952,7 @@ getFrameworkFromS3 s3BucketName
                    reverseRomeMap
                    (FrameworkVersion f@(FrameworkName fwn) version)
                    platform = do
-  eitherFrameworkBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remoteFrameworkUploadPath fwn
-  case eitherFrameworkBinary of
-    Left e -> throwError $ "Error: could not download " <> fwn <> " : " <> awsErrorToString e
-    Right frameworkBinary -> return frameworkBinary
+  getArtifactFromS3 s3BucketName remoteFrameworkUploadPath fwn
   where
     remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
 
@@ -987,24 +984,29 @@ getDSYMFromS3 s3BucketName
               reverseRomeMap
               (FrameworkVersion f@(FrameworkName fwn) version)
               platform = do
-  eitherDSYMBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotedSYMUploadPath fwn
-  case eitherDSYMBinary of
-    Left e -> throwError $ "Error: could not download " <> dSYMName <> " : " <> awsErrorToString e
-    Right dSYMBinary -> return dSYMBinary
+  getArtifactFromS3 s3BucketName remoteDSYMUploadPath dSYMName
   where
-    remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
+    remoteDSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
     dSYMName = fwn ++ ".dSYM"
 
 
+getArtifactFromS3 :: S3.BucketName
+                  -> FilePath
+                  -> String
+                  -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
+getArtifactFromS3 s3BucketName
+                  remotePath
+                  name = do
+  eitherArtifact <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotePath name
+  case eitherArtifact of
+    Left e -> throwError $ "Error: could not download " <> name <> " : " <> awsErrorToString e
+    Right artifactBinary -> return artifactBinary
 
 getVersionFileFromS3 :: S3.BucketName
                      -> GitRepoNameAndVersion
                      -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
 getVersionFileFromS3 s3BucketName gitRepoNameAndVersion = do
-  eitherVersionFileBinary <- AWS.trying AWS._Error $ downloadBinary s3BucketName versionFileRemotePath versionFileName
-  case eitherVersionFileBinary of
-    Left e -> throwError $ "Error: could not download " <> versionFileName <> " : " <> awsErrorToString e
-    Right versionFileBinary -> return versionFileBinary
+  getArtifactFromS3 s3BucketName versionFileRemotePath versionFileName
   where
     versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
     versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion

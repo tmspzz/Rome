@@ -9,7 +9,7 @@ import           System.Exit
 
 
 romeVersion :: String
-romeVersion = "0.11.0.25"
+romeVersion = "0.11.0.26"
 
 
 

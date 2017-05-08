@@ -774,6 +774,7 @@ downloadFrameworkAndDsymFromCaches s3BucketName
                       e2 <- runExceptT $ do
                         frameworkBinary <- getFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform
                         saveBinaryToLocalCache lCacheDir frameworkBinary remoteFrameworkUploadPath fwn verbose
+                        deleteFrameworkDirectory fVersion platform verbose
                         unzipBinary frameworkBinary fwn frameworkZipName verbose <* makeExecutable platform f
                       whenLeft sayFunc2 e2
                      ) (env, verbose)
@@ -791,6 +792,7 @@ downloadFrameworkAndDsymFromCaches s3BucketName
                      e2 <- runExceptT $ do
                        dSYMBinary <- getDSYMFromS3 s3BucketName reverseRomeMap fVersion platform
                        saveBinaryToLocalCache lCacheDir dSYMBinary remotedSYMUploadPath dSYMName verbose
+                       deleteDSYMDirectory fVersion platform verbose
                        unzipBinary dSYMBinary dSYMName dSYMZipName verbose
                      whenLeft sayFunc2 e2
                     ) (env, verbose)
@@ -838,6 +840,55 @@ makeExecutable p fname = Turtle.chmod Turtle.executable
                             </> unFrameworkName fname
                         )
 
+
+
+-- | Delete a directory an all it's contents
+deleteDirectory :: MonadIO m
+                => FilePath -- ^ The path to the directory to delete
+                -> Bool -- ^ A flag controlling verbosity
+                -> m ()
+deleteDirectory path
+                verbose = do
+  directoryExists <- liftIO $ doesDirectoryExist path
+  let sayFunc = if verbose then sayLnWithTime else sayLn
+  when directoryExists $ do
+    Turtle.rmtree . Turtle.fromString $ path
+    when verbose $
+      sayFunc $ "Deleted: " <> path
+
+
+
+-- | Deletes a Framework from the Carthage Build folder
+deleteFrameworkDirectory :: MonadIO m
+                         => FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework to delete
+                         -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
+                         -> Bool -- ^ A flag controlling verbosity
+                         -> m ()
+deleteFrameworkDirectory (FrameworkVersion f@(FrameworkName fwn) version)
+                         platform
+                         verbose =
+  deleteDirectory frameworkDirectory verbose
+  where
+    frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
+    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+    frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
+
+
+
+-- | Deletes a dSYM from the Carthage Build folder
+deleteDSYMDirectory :: MonadIO m
+                    => FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM to delete
+                    -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
+                    -> Bool -- ^ A flag controlling verbosity
+                    -> m ()
+deleteDSYMDirectory (FrameworkVersion f@(FrameworkName fwn) version)
+                    platform
+                    verbose =
+  deleteDirectory dSYMDirectory verbose
+  where
+    frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
+    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+    dSYMDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension <> ".dSYM"
 
 
 
@@ -936,6 +987,7 @@ getAndUnzipFrameworkFromLocalCache lCacheDir
   let sayFunc = if verbose then sayLnWithTime else sayLn
   binary <- getFrameworkFromLocalCache lCacheDir reverseRomeMap fVersion platform
   sayFunc $ "Found " <> fwn <> " in local cache at: " <> frameworkLocalCachePath
+  deleteFrameworkDirectory fVersion platform verbose
   unzipBinary binary fwn frameworkZipName verbose <* makeExecutable platform f
   where
     frameworkLocalCachePath = lCacheDir </> remoteFrameworkUploadPath
@@ -960,6 +1012,7 @@ getAndUnzipDSYMFromLocalCache lCacheDir
   let sayFunc = if verbose then sayLnWithTime else sayLn
   binary <- getDSYMFromLocalCache lCacheDir reverseRomeMap fVersion platform
   sayFunc $ "Found " <> fwn <> " in local cache at: " <> dSYMLocalCachePath
+  deleteDSYMDirectory fVersion platform verbose
   unzipBinary binary fwn dSYMZipName verbose <* makeExecutable platform f
   where
     dSYMLocalCachePath = lCacheDir </> remotedSYMUploadPath
@@ -980,6 +1033,7 @@ getAndUnzipFrameworkFromS3 s3BucketName
                            platform = do
     (_, verbose) <- ask
     frameworkBinary <- getFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform
+    deleteFrameworkDirectory fVersion platform verbose
     unzipBinary frameworkBinary fwn frameworkZipName verbose
                              <* makeExecutable platform f
   where
@@ -1015,6 +1069,7 @@ getAndUnzipDSYMFromS3 s3BucketName
                       platform = do
     (_, verbose) <- ask
     dSYMBinary <- getDSYMFromS3 s3BucketName reverseRomeMap fVersion platform
+    deleteDSYMDirectory fVersion platform verbose
     unzipBinary dSYMBinary fwn dSYMZipName verbose
   where
       dSYMZipName = dSYMArchiveName f version

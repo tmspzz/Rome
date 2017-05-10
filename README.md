@@ -1,6 +1,7 @@
 ![](logo/colosseum.jpg)
 
-# Rome
+# Rome [![rome-latest](https://img.shields.io/badge/release-v0.11.0.27-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.11.0.27)
+
 
 Rome is a tool that allows developers on Apple platforms to use Amazon's S3 or a local folder as a
 shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
@@ -347,7 +348,7 @@ $ rome list --missing --platform ios | awk '{print $1}' | xargs carthage build -
 ```
 
 Note: `list` __completely ignores dSYMs and Carthage version files__. If a dSYM
-or a [Carthage version file](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md) 
+or a [Carthage version file](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
 is missing, __the corresponding framework is still reported as present__.
 
 ## Troubleshooting
@@ -375,4 +376,3 @@ import MapKit
 Rome is released under MIT License
 
 Logo courtesy of [TeddyBear[Picnic]](http://www.freedigitalphotos.net/images/view_photog.php?photogid=3407) at FreeDigitalPhotos.net
-

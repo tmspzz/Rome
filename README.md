@@ -2,7 +2,7 @@
 
 # Rome
 
-Rome is a tool that allows developers on Apple platforms to use Amazon's S3 as a
+Rome is a tool that allows developers on Apple platforms to use Amazon's S3 or a local folder as a
 shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
 
 ## Get Rome
@@ -15,8 +15,8 @@ and I will gladly add you to the user list.
 
 ## Use Rome with fastlane
 
-You can integrate rome into your [fastlane](https://github.com/fastlane/fastlane) automation with the
-[fastlane plugin for rome](https://github.com/netbe/fastlane-plugin-rome).
+You can integrate Rome into your [fastlane](https://github.com/fastlane/fastlane) automation with the
+[fastlane plugin for Rome](https://github.com/netbe/fastlane-plugin-rome).
 
 ## The problem
 
@@ -134,8 +134,8 @@ A Romefile looks like this:
 The Romefile is in the [INI format](https://en.wikipedia.org/wiki/INI_file)
 
 #### Cache section
-This section contains the name of:
-- the S3 bucket you want Rome to use to upload/download. The key `S3-Bucket` is __required__.
+This section must contain __at least one__ between:
+- the name of the S3 Bucket to upload/download to/from. The key `S3-Bucket` is __optional__ since Rome `0.11.0.x`.
 - the path to local directory to use as an additional cache. The key `local` is __optional__.
 
 #### RepositoryMap
@@ -347,8 +347,8 @@ $ rome list --missing --platform ios | awk '{print $1}' | xargs carthage build -
 ```
 
 Note: `list` __completely ignores dSYMs and Carthage version files__. If a dSYM
-or [Carthage version file](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
-if present) is missing, the corresponding framework is still reported as present.
+or a [Carthage version file](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md) 
+is missing, __the corresponding framework is still reported as present__.
 
 ## Who uses Rome?
 
@@ -358,3 +358,4 @@ if present) is missing, the corresponding framework is still reported as present
 Rome is released under MIT License
 
 Logo courtesy of [TeddyBear[Picnic]](http://www.freedigitalphotos.net/images/view_photog.php?photogid=3407) at FreeDigitalPhotos.net
+

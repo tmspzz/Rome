@@ -1,15 +1,15 @@
 module Main where
 
-import           CommandParsers     (parseRomeOptions)
+import           CommandParsers       (parseRomeOptions)
 import           Control.Monad.Except
 import           Lib
-import           Network.AWS          as AWS
 import           Options.Applicative  as Opts
+import           System.Exit
 
 
 
 romeVersion :: String
-romeVersion = "0.10.2.24"
+romeVersion = "0.11.0.27"
 
 
 
@@ -21,10 +21,7 @@ main = do
   case cmd of
     Nothing -> putStrLn $ romeVersion ++ " - Romam uno die non fuisse conditam."
     Just romeOptions -> do
-      p <- runExceptT $ do
-        r   <- discoverRegion
-        env <- AWS.newEnv r AWS.Discover
-        runRomeWithOptions env romeOptions
+      p <- runExceptT $ runRomeWithOptions romeOptions
       case p of
         Right _ -> return ()
-        Left e -> putStrLn e
+        Left e  -> die e

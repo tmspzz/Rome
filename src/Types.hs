@@ -9,7 +9,9 @@ import qualified Network.AWS.Env              as AWS (Env)
 import           Types.Commands
 
 
-type UDCEnv                = (AWS.Env{-, VerifyFlag-}, SkipLocalCacheFlag, Bool)
+
+
+type UDCEnv                = (AWS.Env,{-, VerifyFlag-}SkipLocalCacheFlag, Bool)
 type RomeMonad             = ExceptT String IO
 type RepositoryMap         = M.Map GitRepoName [FrameworkName]
 type InvertedRepositoryMap = M.Map FrameworkName GitRepoName
@@ -25,21 +27,21 @@ data FrameworkVersion = FrameworkVersion { _frameworkName    :: FrameworkName
 
 -- | Represents the availability of a framework for a given `TargetPlatform`
 data PlatformAvailability = PlatformAvailability { _availabilityPlatform :: TargetPlatform
-                                                , _isAvailable           :: Bool
-                                                }
-                                                deriving (Show, Eq)
+                                                 , _isAvailable          :: Bool
+                                                 }
+                                                 deriving (Show, Eq)
 
 -- | Represents the availablity of a given `GitRepoName` at a given `Version`
 -- | as a list of `PlatformAvailability`s
-data GitRepoAvailability = GitRepoAvailability { _availabilityRepo         :: GitRepoName
-                                             , _availabilityVersion        :: Version
-                                             , _repoPlatformAvailabilities :: [PlatformAvailability]
-                                             }
-                                             deriving (Show, Eq)
+data GitRepoAvailability = GitRepoAvailability { _availabilityRepo           :: GitRepoName
+                                               , _availabilityVersion        :: Version
+                                               , _repoPlatformAvailabilities :: [PlatformAvailability]
+                                               }
+                                               deriving (Show, Eq)
 
 -- | Represents the availability of a `FrameworkVersion` as a list of
 -- | `PlatformAvailability`s
-data FrameworkAvailability = FrameworkAvailability { _availabilityFramework         :: FrameworkVersion
-                                                 , _frameworkPlatformAvailabilities :: [PlatformAvailability]
-                                                 }
-                                                 deriving (Show, Eq)
+data FrameworkAvailability = FrameworkAvailability { _availabilityFramework           :: FrameworkVersion
+                                                   , _frameworkPlatformAvailabilities :: [PlatformAvailability]
+                                                   }
+                                                   deriving (Show, Eq)

@@ -66,12 +66,12 @@ $ rome download
 ```
 ## Set up and Usage
 
-If you plan to use AWS S3 as a cache, then follow the next three steps:
+If you plan to use Amazon's S3 as a cache, then follow the next three steps:
 
 - First you need a `.aws/credentials` file in your home folder. This is used to specify
 your [AWS Credentials](#setting-up-aws-credentials).
 - Second you need a `.aws/config` file in your home folder. This is used to specify the [AWS
-region](#selecting-the-aws-region).
+Region](#selecting-the-aws-region).
 - Third you need a [Romefile](#romefile) in the project where you want to use Rome. At the
 same level where the `Cartfile` is.
 

@@ -3,8 +3,12 @@
 # Rome [![rome-latest](https://img.shields.io/badge/release-v0.11.0.27-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.11.0.27) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg)
 
 
-Rome is a tool that allows developers on Apple platforms to use Amazon's S3 or a local folder as a
-shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
+Rome is a tool that allows developers on Apple platforms to use:
+
+- Amazon's S3
+- or/and a local folder
+
+as a shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
 
 ## Get Rome
 `$ brew install blender/homebrew-tap/rome`
@@ -32,7 +36,7 @@ and / or takes a long time to build.
 
 ## The solution
 
-Use a cache. The first team member can build the framework and share it while all
+Use a cache. The first team member (or a CI) can build the framework and share it, while all
 other developers can get it from the cache with no waiting time.
 
 ## Workflow
@@ -50,7 +54,7 @@ $ carthage update && rome upload
 ### Consumer workflow
 
 ```bash
-$ vi Cartfile # point to the new version of the framework
+$ vi Cartfile # point to the new version of the framework if necessary
 $ carthage update --no-build && rome download
 ```
 
@@ -62,11 +66,18 @@ $ rome download
 ```
 ## Set up and Usage
 
+If you plan to use Amazon's S3 as a cache, then follow the next three steps:
+
 - First you need a `.aws/credentials` file in your home folder. This is used to specify
-your AWS Credentials.
-- Second you need a `.aws/config` file in your home folder. This is used to specify the AWS
-region.
-- Third you need a `Romefile` in the project where you want to use Rome. At the
+your [AWS Credentials](#setting-up-aws-credentials).
+- Second you need a `.aws/config` file in your home folder. This is used to specify the [AWS
+Region](#selecting-the-aws-region).
+- Third you need a [Romefile](#romefile) in the project where you want to use Rome. At the
+same level where the `Cartfile` is.
+
+If you just want to use only a local folder as a cache then:
+
+- You need a [Romefile](#romefile) in the project where you want to use Rome. At the
 same level where the `Cartfile` is.
 
 ### Setting up AWS credentials

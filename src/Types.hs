@@ -16,6 +16,8 @@ type RomeMonad             = ExceptT String IO
 type RepositoryMap         = M.Map GitRepoName [FrameworkName]
 type InvertedRepositoryMap = M.Map FrameworkName GitRepoName
 
+type RomeVersion           = (Int, Int, Int, Int)
+
 type GitRepoNameAndVersion = (GitRepoName, Version)
 
 

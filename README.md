@@ -87,6 +87,8 @@ rome list --missing --platform ios | awk '{print $1}' | xargs rome upload --plat
 
 If no frameworks are missing, the `awk` pipe to `carthage` will fail and the rest of the command will not be executed. This avoids rebuilding all dependencies or uploading artifacts already present in the cache.
 
+You can use the [fastlane plugin for rome](#use-rome-with-fastlane) to implement
+a CI workflow too.
 
 ## Set up and Usage
 

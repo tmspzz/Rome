@@ -436,11 +436,11 @@ import MapKit
 
 Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org/) and [slides](https://speakerdeck.com/blender/caching-a-simple-solution-to-speeding-up-build-times)
 
-- [Rome features](https://youtu.be/2cCIuidT9VA?t=387)
+- [Features](https://youtu.be/2cCIuidT9VA?t=387)
 - [Usage](https://youtu.be/2cCIuidT9VA?t=600)
 - [Romefile](https://youtu.be/2cCIuidT9VA?t=1104)
 
-[![cocoahead-berling-video-presentation](http://i.imgur.com/1vC8jYq.png)](https://www.youtube.com/watch?v=2cCIuidT9VA)
+[![cocoaheads-berlin-video-presentation](http://i.imgur.com/1vC8jYq.png)](https://www.youtube.com/watch?v=2cCIuidT9VA)
 
 ## Who uses Rome?
 

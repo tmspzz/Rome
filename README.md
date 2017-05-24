@@ -10,6 +10,34 @@ Rome is a tool that allows developers on Apple platforms to use:
 
 as a shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
 
+**Table of Contents**
+
+- [Get Rome](#get-rome)
+- [Use Rome with fastlane](#use-rome-with-fastlane)
+- [The problem](#the-problem)
+- [The solution](#the-solution)
+- [Workflow](#workflow)
+	- [Producer workflow](#producer-workflow)
+	- [Consumer workflow](#consumer-workflow)
+	- [CI workflow](#ci-workflow)
+- [Set up and Usage](#set-up-and-usage)
+	- [Setting up AWS credentials](#setting-up-aws-credentials)
+	- [Selecting the AWS Region](#selecting-the-aws-region)
+	- [Romefile](#romefile)
+		- [Cache section](#cache-section)
+		- [RepositoryMap](#repository-map)
+		- [IgnoreMap](#ignore-map)
+			- [Multiple Aliases](#multiple-aliases)
+	- [Usage](#usage)
+		- [Uploading](#uploading)
+		- [Downloading](#downloading)
+		- [Listing](#listing)
+- [Troubleshooting](#troubleshooting)
+	- [Getting "Image not found" when running an application using binaries](#getting-image-not-found-when-running-an-application-using-binaries)
+- [Presentations and Tutorials](#presentations-and-tutorials)
+- [Who uses Rome?](#who-uses-rome)
+- [License](#license)
+
 ## Get Rome
 `$ brew install blender/homebrew-tap/rome`
 
@@ -404,6 +432,15 @@ To fix that, add an explicit import statement to one of your files:
 import CoreLocation
 import MapKit
 ```
+## Presentations and Tutorials
+
+Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org/) and [slides](https://speakerdeck.com/blender/caching-a-simple-solution-to-speeding-up-build-times)
+
+- [Rome features](https://youtu.be/2cCIuidT9VA?t=387)
+- [Usage](https://youtu.be/2cCIuidT9VA?t=600)
+- [Romefile](https://youtu.be/2cCIuidT9VA?t=1104)
+
+[![cocoahead-berling-video-presentation](http://i.imgur.com/1vC8jYq.png)](https://www.youtube.com/watch?v=2cCIuidT9VA)
 
 ## Who uses Rome?
 

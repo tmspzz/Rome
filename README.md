@@ -1,6 +1,6 @@
 ![](logo/colosseum.jpg)
 
-# Rome [![rome-latest](https://img.shields.io/badge/release-v0.11.0.27-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.11.0.27) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/netbe/fastlane-plugin-rome)
+# Rome [![rome-latest](https://img.shields.io/badge/release-v0.11.0.27-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.11.0.27) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/netbe/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
 
 
 Rome is a tool that allows developers on Apple platforms to use:
@@ -9,6 +9,34 @@ Rome is a tool that allows developers on Apple platforms to use:
 - or/and a local folder
 
 as a shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
+
+**Table of Contents**
+
+- [Get Rome](#get-rome)
+- [Use Rome with fastlane](#use-rome-with-fastlane)
+- [The problem](#the-problem)
+- [The solution](#the-solution)
+- [Workflow](#workflow)
+	- [Producer workflow](#producer-workflow)
+	- [Consumer workflow](#consumer-workflow)
+	- [CI workflow](#ci-workflow)
+- [Set up and Usage](#set-up-and-usage)
+	- [Setting up AWS credentials](#setting-up-aws-credentials)
+	- [Selecting the AWS Region](#selecting-the-aws-region)
+	- [Romefile](#romefile)
+		- [Cache section](#cache-section)
+		- [RepositoryMap](#repositorymap)
+		- [IgnoreMap](#ignoremap)
+			- [Multiple Aliases](#multiple-aliases)
+	- [Usage](#usage)
+		- [Uploading](#uploading)
+		- [Downloading](#downloading)
+		- [Listing](#listing)
+- [Troubleshooting](#troubleshooting)
+	- [Getting "Image not found" when running an application using binaries](#getting-image-not-found-when-running-an-application-using-binaries)
+- [Presentations and Tutorials](#presentations-and-tutorials)
+- [Who uses Rome?](#who-uses-rome)
+- [License](#license)
 
 ## Get Rome
 `$ brew install blender/homebrew-tap/rome`
@@ -64,6 +92,32 @@ or
 $ vi Cartfile.resolved # point to the new version of the framework
 $ rome download
 ```
+
+### CI workflow
+
+A CI can be both consumer and producer.
+
+A simple workflow for using Rome on a continuous integration should resemble the
+following:
+
+- get available artifacts
+- check if any artifacts are missing
+- build missing artifacts if any
+- upload build artifacts to the cache if needed
+
+Or in code:
+
+```
+rome download --platform iOS # download missing frameworks (or copy from local cache)
+rome list --missing --platform ios | awk '{print $1}' | xargs carthage update --platform ios # list what is missing and update/build if needed
+rome list --missing --platform ios | awk '{print $1}' | xargs rome upload --platform ios # upload what is missing
+```
+
+If no frameworks are missing, the `awk` pipe to `carthage` will fail and the rest of the command will not be executed. This avoids rebuilding all dependencies or uploading artifacts already present in the cache.
+
+You can use the [fastlane plugin for Rome](#use-rome-with-fastlane) to implement
+a CI workflow too.
+
 ## Set up and Usage
 
 If you plan to use Amazon's S3 as a cache, then follow the next three steps:
@@ -378,6 +432,15 @@ To fix that, add an explicit import statement to one of your files:
 import CoreLocation
 import MapKit
 ```
+## Presentations and Tutorials
+
+Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org/) and [slides](https://speakerdeck.com/blender/caching-a-simple-solution-to-speeding-up-build-times)
+
+- [Features](https://youtu.be/2cCIuidT9VA?t=387)
+- [Usage](https://youtu.be/2cCIuidT9VA?t=600)
+- [Romefile](https://youtu.be/2cCIuidT9VA?t=1104)
+
+[![cocoaheads-berlin-video-presentation](http://i.imgur.com/1vC8jYq.png)](https://www.youtube.com/watch?v=2cCIuidT9VA)
 
 ## Who uses Rome?
 

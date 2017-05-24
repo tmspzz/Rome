@@ -176,6 +176,10 @@ downloadArtifacts mS3BucketName
                   platforms = do
   (s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
 
+  let
+    sayFunc :: MonadIO m => String -> m ()
+    sayFunc = if verbose then sayLnWithTime else sayLn
+
   case (mS3BucketName, mlCacheDir) of
 
     (Just s3BucketName,  lCacheDir) -> do
@@ -189,13 +193,11 @@ downloadArtifacts mS3BucketName
       liftIO $ do
         runReaderT
           (do
-            let sayFunc = if verbose then sayLnWithTime else sayLn
             errors <- mapM runExceptT $ getAndUnzipFrameworksAndDSYMsFromLocalCache lCacheDir reverseRepositoryMap frameworkVersions platforms
             mapM_ (whenLeft sayFunc) errors
           ) verbose
         runReaderT
           (do
-            let sayFunc = if verbose then sayLnWithTime else sayLn
             errors <- mapM runExceptT $ getAndSaveVersionFilesFromLocalCache lCacheDir gitRepoNamesAndVersions
             mapM_ (whenLeft sayFunc) errors
           ) verbose
@@ -660,18 +662,18 @@ downloadVersionFileFromCaches s3BucketName (Just lCacheDir) gitRepoNameAndVersio
     case eitherSuccess of
       Right _ -> return ()
       Left e -> liftIO $ do
-        let sayFunc = if verbose then sayLnWithTime else sayLn
+        let
+          sayFunc :: MonadIO m => String -> m ()
+          sayFunc = if verbose then sayLnWithTime else sayLn
         sayFunc e
         runReaderT
-          ( do
-            let sayFunc2 = if verbose then sayLnWithTime else sayLn
+          (do
             e2 <- runExceptT $ do
-              let sayFunc3 = if verbose then sayLnWithTime else sayLn
               versionFileBinary <- getVersionFileFromS3 s3BucketName gitRepoNameAndVersion
               saveBinaryToLocalCache lCacheDir versionFileBinary versionFileRemotePath versionFileName verbose
               saveBinaryToFile versionFileBinary versionFileLocalPath
-              sayFunc3 $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
-            whenLeft sayFunc2 e2
+              sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
+            whenLeft sayFunc e2
            ) (env, verbose)
 
   where
@@ -681,13 +683,14 @@ downloadVersionFileFromCaches s3BucketName (Just lCacheDir) gitRepoNameAndVersio
 
 downloadVersionFileFromCaches s3BucketName Nothing gitRepoNameAndVersion = do
   (env, _, verbose) <- ask
-  let sayFunc = if verbose then sayLnWithTime else sayLn
+  let
+    sayFunc :: MonadIO m => String -> m ()
+    sayFunc = if verbose then sayLnWithTime else sayLn
   eitherError <- liftIO $ runReaderT
                           (runExceptT $ do
-                            let sayFunc2 = if verbose then sayLnWithTime else sayLn
                             versionFileBinary <- getVersionFileFromS3 s3BucketName gitRepoNameAndVersion
                             saveBinaryToFile versionFileBinary versionFileLocalPath
-                            sayFunc2 $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
+                            sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
                           )
                           (env, verbose)
   whenLeft sayFunc eitherError
@@ -766,17 +769,18 @@ downloadFrameworkAndDsymFromCaches s3BucketName
     case eitherFrameworkSuccess of
       Right _ -> return ()
       Left  e -> liftIO $ do
-                  let sayFunc = if verbose then sayLnWithTime else sayLn
+                  let
+                    sayFunc :: MonadIO m => String -> m ()
+                    sayFunc = if verbose then sayLnWithTime else sayLn
                   sayFunc e
                   runReaderT
                     ( do
-                      let sayFunc2 = if verbose then sayLnWithTime else sayLn
                       e2 <- runExceptT $ do
                         frameworkBinary <- getFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform
                         saveBinaryToLocalCache lCacheDir frameworkBinary remoteFrameworkUploadPath fwn verbose
                         deleteFrameworkDirectory fVersion platform verbose
                         unzipBinary frameworkBinary fwn frameworkZipName verbose <* makeExecutable platform f
-                      whenLeft sayFunc2 e2
+                      whenLeft sayFunc e2
                      ) (env, verbose)
 
 
@@ -784,17 +788,18 @@ downloadFrameworkAndDsymFromCaches s3BucketName
     case eitherDSYMSuccess of
      Right _ -> return ()
      Left  e -> liftIO $ do
-                 let sayFunc = if verbose then sayLnWithTime else sayLn
+                 let
+                   sayFunc :: MonadIO m => String -> m ()
+                   sayFunc = if verbose then sayLnWithTime else sayLn
                  sayFunc e
                  runReaderT
                    ( do
-                     let sayFunc2 = if verbose then sayLnWithTime else sayLn
                      e2 <- runExceptT $ do
                        dSYMBinary <- getDSYMFromS3 s3BucketName reverseRomeMap fVersion platform
                        saveBinaryToLocalCache lCacheDir dSYMBinary remotedSYMUploadPath dSYMName verbose
                        deleteDSYMDirectory fVersion platform verbose
                        unzipBinary dSYMBinary dSYMName dSYMZipName verbose
-                     whenLeft sayFunc2 e2
+                     whenLeft sayFunc e2
                     ) (env, verbose)
 
   where

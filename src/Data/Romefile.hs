@@ -20,8 +20,8 @@ module Data.Romefile
     )
 where
 
-import           Control.Monad.Except
 import           Control.Lens
+import           Control.Monad.Except
 import           Data.HashMap.Strict   as M
 import           Data.Ini              as INI
 import           Data.Ini.Utils        as INI
@@ -59,8 +59,6 @@ repositoryMapEntries = lens _repositoryMapEntries (\parseResult n -> parseResult
 
 ignoreMapEntries :: Lens' RomeFileParseResult [RomefileEntry]
 ignoreMapEntries = lens _ignoreMapEntries (\parseResult n -> parseResult { _ignoreMapEntries = n })
-
-
 
 
 
@@ -142,6 +140,8 @@ getRomefileEntries sectionDelimiter ini = do
          (FrameworkName . unpack . strip)
          (splitOn "," frameworkCommonNames)))
     (M.toList m)
+
+
 
 -- | Take a path and makes it absolute resolving ../ and ~
 -- See https://www.schoolofhaskell.com/user/dshevchenko/cookbook/transform-relative-path-to-an-absolute-path

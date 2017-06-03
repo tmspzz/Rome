@@ -1,15 +1,22 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 
 module Utils where
 
 import           Configuration                (carthageBuildDirectoryForPlatform)
+import           Control.Arrow                (left)
+import           Control.Exception            as E (try)
 import           Control.Lens                 hiding (List)
-import           Control.Monad.Trans          (MonadIO, liftIO)
+import           Control.Monad.Except
+import           Data.Aeson
+import           Data.Aeson.Types
+import qualified Data.ByteString.Char8        as BS
+import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
+import           Data.Char                    (isNumber)
 import           Data.Function                (on)
 import           Data.List
 import qualified Data.Map.Strict              as M
@@ -21,8 +28,48 @@ import           Data.Time
 import qualified Network.AWS                  as AWS (Error, ErrorMessage (..),
                                                       serviceMessage,
                                                       _ServiceError)
+import           Network.HTTP.Conduit         as HTTP
+import           Network.HTTP.Types.Header    as HTTP (hUserAgent)
 import           System.FilePath
+import           Text.Read                    (readMaybe)
 import           Types
+
+
+-- | Pretty print a `RomeVersion`
+romeVersionToString :: RomeVersion -> String
+romeVersionToString (major, minor, patch, build) = show major <> "." <> show minor <> "." <> show patch <> "." <> show build
+
+
+
+-- | Check if the given `RomeVersion` is the latest version compared to GitHub releases
+checkIfRomeLatestVersionIs :: MonadIO m => RomeVersion -> ExceptT String m (Bool, RomeVersion)
+checkIfRomeLatestVersionIs currentRomeVersion = do
+  req <- liftIO $ HTTP.parseUrl "https://api.github.com/repos/blender/Rome/releases/latest"
+
+  let headers = HTTP.requestHeaders req <> [(HTTP.hUserAgent, userAgent)]
+  let req' = req { HTTP.responseTimeout = Just timeout, HTTP.requestHeaders = headers }
+
+  manager <- liftIO $ HTTP.newManager HTTP.tlsManagerSettings
+
+  eitherBody :: Either HTTP.HttpException LBS.ByteString <- liftIO $ E.try (HTTP.responseBody <$> HTTP.httpLbs req' manager)
+
+  let eitherTagName :: Either String String = left show eitherBody >>= eitherDecode >>= \d -> flip parseEither d $ \obj -> obj .: "tag_name"
+
+  either throwError return $ (\tagVersion -> (currentRomeVersion >= tagVersion, tagVersion)) . stringToVersionTuple <$> eitherTagName
+
+    where
+      stringToVersionTuple = versionTupleOrZeros . map (fromMaybe 0 . readMaybe . T.unpack) . take 4 . splitWithSeparator '.' . T.pack . dropWhile (not . isNumber)
+      versionTupleOrZeros a = (fromMaybe 0 (a !!? 0), fromMaybe 0 (a !!? 1), fromMaybe 0 (a !!? 2), fromMaybe 0 (a !!? 3))
+
+      timeout = 1000000 -- 1 second timeout, in microseconds
+      userAgent = BS.pack $ "Rome/" <> romeVersionToString currentRomeVersion
+
+
+
+-- | Gets `Just` the element at the specified index or `Nothing`
+(!!?) :: [a] -> Int -> Maybe a
+(!!?) a i | i < length a = Just (a !! i)
+          | otherwise    = Nothing
 
 
 
@@ -313,3 +360,14 @@ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap = conca
 
         sortAndGroupPlatformAvailabilities :: [PlatformAvailability] -> [[PlatformAvailability]]
         sortAndGroupPlatformAvailabilities = groupBy ((==) `on` _availabilityPlatform) . sortBy (compare `on` _availabilityPlatform)
+
+
+
+redControlSequence :: String
+redControlSequence = "\ESC[0;31m"
+
+greenControlSequence :: String
+greenControlSequence = "\ESC[0;32m"
+
+noColorControlSequence :: String
+noColorControlSequence = "\ESC[0m"

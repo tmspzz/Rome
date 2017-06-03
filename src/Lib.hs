@@ -5,7 +5,11 @@
 
 
 {- Exports -}
-module Lib where
+module Lib (module Lib
+           , Types.RomeVersion
+           , Utils.romeVersionToString
+           )
+           where
 
 
 
@@ -60,8 +64,9 @@ conflictingSkipLocalCacheOptionMessage = "Error: only \"local\" key is present \
 
 -- | Runs Rome with `RomeOptions` on a given a `AWS.Env`.
 runRomeWithOptions :: RomeOptions -- ^ The `RomeOptions` to run Rome with.
+                   -> RomeVersion
                    -> RomeMonad ()
-runRomeWithOptions (RomeOptions options verbose) = do
+runRomeWithOptions (RomeOptions options verbose) romeVersion = do
   cartfileEntries <- getCartfileEntires
   romeFileParseResult <- getRomefileEntries
 
@@ -76,7 +81,9 @@ runRomeWithOptions (RomeOptions options verbose) = do
 
   case options of
 
-      Upload (RomeUDCPayload gitRepoNames platforms skipLocalCache) ->
+      Upload (RomeUDCPayload gitRepoNames platforms skipLocalCache) -> do
+
+        sayVersionWarning romeVersion verbose
 
         if null gitRepoNames
           then
@@ -86,7 +93,10 @@ runRomeWithOptions (RomeOptions options verbose) = do
               let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames in
               runReaderT (uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms) (skipLocalCache, verbose)
 
-      Download (RomeUDCPayload gitRepoNames platforms skipLocalCache) ->
+      Download (RomeUDCPayload gitRepoNames platforms skipLocalCache) -> do
+
+        sayVersionWarning romeVersion verbose
+
         if null gitRepoNames
           then
               let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames in
@@ -98,6 +108,18 @@ runRomeWithOptions (RomeOptions options verbose) = do
       List (RomeListPayload listMode platforms) ->
           let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames in
           runReaderT (listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVersions platforms) (SkipLocalCacheFlag False, verbose)
+
+  where
+    sayVersionWarning vers verb = runExceptT $ do
+              let sayFunc = if verb then sayLnWithTime else sayLn
+              (uptoDate, latestVersion) <- checkIfRomeLatestVersionIs vers
+              unless uptoDate $ sayFunc $ redControlSequence
+                <> "*** Please update to the latest Rome version: "
+                <> romeVersionToString latestVersion
+                <> ". "
+                <> "You are currently on: "
+                <> romeVersionToString vers
+                <> noColorControlSequence
 
 
 -- | Lists Frameworks in the caches.
@@ -869,7 +891,7 @@ deleteFrameworkDirectory :: MonadIO m
                          -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
                          -> Bool -- ^ A flag controlling verbosity
                          -> m ()
-deleteFrameworkDirectory (FrameworkVersion f@(FrameworkName fwn) version)
+deleteFrameworkDirectory (FrameworkVersion f _)
                          platform
                          verbose =
   deleteDirectory frameworkDirectory verbose
@@ -886,7 +908,7 @@ deleteDSYMDirectory :: MonadIO m
                     -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
                     -> Bool -- ^ A flag controlling verbosity
                     -> m ()
-deleteDSYMDirectory (FrameworkVersion f@(FrameworkName fwn) version)
+deleteDSYMDirectory (FrameworkVersion f _)
                     platform
                     verbose =
   deleteDirectory dSYMDirectory verbose
@@ -932,7 +954,7 @@ getDSYMFromLocalCache lCacheDir
   dSYMExistsInLocalCache <- liftIO . doesFileExist $ dSYMLocalCachePath
   if dSYMExistsInLocalCache
     then liftIO . runResourceT $ C.sourceFile dSYMLocalCachePath C.$$ C.sinkLbs
-    else throwError $ "Error: could not find " <> fwn <> " in local cache at : " <> dSYMLocalCachePath
+    else throwError $ "Error: could not find " <> dSYMName <> " in local cache at : " <> dSYMLocalCachePath
   where
     dSYMLocalCachePath = lCacheDir </> remotedSYMUploadPath
     remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
@@ -1055,7 +1077,7 @@ getFrameworkFromS3 :: S3.BucketName -- ^ The cache definition
 getFrameworkFromS3 s3BucketName
                    reverseRomeMap
                    (FrameworkVersion f@(FrameworkName fwn) version)
-                   platform = do
+                   platform =
   getArtifactFromS3 s3BucketName remoteFrameworkUploadPath fwn
   where
     remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
@@ -1090,7 +1112,7 @@ getDSYMFromS3 :: S3.BucketName -- ^ The cache definition
 getDSYMFromS3 s3BucketName
               reverseRomeMap
               (FrameworkVersion f@(FrameworkName fwn) version)
-              platform = do
+              platform =
   getArtifactFromS3 s3BucketName remoteDSYMUploadPath dSYMName
   where
     remoteDSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
@@ -1114,7 +1136,7 @@ getArtifactFromS3 s3BucketName
 getVersionFileFromS3 :: S3.BucketName
                      -> GitRepoNameAndVersion
                      -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
-getVersionFileFromS3 s3BucketName gitRepoNameAndVersion = do
+getVersionFileFromS3 s3BucketName gitRepoNameAndVersion =
   getArtifactFromS3 s3BucketName versionFileRemotePath versionFileName
   where
     versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
@@ -1334,4 +1356,3 @@ getRegionFromFile f profile = do
       case eitherAWSRegion of
         Left e  -> throwError e
         Right r -> return r
-

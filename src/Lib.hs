@@ -403,11 +403,8 @@ uploadFrameworkToS3 frameworkArchive
                     s3BucketName
                     reverseRomeMap
                     (FrameworkVersion f@(FrameworkName fwn) version)
-                    platform = do
-  (env, verbose) <- ask
-  runReaderT
-    (uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn)
-    (env, verbose)
+                    platform =
+  uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn
 
   where
     remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
@@ -425,9 +422,8 @@ uploadDsymToS3 dSYMArchive
                s3BucketName
                reverseRomeMap
                (FrameworkVersion f@(FrameworkName fwn) version)
-               platform = do
-  (env, verbose) <- ask
-  runReaderT (uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) remoteDsymUploadPath (fwn ++ ".dSYM")) (env, verbose)
+               platform =
+  uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) remoteDsymUploadPath (fwn ++ ".dSYM")
 
   where
     remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
@@ -611,6 +607,12 @@ zipDir dir verbose = do
 
 
 -- | Uploads an artificat to an `S3.BucketName` at a given path in the bucket.
+uploadBinary :: AWS.ToBody a
+             => S3.BucketName
+             -> a
+             -> FilePath
+             -> FilePath
+             -> ReaderT (AWS.Env, Bool) IO ()
 uploadBinary s3BucketName binaryZip destinationPath objectName = do
   (env, verbose) <- ask
   let objectKey = S3.ObjectKey $ T.pack destinationPath

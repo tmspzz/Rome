@@ -1164,12 +1164,11 @@ downloadBinary s3BucketName objectRemotePath objectName = do
     printProgress :: MonadIO m => String -> Int -> C.Conduit BS.ByteString m BS.ByteString
     printProgress objName totalLength = loop totalLength 0 0
       where
-        roundedSizeInMB = roundBytesToMegabytes totalLength
         loop t consumedLen lastLen = C.await >>= maybe (return ()) (\bs -> do
             let len = consumedLen + BS.length bs
             let diffGreaterThan1MB = len - lastLen >= 1024*1024
             when ( diffGreaterThan1MB || len == t) $
-               sayLnWithTime $ "Downloaded " ++ show (roundBytesToMegabytes len) ++ " MB of " ++ show roundedSizeInMB ++ " MB for " ++ objName
+               sayLnWithTime $ "Downloaded " ++ showInMegabytes len ++ " of " ++ showInMegabytes totalLength ++ " for " ++ objName
             C.yield bs
             let a = if diffGreaterThan1MB then len else lastLen
             loop t len a)

@@ -30,6 +30,7 @@ import qualified Network.AWS                  as AWS (Error, ErrorMessage (..),
                                                       _ServiceError)
 import           Network.HTTP.Conduit         as HTTP
 import           Network.HTTP.Types.Header    as HTTP (hUserAgent)
+import           Numeric                      (showFFloat)
 import           System.FilePath
 import           Text.Read                    (readMaybe)
 import           Types
@@ -97,10 +98,11 @@ sayLnWithTime line = do
 
 
 
--- | Given a number n representing bytes, gives an approximation in Megabytes.
-roundBytesToMegabytes :: Integral n => n -> Double
-roundBytesToMegabytes n = fromInteger (round (nInMB * (10^2))) / (10.0^^2)
+-- | Given a number n representing bytes, shows it in MB, rounded to 2 decimal places.
+showInMegabytes :: Integral n => n -> String
+showInMegabytes n = showFFloat (Just 2) nInMB " MB"
   where
+    nInMB :: Double
     nInMB = fromIntegral n / (1024*1024)
 
 

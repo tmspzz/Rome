@@ -403,11 +403,8 @@ uploadFrameworkToS3 frameworkArchive
                     s3BucketName
                     reverseRomeMap
                     (FrameworkVersion f@(FrameworkName fwn) version)
-                    platform = do
-  (env, verbose) <- ask
-  runReaderT
-    (uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn)
-    (env, verbose)
+                    platform =
+  uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn
 
   where
     remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
@@ -425,9 +422,8 @@ uploadDsymToS3 dSYMArchive
                s3BucketName
                reverseRomeMap
                (FrameworkVersion f@(FrameworkName fwn) version)
-               platform = do
-  (env, verbose) <- ask
-  runReaderT (uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) remoteDsymUploadPath (fwn ++ ".dSYM")) (env, verbose)
+               platform =
+  uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) remoteDsymUploadPath (fwn ++ ".dSYM")
 
   where
     remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
@@ -611,6 +607,12 @@ zipDir dir verbose = do
 
 
 -- | Uploads an artificat to an `S3.BucketName` at a given path in the bucket.
+uploadBinary :: AWS.ToBody a
+             => S3.BucketName
+             -> a
+             -> FilePath
+             -> FilePath
+             -> ReaderT (AWS.Env, Bool) IO ()
 uploadBinary s3BucketName binaryZip destinationPath objectName = do
   (env, verbose) <- ask
   let objectKey = S3.ObjectKey $ T.pack destinationPath
@@ -1145,6 +1147,10 @@ getVersionFileFromS3 s3BucketName gitRepoNameAndVersion =
 
 
 -- | Downloads an artificat stored at a given path from an `S3.BucketName`.
+downloadBinary :: S3.BucketName
+               -> FilePath
+               -> FilePath
+               -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
 downloadBinary s3BucketName objectRemotePath objectName = do
   (env, verbose) <- ask
   runResourceT . AWS.runAWS env $ do
@@ -1164,12 +1170,11 @@ downloadBinary s3BucketName objectRemotePath objectName = do
     printProgress :: MonadIO m => String -> Int -> C.Conduit BS.ByteString m BS.ByteString
     printProgress objName totalLength = loop totalLength 0 0
       where
-        roundedSizeInMB = roundBytesToMegabytes totalLength
         loop t consumedLen lastLen = C.await >>= maybe (return ()) (\bs -> do
             let len = consumedLen + BS.length bs
             let diffGreaterThan1MB = len - lastLen >= 1024*1024
             when ( diffGreaterThan1MB || len == t) $
-               sayLnWithTime $ "Downloaded " ++ show (roundBytesToMegabytes len) ++ " MB of " ++ show roundedSizeInMB ++ " MB for " ++ objName
+               sayLnWithTime $ "Downloaded " ++ showInMegabytes len ++ " of " ++ showInMegabytes totalLength ++ " for " ++ objName
             C.yield bs
             let a = if diffGreaterThan1MB then len else lastLen
             loop t len a)

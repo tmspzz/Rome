@@ -869,10 +869,9 @@ deleteFrameworkDirectory :: MonadIO m
                          -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
                          -> Bool -- ^ A flag controlling verbosity
                          -> m ()
-deleteFrameworkDirectory (FrameworkVersion f@(FrameworkName fwn) version)
-                         platform
-                         verbose =
-  deleteDirectory frameworkDirectory verbose
+deleteFrameworkDirectory (FrameworkVersion f@(FrameworkName _) _)
+                         platform =
+  deleteDirectory frameworkDirectory
   where
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
     platformBuildDirectory = carthageBuildDirectoryForPlatform platform
@@ -886,10 +885,9 @@ deleteDSYMDirectory :: MonadIO m
                     -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
                     -> Bool -- ^ A flag controlling verbosity
                     -> m ()
-deleteDSYMDirectory (FrameworkVersion f@(FrameworkName fwn) version)
-                    platform
-                    verbose =
-  deleteDirectory dSYMDirectory verbose
+deleteDSYMDirectory (FrameworkVersion f@(FrameworkName _) _)
+                    platform =
+  deleteDirectory dSYMDirectory
   where
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
     platformBuildDirectory = carthageBuildDirectoryForPlatform platform
@@ -932,7 +930,7 @@ getDSYMFromLocalCache lCacheDir
   dSYMExistsInLocalCache <- liftIO . doesFileExist $ dSYMLocalCachePath
   if dSYMExistsInLocalCache
     then liftIO . runResourceT $ C.sourceFile dSYMLocalCachePath C.$$ C.sinkLbs
-    else throwError $ "Error: could not find " <> fwn <> " in local cache at : " <> dSYMLocalCachePath
+    else throwError $ "Error: could not find " <> dSYMName <> " in local cache at : " <> dSYMLocalCachePath
   where
     dSYMLocalCachePath = lCacheDir </> remotedSYMUploadPath
     remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
@@ -1055,7 +1053,7 @@ getFrameworkFromS3 :: S3.BucketName -- ^ The cache definition
 getFrameworkFromS3 s3BucketName
                    reverseRomeMap
                    (FrameworkVersion f@(FrameworkName fwn) version)
-                   platform = do
+                   platform =
   getArtifactFromS3 s3BucketName remoteFrameworkUploadPath fwn
   where
     remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
@@ -1090,7 +1088,7 @@ getDSYMFromS3 :: S3.BucketName -- ^ The cache definition
 getDSYMFromS3 s3BucketName
               reverseRomeMap
               (FrameworkVersion f@(FrameworkName fwn) version)
-              platform = do
+              platform =
   getArtifactFromS3 s3BucketName remoteDSYMUploadPath dSYMName
   where
     remoteDSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
@@ -1114,7 +1112,7 @@ getArtifactFromS3 s3BucketName
 getVersionFileFromS3 :: S3.BucketName
                      -> GitRepoNameAndVersion
                      -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
-getVersionFileFromS3 s3BucketName gitRepoNameAndVersion = do
+getVersionFileFromS3 s3BucketName gitRepoNameAndVersion =
   getArtifactFromS3 s3BucketName versionFileRemotePath versionFileName
   where
     versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
@@ -1334,4 +1332,3 @@ getRegionFromFile f profile = do
       case eitherAWSRegion of
         Left e  -> throwError e
         Right r -> return r
-

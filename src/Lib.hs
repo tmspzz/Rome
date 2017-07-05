@@ -5,7 +5,11 @@
 
 
 {- Exports -}
-module Lib where
+module Lib (module Lib
+           , Types.RomeVersion
+           , Utils.romeVersionToString
+           )
+           where
 
 
 
@@ -60,8 +64,9 @@ conflictingSkipLocalCacheOptionMessage = "Error: only \"local\" key is present \
 
 -- | Runs Rome with `RomeOptions` on a given a `AWS.Env`.
 runRomeWithOptions :: RomeOptions -- ^ The `RomeOptions` to run Rome with.
+                   -> RomeVersion
                    -> RomeMonad ()
-runRomeWithOptions (RomeOptions options verbose) = do
+runRomeWithOptions (RomeOptions options verbose) romeVersion = do
   cartfileEntries <- getCartfileEntires
   romeFileParseResult <- getRomefileEntries
 
@@ -76,7 +81,9 @@ runRomeWithOptions (RomeOptions options verbose) = do
 
   case options of
 
-      Upload (RomeUDCPayload gitRepoNames platforms skipLocalCache) ->
+      Upload (RomeUDCPayload gitRepoNames platforms skipLocalCache) -> do
+
+        sayVersionWarning romeVersion verbose
 
         if null gitRepoNames
           then
@@ -86,7 +93,10 @@ runRomeWithOptions (RomeOptions options verbose) = do
               let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames in
               runReaderT (uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms) (skipLocalCache, verbose)
 
-      Download (RomeUDCPayload gitRepoNames platforms skipLocalCache) ->
+      Download (RomeUDCPayload gitRepoNames platforms skipLocalCache) -> do
+
+        sayVersionWarning romeVersion verbose
+
         if null gitRepoNames
           then
               let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames in
@@ -98,6 +108,18 @@ runRomeWithOptions (RomeOptions options verbose) = do
       List (RomeListPayload listMode platforms) ->
           let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames in
           runReaderT (listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVersions platforms) (SkipLocalCacheFlag False, verbose)
+
+  where
+    sayVersionWarning vers verb = runExceptT $ do
+              let sayFunc = if verb then sayLnWithTime else sayLn
+              (uptoDate, latestVersion) <- checkIfRomeLatestVersionIs vers
+              unless uptoDate $ sayFunc $ redControlSequence
+                <> "*** Please update to the latest Rome version: "
+                <> romeVersionToString latestVersion
+                <> ". "
+                <> "You are currently on: "
+                <> romeVersionToString vers
+                <> noColorControlSequence
 
 
 -- | Lists Frameworks in the caches.
@@ -381,11 +403,8 @@ uploadFrameworkToS3 frameworkArchive
                     s3BucketName
                     reverseRomeMap
                     (FrameworkVersion f@(FrameworkName fwn) version)
-                    platform = do
-  (env, verbose) <- ask
-  runReaderT
-    (uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn)
-    (env, verbose)
+                    platform =
+  uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) remoteFrameworkUploadPath fwn
 
   where
     remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
@@ -403,9 +422,8 @@ uploadDsymToS3 dSYMArchive
                s3BucketName
                reverseRomeMap
                (FrameworkVersion f@(FrameworkName fwn) version)
-               platform = do
-  (env, verbose) <- ask
-  runReaderT (uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) remoteDsymUploadPath (fwn ++ ".dSYM")) (env, verbose)
+               platform =
+  uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) remoteDsymUploadPath (fwn ++ ".dSYM")
 
   where
     remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
@@ -589,6 +607,12 @@ zipDir dir verbose = do
 
 
 -- | Uploads an artificat to an `S3.BucketName` at a given path in the bucket.
+uploadBinary :: AWS.ToBody a
+             => S3.BucketName
+             -> a
+             -> FilePath
+             -> FilePath
+             -> ReaderT (AWS.Env, Bool) IO ()
 uploadBinary s3BucketName binaryZip destinationPath objectName = do
   (env, verbose) <- ask
   let objectKey = S3.ObjectKey $ T.pack destinationPath
@@ -869,7 +893,7 @@ deleteFrameworkDirectory :: MonadIO m
                          -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
                          -> Bool -- ^ A flag controlling verbosity
                          -> m ()
-deleteFrameworkDirectory (FrameworkVersion f@(FrameworkName _) _)
+deleteFrameworkDirectory (FrameworkVersion f _)
                          platform =
   deleteDirectory frameworkDirectory
   where
@@ -885,7 +909,7 @@ deleteDSYMDirectory :: MonadIO m
                     -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
                     -> Bool -- ^ A flag controlling verbosity
                     -> m ()
-deleteDSYMDirectory (FrameworkVersion f@(FrameworkName _) _)
+deleteDSYMDirectory (FrameworkVersion f _)
                     platform =
   deleteDirectory dSYMDirectory
   where
@@ -1121,6 +1145,10 @@ getVersionFileFromS3 s3BucketName gitRepoNameAndVersion =
 
 
 -- | Downloads an artificat stored at a given path from an `S3.BucketName`.
+downloadBinary :: S3.BucketName
+               -> FilePath
+               -> FilePath
+               -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
 downloadBinary s3BucketName objectRemotePath objectName = do
   (env, verbose) <- ask
   runResourceT . AWS.runAWS env $ do
@@ -1140,12 +1168,11 @@ downloadBinary s3BucketName objectRemotePath objectName = do
     printProgress :: MonadIO m => String -> Int -> C.Conduit BS.ByteString m BS.ByteString
     printProgress objName totalLength = loop totalLength 0 0
       where
-        roundedSizeInMB = roundBytesToMegabytes totalLength
         loop t consumedLen lastLen = C.await >>= maybe (return ()) (\bs -> do
             let len = consumedLen + BS.length bs
             let diffGreaterThan1MB = len - lastLen >= 1024*1024
             when ( diffGreaterThan1MB || len == t) $
-               sayLnWithTime $ "Downloaded " ++ show (roundBytesToMegabytes len) ++ " MB of " ++ show roundedSizeInMB ++ " MB for " ++ objName
+               sayLnWithTime $ "Downloaded " ++ showInMegabytes len ++ " of " ++ showInMegabytes totalLength ++ " for " ++ objName
             C.yield bs
             let a = if diffGreaterThan1MB then len else lastLen
             loop t len a)

@@ -894,9 +894,8 @@ deleteFrameworkDirectory :: MonadIO m
                          -> Bool -- ^ A flag controlling verbosity
                          -> m ()
 deleteFrameworkDirectory (FrameworkVersion f _)
-                         platform
-                         verbose =
-  deleteDirectory frameworkDirectory verbose
+                         platform =
+  deleteDirectory frameworkDirectory
   where
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
     platformBuildDirectory = carthageBuildDirectoryForPlatform platform
@@ -911,9 +910,8 @@ deleteDSYMDirectory :: MonadIO m
                     -> Bool -- ^ A flag controlling verbosity
                     -> m ()
 deleteDSYMDirectory (FrameworkVersion f _)
-                    platform
-                    verbose =
-  deleteDirectory dSYMDirectory verbose
+                    platform =
+  deleteDirectory dSYMDirectory
   where
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
     platformBuildDirectory = carthageBuildDirectoryForPlatform platform

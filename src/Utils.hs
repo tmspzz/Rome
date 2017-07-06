@@ -373,3 +373,6 @@ greenControlSequence = "\ESC[0;32m"
 
 noColorControlSequence :: String
 noColorControlSequence = "\ESC[0m"
+
+third :: (a, b, c) -> c
+third (_, _, c) = c

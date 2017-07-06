@@ -19,9 +19,11 @@ import           Types.Commands
 -- verifyParser :: Parser VerifyFlag
 -- verifyParser = VerifyFlag <$> Opts.switch ( Opts.long "verify" <> Opts.help "Verify that the framework has the same hash as specified in the Cartfile.resolved.")
 
+cachePrefixParser :: Parser String
+cachePrefixParser = Opts.strOption (Opts.value "" <> Opts.metavar "PREFIX" <> Opts.long "cache-prefix" <> Opts.help "A prefix appended to the top level directories inside the caches. Usefull to separate artifacts between Swift versions.")
 
 skipLocalCacheParser :: Parser SkipLocalCacheFlag
-skipLocalCacheParser = SkipLocalCacheFlag <$> Opts.switch ( Opts.long "skip-local-cache" <> Opts.help "Ignore the local cache when performing the operation.")
+skipLocalCacheParser = SkipLocalCacheFlag <$> Opts.switch (Opts.long "skip-local-cache" <> Opts.help "Ignore the local cache when performing the operation.")
 
 reposParser :: Opts.Parser [GitRepoName]
 reposParser = Opts.many (Opts.argument (GitRepoName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."))
@@ -35,7 +37,7 @@ platformsParser = (nub . concat <$> Opts.some (Opts.option (eitherReader platfor
     platformListOrError s = mapM platformOrError $ splitPlatforms s
 
 udcPayloadParser :: Opts.Parser RomeUDCPayload
-udcPayloadParser = RomeUDCPayload <$> reposParser <*> platformsParser {- <*> verifyParser-} <*> skipLocalCacheParser
+udcPayloadParser = RomeUDCPayload <$> reposParser <*> platformsParser <*> cachePrefixParser <*> skipLocalCacheParser
 
 uploadParser :: Opts.Parser RomeCommand
 uploadParser = pure Upload <*> udcPayloadParser
@@ -51,7 +53,7 @@ listModeParser = (
                 <|> Opts.flag All All (Opts.help "Reports missing or present status of frameworks in the cache. Ignores dSYMs.")
 
 listPayloadParser :: Opts.Parser RomeListPayload
-listPayloadParser = RomeListPayload <$> listModeParser <*> platformsParser
+listPayloadParser = RomeListPayload <$> listModeParser <*> platformsParser <*> cachePrefixParser
 
 listParser :: Opts.Parser RomeCommand
 listParser = List <$> listPayloadParser

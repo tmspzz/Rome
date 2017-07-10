@@ -32,7 +32,7 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 		- [Uploading](#uploading)
 		- [Downloading](#downloading)
 		- [Listing](#listing)
-- [Troubleshooting](#troubleshooting-faq)
+- [Troubleshooting](#troubleshooting--faq)
 	- [Getting "Image not found" when running an application using binaries](#getting-image-not-found-when-running-an-application-using-binaries)
 	- [Supporting multiple Swift Versions](#supporting-multiple-swift-versions)
 - [Presentations and Tutorials](#presentations-and-tutorials)
@@ -443,7 +443,6 @@ achieved by specifying a cache prefix when using any Rome command like so:
 $ rome upload --platform iOS --cache-prefix Swift3 Alamofire
 $ rome download --platform iOS --cache-prefix Swift3 Alamofire
 $ rome list --platform iOS --cache-prefix Swift3
-
 ```
 
 The specified prefix is prepended to the git repository name in the caches.

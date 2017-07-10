@@ -32,8 +32,9 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 		- [Uploading](#uploading)
 		- [Downloading](#downloading)
 		- [Listing](#listing)
-- [Troubleshooting](#troubleshooting)
+- [Troubleshooting](#troubleshooting-faq)
 	- [Getting "Image not found" when running an application using binaries](#getting-image-not-found-when-running-an-application-using-binaries)
+	- [Supporting multiple Swift Versions](#supporting-multiple-swift-versions)
 - [Presentations and Tutorials](#presentations-and-tutorials)
 - [Who uses Rome?](#who-uses-rome)
 - [License](#license)
@@ -416,7 +417,7 @@ Note: `list` __completely ignores dSYMs and Carthage version files__. If a dSYM
 or a [Carthage version file](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
 is missing, __the corresponding framework is still reported as present__.
 
-## Troubleshooting
+## Troubleshooting & FAQ
 
 ### Getting "Image not found" when running an application using binaries
 
@@ -432,6 +433,23 @@ To fix that, add an explicit import statement to one of your files:
 import CoreLocation
 import MapKit
 ```
+
+### Supporting multiple Swift Versions
+
+Storing artifacts or a the same famework at different Swift versions can be
+achieved by specifying a cache prefix when using any Rome command like so:
+
+```
+$ rome upload --platform iOS --cache-prefix Swift3 Alamofire
+$ rome download --platform iOS --cache-prefix Swift3 Alamofire
+$ rome list --platform iOS --cache-prefix Swift3
+
+```
+
+The specified prefix is prepended to the git repository name in the caches.
+Using a local cache path like `~/Library/Caches/Rome` will store Alamofire from
+the example above at `~/Library/Caches/Rome/Swift3/Alamofire`
+
 ## Presentations and Tutorials
 
 Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org/) and [slides](https://speakerdeck.com/blender/caching-a-simple-solution-to-speeding-up-build-times)

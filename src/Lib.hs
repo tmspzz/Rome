@@ -363,7 +363,7 @@ uploadVersionFileToCaches s3BucketName
             <*> Just versionFileContent
             <*> Just gitRepoNameAndVersion
             <*> Just verbose
-     liftIO $ runReaderT (uploadVersionFileToS3 s3BucketName versionFileContent gitRepoNameAndVersion) (env, verbose)
+     liftIO $ runReaderT (uploadVersionFileToS3 s3BucketName versionFileContent gitRepoNameAndVersion) (env, cachePrefix, verbose)
 
   where
 
@@ -376,14 +376,16 @@ uploadVersionFileToCaches s3BucketName
 uploadVersionFileToS3 :: S3.BucketName -- ^ The cache definition.
                       -> LBS.ByteString -- ^ The contents of the .version file.
                       -> GitRepoNameAndVersion -- ^ The information used to derive the name and path for the .version file.
-                      -> ReaderT (AWS.Env, Bool) IO ()
+                      -> ReaderT (AWS.Env, CachePrefix, Bool) IO ()
 uploadVersionFileToS3  s3BucketName
                        versionFileContent
-                       gitRepoNameAndVersion =
-  uploadBinary s3BucketName
-               versionFileContent
-               versionFileRemotePath
-               versionFileName
+                       gitRepoNameAndVersion = do
+  (env, CachePrefix prefix, verbose) <- ask
+  withReaderT (const (env, verbose)) $
+    uploadBinary s3BucketName
+                 versionFileContent
+                 (prefix </>versionFileRemotePath)
+                 versionFileName
 
   where
 

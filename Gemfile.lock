@@ -23,7 +23,7 @@ GEM
       kramdown (~> 1.5)
       octokit (~> 4.7)
       terminal-table (~> 1)
-    danger-hlint (0.0.2)
+    danger-hlint (0.0.3)
       danger-plugin-api (~> 1.0)
     danger-plugin-api (1.0.0)
       danger (> 2.0)

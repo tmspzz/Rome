@@ -8,8 +8,8 @@ import           System.Exit
 
 
 
-romeVersion :: String
-romeVersion = "0.11.0.27"
+romeVersion :: RomeVersion
+romeVersion = (0, 12, 0, 31)
 
 
 
@@ -19,9 +19,9 @@ main = do
   let opts = info (Opts.helper <*> Opts.flag' Nothing (Opts.long "version" <> Opts.help "Prints the version information" <> Opts.hidden ) <|> Just <$> parseRomeOptions) (header "S3 cache tool for Carthage" )
   cmd <- execParser opts
   case cmd of
-    Nothing -> putStrLn $ romeVersion ++ " - Romam uno die non fuisse conditam."
+    Nothing -> putStrLn $ romeVersionToString romeVersion ++ " - Romam uno die non fuisse conditam."
     Just romeOptions -> do
-      p <- runExceptT $ runRomeWithOptions romeOptions
+      p <- runExceptT $ runRomeWithOptions romeOptions romeVersion
       case p of
         Right _ -> return ()
         Left e  -> die e

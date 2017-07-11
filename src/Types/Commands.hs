@@ -10,6 +10,7 @@ data RomeCommand = Upload RomeUDCPayload
 
 data RomeUDCPayload = RomeUDCPayload { _payload            :: [GitRepoName]
                                      , _udcPlatforms       :: [TargetPlatform]
+                                     , _cachePrefix        :: String
                                     --  , _verifyFlag         :: VerifyFlag
                                      , _skipLocalCacheFlag :: SkipLocalCacheFlag
                                      }
@@ -20,8 +21,9 @@ data RomeUDCPayload = RomeUDCPayload { _payload            :: [GitRepoName]
 newtype SkipLocalCacheFlag = SkipLocalCacheFlag { _skipLocalCache :: Bool }
                                                 deriving (Show, Eq)
 
-data RomeListPayload = RomeListPayload { _listMode      :: ListMode
-                                       , _listPlatforms :: [TargetPlatform]
+data RomeListPayload = RomeListPayload { _listMode        :: ListMode
+                                       , _listPlatforms   :: [TargetPlatform]
+                                       , _listCachePrefix :: String
                                        }
                                        deriving (Show, Eq)
 

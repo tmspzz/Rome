@@ -498,13 +498,12 @@ uploadFrameworkAndDsymToCaches s3BucketName
           <$> (
               saveFrameworkToLocalCache
               <$> mlCacheDir
-              <*> Just cachePrefix
               <*> Just frameworkArchive
               <*> Just reverseRomeMap
               <*> Just fVersion
               <*> Just platform
               )
-          <*> Just (s, verbose)
+          <*> Just (cachePrefix, s, verbose)
     liftIO $ runReaderT
       (uploadFrameworkToS3 frameworkArchive s3BucketName reverseRomeMap fVersion platform)
       uploadDownloadEnv
@@ -517,13 +516,12 @@ uploadFrameworkAndDsymToCaches s3BucketName
           <$> (
               saveDsymToLocalCache
               <$> mlCacheDir
-              <*> Just cachePrefix
               <*> Just dSYMArchive
               <*> Just reverseRomeMap
               <*> Just fVersion
               <*> Just platform
               )
-          <*> Just (s, verbose)
+          <*> Just (cachePrefix, s, verbose)
     liftIO $ runReaderT
       (uploadDsymToS3 dSYMArchive s3BucketName reverseRomeMap fVersion platform)
       uploadDownloadEnv
@@ -562,19 +560,20 @@ saveFrameworkAndDSYMToLocalCache lCacheDir
                                  fVersion@(FrameworkVersion f@(FrameworkName _) _)
                                  platform = do
   (cachePrefix, verbose) <- ask
+  let readerEnv = (cachePrefix, SkipLocalCacheFlag False, verbose)
   void . runExceptT $ do
     frameworkArchive <- zipDir frameworkDirectory verbose
     liftIO $
       runReaderT
-        (saveFrameworkToLocalCache lCacheDir cachePrefix frameworkArchive reverseRomeMap fVersion platform)
-        (SkipLocalCacheFlag False, verbose)
+        (saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap fVersion platform)
+        readerEnv
 
   void . runExceptT $ do
     dSYMArchive <- zipDir dSYMdirectory verbose
     liftIO $
       runReaderT
-        (saveDsymToLocalCache lCacheDir cachePrefix dSYMArchive reverseRomeMap fVersion platform)
-        (SkipLocalCacheFlag False, verbose)
+        (saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap fVersion platform)
+        readerEnv
 
   where
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
@@ -588,19 +587,17 @@ saveFrameworkAndDSYMToLocalCache lCacheDir
 
 -- | Saves a Framework `Zip.Archive` to a local cache.
 saveFrameworkToLocalCache :: FilePath -- ^ The cache definition.
-                          -> CachePrefix -- ^ A prefix for folders at top level in the cache.
                           -> Zip.Archive -- ^ The zipped archive of the Framework
                           -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
                           -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the dSYM.
                           -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
-                          -> ReaderT (SkipLocalCacheFlag, Bool) IO ()
+                          -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
 saveFrameworkToLocalCache lCacheDir
-                          (CachePrefix prefix)
                           frameworkArchive
                           reverseRomeMap
                           (FrameworkVersion f@(FrameworkName _) version)
                           platform = do
-  (SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+  (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   unless skipLocalCache $
    saveBinaryToLocalCache lCacheDir
                           (Zip.fromArchive frameworkArchive)
@@ -616,19 +613,17 @@ saveFrameworkToLocalCache lCacheDir
 
 -- | Saves a dSYM `Zip.Archive` to a local cache.
 saveDsymToLocalCache :: FilePath -- ^ The cache definition.
-                     -> CachePrefix -- ^ A prefix for folders at top level in the cache.
                      -> Zip.Archive -- ^ The zipped archive of the dSYM.
                      -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
                      -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the dSYM.
                      -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
-                     -> ReaderT (SkipLocalCacheFlag, Bool) IO ()
+                     -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
 saveDsymToLocalCache lCacheDir
-                     (CachePrefix prefix)
                      dSYMArchive
                      reverseRomeMap
                      (FrameworkVersion f@(FrameworkName fwn) version)
                      platform = do
-  (SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+  (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   unless skipLocalCache $
    saveBinaryToLocalCache lCacheDir
                           (Zip.fromArchive dSYMArchive)
@@ -684,7 +679,7 @@ uploadBinary s3BucketName binaryZip destinationPath objectName = do
 saveBinaryToLocalCache :: MonadIO m
                        => FilePath -- ^ The path of the base directory.
                        -> LBS.ByteString -- ^ The `ByteString` to save.
-                       -> FilePath -- ^ The destination path inised the base directory.
+                       -> FilePath -- ^ The destination path inside the base directory.
                        -> String -- ^ A colloquial name for the artifact printed when verbose is `True`.
                        -> Bool -- ^ A verbostiry flag.
                        -> m ()
@@ -728,7 +723,7 @@ downloadVersionFileFromCaches :: S3.BucketName -- ^ The chache definition.
                               -> GitRepoNameAndVersion -- ^ The `GitRepoName` and `Version` information.
                               -> ReaderT UploadDownloadCmdEnv IO ()
 downloadVersionFileFromCaches s3BucketName (Just lCacheDir) gitRepoNameAndVersion = do
-  (env, cachePrefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+  (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, verbose) <- ask
 
   when skipLocalCache $
     downloadVersionFileFromCaches s3BucketName Nothing gitRepoNameAndVersion
@@ -747,7 +742,7 @@ downloadVersionFileFromCaches s3BucketName (Just lCacheDir) gitRepoNameAndVersio
           (do
             e2 <- runExceptT $ do
               versionFileBinary <- getVersionFileFromS3 s3BucketName gitRepoNameAndVersion
-              saveBinaryToLocalCache lCacheDir versionFileBinary versionFileRemotePath versionFileName verbose
+              saveBinaryToLocalCache lCacheDir versionFileBinary (prefix </> versionFileRemotePath) versionFileName verbose
               saveBinaryToFile versionFileBinary versionFileLocalPath
               sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
             whenLeft sayFunc e2
@@ -836,7 +831,7 @@ downloadFrameworkAndDsymFromCaches s3BucketName
                                    reverseRomeMap
                                    fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
                                    platform = do
-  (env, cachePrefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+  (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, verbose) <- ask
 
   let remoteReaderEnv = (env, cachePrefix, verbose)
   let localReaderEnv  = (cachePrefix, verbose)
@@ -845,7 +840,6 @@ downloadFrameworkAndDsymFromCaches s3BucketName
     downloadFrameworkAndDsymFromCaches s3BucketName Nothing reverseRomeMap fVersion platform
 
   unless skipLocalCache $ do
-
     eitherFrameworkSuccess <- runReaderT (runExceptT $ getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap fVersion platform)
                                          localReaderEnv
     case eitherFrameworkSuccess of
@@ -859,7 +853,7 @@ downloadFrameworkAndDsymFromCaches s3BucketName
                     ( do
                       e2 <- runExceptT $ do
                         frameworkBinary <- getFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform
-                        saveBinaryToLocalCache lCacheDir frameworkBinary remoteFrameworkUploadPath fwn verbose
+                        saveBinaryToLocalCache lCacheDir frameworkBinary (prefix </> remoteFrameworkUploadPath) fwn verbose
                         deleteFrameworkDirectory fVersion platform verbose
                         unzipBinary frameworkBinary fwn frameworkZipName verbose <* makeExecutable platform f
                       whenLeft sayFunc e2
@@ -879,7 +873,7 @@ downloadFrameworkAndDsymFromCaches s3BucketName
                    ( do
                      e2 <- runExceptT $ do
                        dSYMBinary <- getDSYMFromS3 s3BucketName reverseRomeMap fVersion platform
-                       saveBinaryToLocalCache lCacheDir dSYMBinary remotedSYMUploadPath dSYMName verbose
+                       saveBinaryToLocalCache lCacheDir dSYMBinary (prefix </> remotedSYMUploadPath) dSYMName verbose
                        deleteDSYMDirectory fVersion platform verbose
                        unzipBinary dSYMBinary dSYMName dSYMZipName verbose
                      whenLeft sayFunc e2

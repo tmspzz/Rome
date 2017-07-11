@@ -1,6 +1,6 @@
 ![](logo/colosseum.jpg)
 
-# Rome [![rome-latest](https://img.shields.io/badge/release-v0.11.0.27-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.11.0.27) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/netbe/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
+# Rome [![rome-latest](https://img.shields.io/badge/release-v0.12.0.31-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.12.0.31) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/netbe/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
 
 
 Rome is a tool that allows developers on Apple platforms to use:

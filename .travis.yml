@@ -4,7 +4,6 @@ sudo: false
 # Choose a lightweight base image; we provide our own build tools.
 language: c
 
-
 # GHC depends on GMP. You can add other dependencies here as well.
 addons:
   apt:
@@ -27,10 +26,12 @@ before_install:
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
 
 # Download and instal hlint
-- rake
+- rake hlint:install[2.0.9]
 
 install:
-  - bundle install
+  # Run bundler and install the dependencies in vendor/bundle
+  # so that it can be cached.
+  - bundle install --deployment
 
 # This line does all of the work: installs GHC if necessary, build the library,
 # executables, and test suites, and runs the test suites. --no-terminal works
@@ -46,3 +47,4 @@ script:
 cache:
   directories:
   - $HOME/.stack
+  - vendor/bundle

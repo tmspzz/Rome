@@ -30,7 +30,7 @@ before_install:
 - rake
 
 install:
-  - bundle install
+  - bundle install --deployment
 
 # This line does all of the work: installs GHC if necessary, build the library,
 # executables, and test suites, and runs the test suites. --no-terminal works
@@ -46,3 +46,4 @@ script:
 cache:
   directories:
   - $HOME/.stack
+  - vendor/bundle

@@ -1,10 +1,13 @@
+# @example
+#
+# rake hlint:install[2.0.9]
 
 namespace :hlint do
 
   desc "Download and install hlint"
-  task :install do
+  task :install, :version do |task, args|
     REPO = "https://github.com/ndmitchell/hlint"
-    VERSION = "2.0.9"#DangerHlint::HLINT_VERSION
+    VERSION = args[:version].to_s
     ASSET = "hlint-#{VERSION}-x86_64-linux.tar.gz"
     URL = "#{REPO}/releases/download/v#{VERSION}/#{ASSET}"
     DESTINATION_BASE = File.expand_path(File.join(File.dirname(__FILE__), 'bin'))
@@ -23,5 +26,3 @@ namespace :hlint do
   end
 
 end
-
-task default: 'hlint:install'

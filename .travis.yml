@@ -26,8 +26,7 @@ before_install:
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
 
 # Download and instal hlint
-#- rake
-- curl -sL https://raw.github.com/ndmitchell/hlint/master/misc/travis.sh | sh -s .
+- rake hlint:install[2.0.9]
 
 install:
   # Run bundler and install the dependencies in vendor/bundle

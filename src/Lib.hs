@@ -684,7 +684,7 @@ uploadBinary s3BucketName binaryZip destinationPath objectName = do
 saveBinaryToLocalCache :: MonadIO m
                        => FilePath -- ^ The path of the base directory.
                        -> LBS.ByteString -- ^ The `ByteString` to save.
-                       -> FilePath -- ^ The destination path inised the base directory.
+                       -> FilePath -- ^ The destination path inside the base directory.
                        -> String -- ^ A colloquial name for the artifact printed when verbose is `True`.
                        -> Bool -- ^ A verbostiry flag.
                        -> m ()
@@ -747,7 +747,7 @@ downloadVersionFileFromCaches s3BucketName (Just lCacheDir) gitRepoNameAndVersio
           (do
             e2 <- runExceptT $ do
               versionFileBinary <- getVersionFileFromS3 s3BucketName gitRepoNameAndVersion
-              saveBinaryToLocalCache lCacheDir versionFileBinary versionFileRemotePath versionFileName verbose
+              saveBinaryToLocalCache lCacheDir versionFileBinary (prefix </> versionFileRemotePath) versionFileName verbose
               saveBinaryToFile versionFileBinary versionFileLocalPath
               sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
             whenLeft sayFunc e2
@@ -845,7 +845,6 @@ downloadFrameworkAndDsymFromCaches s3BucketName
     downloadFrameworkAndDsymFromCaches s3BucketName Nothing reverseRomeMap fVersion platform
 
   unless skipLocalCache $ do
-
     eitherFrameworkSuccess <- runReaderT (runExceptT $ getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap fVersion platform)
                                          localReaderEnv
     case eitherFrameworkSuccess of
@@ -859,7 +858,7 @@ downloadFrameworkAndDsymFromCaches s3BucketName
                     ( do
                       e2 <- runExceptT $ do
                         frameworkBinary <- getFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform
-                        saveBinaryToLocalCache lCacheDir frameworkBinary remoteFrameworkUploadPath fwn verbose
+                        saveBinaryToLocalCache lCacheDir frameworkBinary (prefix </> remoteFrameworkUploadPath) fwn verbose
                         deleteFrameworkDirectory fVersion platform verbose
                         unzipBinary frameworkBinary fwn frameworkZipName verbose <* makeExecutable platform f
                       whenLeft sayFunc e2
@@ -879,7 +878,7 @@ downloadFrameworkAndDsymFromCaches s3BucketName
                    ( do
                      e2 <- runExceptT $ do
                        dSYMBinary <- getDSYMFromS3 s3BucketName reverseRomeMap fVersion platform
-                       saveBinaryToLocalCache lCacheDir dSYMBinary remotedSYMUploadPath dSYMName verbose
+                       saveBinaryToLocalCache lCacheDir dSYMBinary (prefix </> remotedSYMUploadPath) dSYMName verbose
                        deleteDSYMDirectory fVersion platform verbose
                        unzipBinary dSYMBinary dSYMName dSYMZipName verbose
                      whenLeft sayFunc e2

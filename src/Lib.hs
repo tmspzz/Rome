@@ -130,7 +130,7 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
               (uptoDate, latestVersion) <- checkIfRomeLatestVersionIs vers
               unless uptoDate $ sayFunc $ redControlSequence
                 <> "*** Please update to the latest Rome version: "
-                <> romeVersionToString latestVersion
+                <> (romeVersionToString latestVersion)
                 <> ". "
                 <> "You are currently on: "
                 <> romeVersionToString vers
@@ -216,7 +216,7 @@ downloadArtifacts mS3BucketName
                   reverseRepositoryMap
                   frameworkVersions
                   platforms = do
-  (cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
+  (cachePrefix@(CachePrefix prefix), s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
 
   let
     sayFunc :: MonadIO m => String -> m ()
@@ -1058,7 +1058,7 @@ getAndUnzipFrameworksAndDSYMsFromLocalCache lCacheDir
                                             reverseRomeMap
                                             fvs
                                             platforms =
-  concatMap getAndUnzipFramework platforms <> concatMap getAndUnzipDSYM platforms
+  concat (map getAndUnzipFramework platforms) <> concatMap getAndUnzipDSYM platforms
   where
   getAndUnzipFramework = mapM (getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap) fvs
   getAndUnzipDSYM      = mapM (getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap) fvs

@@ -878,7 +878,7 @@ downloadFrameworkAndDsymFromCaches s3BucketName
                        saveBinaryToLocalCache lCacheDir dSYMBinary (prefix </> remotedSYMUploadPath) dSYMName verbose
                        deleteDSYMDirectory fVersion platform verbose
                        unzipBinary dSYMBinary dSYMName dSYMZipName verbose
-                     whenLeft sayFunc e2
+                     whenLeft (sayFunc) e2
                     ) remoteReaderEnv
 
   where

@@ -220,7 +220,7 @@ git "http://stash.myAnimalStartup.com/scm/iossdk/awesome-framework-for-cat-names
 git "http://stash.myAnimalStartup.com/scm/iossdk/better-dog-names.git" ~> 0.4.4
 ```
 
-which translates to the following `Carftfile.resolved`
+which translates to the following `Cartfile.resolved`
 
 ```
 github "Alamofire/Alamofire" "4.3.0"

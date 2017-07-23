@@ -20,7 +20,7 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 	- [Producer workflow](#producer-workflow)
 	- [Consumer workflow](#consumer-workflow)
 	- [CI workflow](#ci-workflow)
-- [Set up and Usage](#set-up-and-usage)
+- [Set up](#set-up)
 	- [Setting up AWS credentials](#setting-up-aws-credentials)
 	- [Selecting the AWS Region](#selecting-the-aws-region)
 	- [Romefile](#romefile)
@@ -28,10 +28,12 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 		- [RepositoryMap](#repositorymap)
 		- [IgnoreMap](#ignoremap)
 			- [Multiple Aliases](#multiple-aliases)
-	- [Usage](#usage)
-		- [Uploading](#uploading)
-		- [Downloading](#downloading)
-		- [Listing](#listing)
+	- [Cache Structure](#cache-structure)
+		- [Cache Prefix](#cache-prefix)
+- [Usage](#usage)
+	- [Uploading](#uploading)
+	- [Downloading](#downloading)
+	- [Listing](#listing)
 - [Troubleshooting & FAQ](#troubleshooting--faq)
 	- [Getting "Image not found" when running an application using binaries](#getting-image-not-found-when-running-an-application-using-binaries)
 	- [Supporting multiple Swift Versions](#supporting-multiple-swift-versions)
@@ -119,7 +121,7 @@ If no frameworks are missing, the `awk` pipe to `carthage` will fail and the res
 You can use the [fastlane plugin for Rome](#use-rome-with-fastlane) to implement
 a CI workflow too.
 
-## Set up and Usage
+## Set up
 
 If you plan to use Amazon's S3 as a cache, then follow the next three steps:
 
@@ -285,7 +287,106 @@ when running `rome list [--missing]`
 
 Multiple aliases are supported in `[IgnoreMap]` too
 
-### Usage
+### Cache Structure
+
+The following describes the structure of the cache that Rome creates and manages.
+
+By default frameworks and dSYMs are placed in the cache (local and/or remote)
+according to the following convention:
+
+```
+<git-repository-name>/<platform>/<framework-name>.framework(.dSYM)-<version-hash>.zip
+```
+
+[Carthage version files](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
+are placed at:
+
+```
+<git-repository-name>/.<framework-name>.version-<version-hash>
+```
+
+For example the cache for the `Cartfile.resolved` in [RepositoryMap](#repositorymap)
+would look like the following
+
+```
+/Users/blender/Library/Caches/Rome/
+├── HockeySDK-iOS
+│   └── iOS
+│       ├── HockeySDK.framework-3.8.6.zip
+│       └── HockeySDK.framework.dSYM-3.8.6.zip
+├── awesome-framework-for-cat-names
+│		├── iOS
+│		│   ├── CatFramework.framework-883eea474e3932607988d4e74bf50c9799bfd99a.zip
+│		│   └── CatFramework.framework.dSYM-883eea474e3932607988d4e74bf50c9799bfd99a.zip
+│		├── tvOS
+│		│   ├── CatFramework.framework-883eea474e3932607988d4e74bf50c9799bfd99a.zip
+│		│   └── CatFramework.framework.dSYM-883eea474e3932607988d4e74bf50c9799bfd99a.zip
+│		└── .CatFramework.version-883eea474e3932607988d4e74bf50c9799bfd99a
+└─── better-dog-names
+		├── iOS
+		│   ├── DogFramework.framework-v4.0.0.zip
+		│   └── DogFramework.framework.dSYM-v4.0.0.zip
+		├── Mac
+		│   ├── DogFramework.framework-v4.0.0.zip
+		│   └── DogFramework.framework.dSYM-v4.0.0.zip
+		└── .DogFramework.version-v4.0.0
+```
+#### Cache Prefix
+
+Since version `0.12.0.31` Rome supports prefixes for top level directories in your
+caches. You can append `--cache-prefix MY_PREFIX` to all commands.
+This simply means that both the framework/dSYM and .version file conventional
+locations can be prefixed by another directory of your choosing. Thus the conventions
+become:
+
+```
+<MY_PREFIX>/<git-repository-name>/<platform>/<framework-name>.framework(.dSYM)-<version-hash>.zip
+```
+
+and
+
+```
+<MY_PREFIX>/<git-repository-name>/.<framework-name>.version-<version-hash>
+```
+
+This is particularly useful when the need to cache frameworks at the same version
+but build with different versions of the compiler arises.
+
+Suppose you want to cache v4.0.0 of `DogFramework` build for
+Swift2.1/Swift3.1/Swift3.2/Swift4. Once built you can upload each build with the same
+version number to a separate top level directory in the cache via the `--cache-prefix`
+option.
+
+Thus running for the Swift2.1 build
+
+```
+$ rome upload better-dog-names --platform iOS # note there is no prefix here
+```
+
+and running for the the Swift3.2 build
+
+```
+$ rome upload better-dog-names --platform iOS --cache-prefix Swift_3_2
+```
+
+would lead to the following cache structure
+
+```
+/Users/blender/Library/Caches/Rome/
+├── better-dog-names
+│   ├── iOS
+│   │   ├── DogFramework.framework-v4.0.0.zip
+│   │   └── DogFramework.framework.dSYM-v4.0.0.zip
+│   └── .DogFramework.version-v4.0.0-iOS
+└── Swift_3_2
+    └── better-dog-names
+        ├── iOS
+        │   ├── DogFramework.framework-v4.0.0.zip
+        │   └── DogFramework.framework.dSYM-v4.0.0.zip
+        └── .DogFramework.version-v4.0.0-iOS
+```
+
+## Usage
 
 Getting help:
 
@@ -312,11 +413,10 @@ Available commands:
                            Carftfile.resolved. Ignores dSYMs.
 ```
 
-#### Uploading
+### Uploading
 
 Uploading one or more frameworks, corresponding dSYMs and [Carthage version files](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
-if present
-(an empty list of frameworks will upload all frameworks found in `Cartfile.resolved`):
+if present (an empty list of frameworks will upload all frameworks found in `Cartfile.resolved`):
 
 Referring to the `Cartfile.resolved` in [RepositoryMap](#repositorymap)
 
@@ -340,7 +440,7 @@ Uploaded Alamofire.dSYM to: Alamofire/iOS/Alamofire.framework.dSYM-4.3.0.zip
 
 If a local cache is specified in your `Romefile` and you wish to ignore it pass `--skip-local-cache` on the command line.
 
-#### Downloading
+### Downloading
 
 Downloading one or more frameworks, corresponding dSYMs and
 [Carthage version files](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
@@ -373,7 +473,7 @@ Downloaded Alamofire.dSYM from: Alamofire/watchOS/Alamofire.framework.dSYM-4.3.0
 
 If a local cache is specified in your `Romefile` and you wish to ignore it pass `--skip-local-cache` on the command line.
 
-#### Listing
+### Listing
 
 Listing frameworks and reporting on their availability:
 
@@ -448,6 +548,9 @@ $ rome list --platform iOS --cache-prefix Swift3
 The specified prefix is prepended to the git repository name in the caches.
 Using a local cache path like `~/Library/Caches/Rome` will store Alamofire from
 the example above at `~/Library/Caches/Rome/Swift3/Alamofire`
+
+See [Cache Structure](#cache-structure) and [Cache Prefix](#cache-prefix)
+for an in depth explanation.
 
 ## Presentations and Tutorials
 

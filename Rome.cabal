@@ -26,6 +26,7 @@ library
                        , Data.Carthage.Common
                        , Data.Carthage.VersionFile
                        , Data.Romefile
+                       , Data.S3Config
                        , Data.Ini.Utils
                        , Text.Parsec.Utils
 

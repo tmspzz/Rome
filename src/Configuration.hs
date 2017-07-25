@@ -4,7 +4,9 @@ module Configuration where
 import           Control.Monad.Except
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
+import           Data.Monoid                     ((<>))
 import           Data.Romefile
+import qualified Data.Text.IO                    as T
 import           System.Directory
 import           System.FilePath
 import           Types
@@ -18,7 +20,9 @@ getCartfileEntires = do
     Right cartfileEntries -> return cartfileEntries
 
 getRomefileEntries :: RomeMonad RomeFileParseResult
-getRomefileEntries = parseRomefile romefile
+getRomefileEntries = withExceptT toErr $ ExceptT $ parseRomefile <$> T.readFile romefile
+  where
+    toErr e = "Error while parsing " <> romefile <> ": " <> e
 
 getS3ConfigFile :: MonadIO m => m FilePath
 getS3ConfigFile = (</> awsConfigFilePath) `liftM` liftIO getHomeDirectory

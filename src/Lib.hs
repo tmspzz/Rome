@@ -76,7 +76,8 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
 
   let cInfo = romeFileParseResult^.cacheInfo
   let mS3BucketName = S3.BucketName <$> cInfo^.bucket
-  let mlCacheDir = cInfo^.localCacheDir
+
+  mlCacheDir <- liftIO $ traverse absolutizePath $ cInfo^.localCacheDir
 
   case options of
 

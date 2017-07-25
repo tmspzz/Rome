@@ -20,7 +20,7 @@ import           Data.Char                    (isNumber)
 import           Data.Function                (on)
 import           Data.List
 import qualified Data.Map.Strict              as M
-import           Data.Maybe                   (fromMaybe)
+import           Data.Maybe                   (fromMaybe, fromJust)
 import           Data.Monoid
 import           Data.Romefile
 import qualified Data.Text                    as T
@@ -31,7 +31,9 @@ import qualified Network.AWS                  as AWS (Error, ErrorMessage (..),
 import           Network.HTTP.Conduit         as HTTP
 import           Network.HTTP.Types.Header    as HTTP (hUserAgent)
 import           Numeric                      (showFFloat)
-import           System.FilePath
+import           System.Directory             (getHomeDirectory)
+import           System.FilePath              ((</>), normalise, addTrailingPathSeparator)
+import           System.Path.NameManip        (absolute_path, guess_dotdot)
 import           Text.Read                    (readMaybe)
 import           Types
 
@@ -362,6 +364,19 @@ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap = conca
 
         sortAndGroupPlatformAvailabilities :: [PlatformAvailability] -> [[PlatformAvailability]]
         sortAndGroupPlatformAvailabilities = groupBy ((==) `on` _availabilityPlatform) . sortBy (compare `on` _availabilityPlatform)
+
+
+--- | Take a path and makes it absolute resolving ../ and ~
+--- See https://www.schoolofhaskell.com/user/dshevchenko/cookbook/transform-relative-path-to-an-absolute-path
+absolutizePath :: FilePath -> IO FilePath
+absolutizePath aPath
+    | "~" `T.isPrefixOf` T.pack aPath = do
+        homePath <- getHomeDirectory
+        return $ normalise $ addTrailingPathSeparator homePath
+                             ++ Prelude.tail aPath
+    | otherwise = do
+        pathMaybeWithDots <- absolute_path aPath
+        return $ fromJust $ guess_dotdot pathMaybeWithDots
 
 
 

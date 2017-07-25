@@ -125,7 +125,7 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
             (cachePrefix, SkipLocalCacheFlag False, verbose)
 
   where
-    sayVersionWarning vers verb = runExceptT $ do
+    sayVersionWarning vers verb = do
               let sayFunc = if verb then sayLnWithTime else sayLn
               (uptoDate, latestVersion) <- checkIfRomeLatestVersionIs vers
               unless uptoDate $ sayFunc $ redControlSequence

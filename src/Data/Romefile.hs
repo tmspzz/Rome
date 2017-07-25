@@ -24,15 +24,9 @@ import           Control.Lens
 import           Control.Monad.Except
 import           Data.HashMap.Strict   as M
 import           Data.Ini              as INI
-import           Data.Ini.Utils        as INI
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Text
-import           System.Directory
-import           System.FilePath
-import           System.Path.NameManip
-
-
 
 
 newtype FrameworkName = FrameworkName { unFrameworkName :: String }
@@ -44,12 +38,13 @@ newtype GitRepoName   = GitRepoName { unGitRepoName :: String }
 data RomefileEntry    = RomefileEntry { gitRepositoryName    :: GitRepoName
                                       , frameworkCommonNames :: [FrameworkName]
                                       }
-                                      deriving (Show, Eq)
+                                      deriving (Eq, Show)
 
 data RomeFileParseResult = RomeFileParseResult { _cacheInfo            :: RomeCacheInfo
                                                , _repositoryMapEntries :: [RomefileEntry]
                                                , _ignoreMapEntries     :: [RomefileEntry]
                                                }
+                                               deriving (Eq, Show)
 
 cacheInfo :: Lens' RomeFileParseResult RomeCacheInfo
 cacheInfo = lens _cacheInfo (\parseResult n -> parseResult { _cacheInfo = n })
@@ -63,8 +58,9 @@ ignoreMapEntries = lens _ignoreMapEntries (\parseResult n -> parseResult { _igno
 
 
 data RomeCacheInfo = RomeCacheInfo { _bucket        :: Maybe Text
-                                   , _localCacheDir :: Maybe FilePath
+                                   , _localCacheDir :: Maybe FilePath -- relative path
                                    }
+                                   deriving (Eq, Show)
 
 bucket :: Lens' RomeCacheInfo (Maybe Text)
 bucket = lens _bucket (\cInfo n -> cInfo { _bucket = n })
@@ -99,58 +95,43 @@ ignoreMapSectionDelimiter :: Text
 ignoreMapSectionDelimiter = "IgnoreMap"
 
 
-parseRomefile :: MonadIO m => FilePath -> ExceptT FilePath m RomeFileParseResult
-parseRomefile f = do
-  eitherIni <- liftIO $ INI.readIniFile f
-  case eitherIni of
-    Left iniError -> throwError iniError
-    Right ini -> do
-      _bucket <- withExceptT toErrorMessage $ getBucket ini
-      maybeCacheDirAsText <- withExceptT toErrorMessage $ getLocalCacheDir ini
-      _localCacheDir <- liftIO $ mapM absolutize (unpack <$> maybeCacheDirAsText)
-      _repositoryMapEntries <- getRepostiryMapEntries ini
-      _ignoreMapEntries <- getIgnoreMapEntries ini
-      let _cacheInfo = RomeCacheInfo {..}
-      return RomeFileParseResult { .. }
+parseRomefile :: Text -> Either String RomeFileParseResult
+parseRomefile = toRomefile <=< INI.parseIni
+
+toRomefile :: INI.Ini -> Either String RomeFileParseResult
+toRomefile ini = do
+  _bucket <- getBucket ini
+  _localCacheDir <- getLocalCacheDir ini
+  let _repositoryMapEntries = getRepositoryMapEntries ini
+      _ignoreMapEntries = getIgnoreMapEntries ini
+      _cacheInfo = RomeCacheInfo {..}
+  return RomeFileParseResult {..}
+
+getSection :: Text -> M.HashMap Text b -> Either String b
+getSection key = maybe (Left err) Right . M.lookup key
   where
-    toErrorMessage :: Text -> String
-    toErrorMessage e = "Error while parsing " <> f <> ": " <> unpack e
+    err = "Could not find section: " <> show key
 
-getBucket :: MonadIO m => Ini -> ExceptT Text m (Maybe Text)
-getBucket ini = optionalKey s3BucketKey `inRequiredSection` cacheSectionDelimiter `fromIni''` ini
+getBucket :: Ini -> Either String (Maybe Text)
+getBucket (Ini ini) = M.lookup s3BucketKey <$> getSection cacheSectionDelimiter ini
 
-getLocalCacheDir :: MonadIO m => Ini -> ExceptT Text m (Maybe Text)
-getLocalCacheDir ini = optionalKey localCacheDirKey `inRequiredSection` cacheSectionDelimiter `fromIni''` ini
+getLocalCacheDir :: Ini -> Either String (Maybe FilePath)
+getLocalCacheDir (Ini ini) =
+  fmap unpack . M.lookup localCacheDirKey <$> getSection cacheSectionDelimiter ini
 
-getRepostiryMapEntries :: MonadIO m => Ini -> m [RomefileEntry]
-getRepostiryMapEntries = getRomefileEntries repositoryMapSectionDelimiter
+getRepositoryMapEntries :: Ini -> [RomefileEntry]
+getRepositoryMapEntries = getRomefileEntries repositoryMapSectionDelimiter
 
-getIgnoreMapEntries :: MonadIO m => Ini -> m [RomefileEntry]
+getIgnoreMapEntries :: Ini -> [RomefileEntry]
 getIgnoreMapEntries = getRomefileEntries ignoreMapSectionDelimiter
 
-getRomefileEntries :: (MonadIO m) => Text -> Ini -> m [RomefileEntry]
-getRomefileEntries sectionDelimiter ini = do
-  m <- inOptionalSection sectionDelimiter M.empty keysAndValues `fromIni''` ini
-  return $
-    Prelude.map
-    (\(repoName, frameworkCommonNames)
-     -> RomefileEntry
+getRomefileEntries :: Text -> Ini -> [RomefileEntry]
+getRomefileEntries sectionDelimiter (Ini ini) =
+  fmap toEntry . M.toList . fromMaybe M.empty . M.lookup sectionDelimiter $ ini
+  where
+    toEntry :: (Text, Text) -> RomefileEntry
+    toEntry (repoName, frameworkCommonNames) =
+      RomefileEntry
         (GitRepoName (unpack repoName))
-        (Prelude.map
-         (FrameworkName . unpack . strip)
-         (splitOn "," frameworkCommonNames)))
-    (M.toList m)
+        (fmap (FrameworkName . unpack . strip) (splitOn "," frameworkCommonNames))
 
-
-
--- | Take a path and makes it absolute resolving ../ and ~
--- See https://www.schoolofhaskell.com/user/dshevchenko/cookbook/transform-relative-path-to-an-absolute-path
-absolutize :: FilePath -> IO FilePath
-absolutize aPath
-    | "~" `isPrefixOf` pack aPath = do
-        homePath <- getHomeDirectory
-        return $ normalise $ addTrailingPathSeparator homePath
-                             ++ Prelude.tail aPath
-    | otherwise = do
-        pathMaybeWithDots <- absolute_path aPath
-        return $ fromJust $ guess_dotdot pathMaybeWithDots

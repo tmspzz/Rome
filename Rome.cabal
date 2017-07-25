@@ -26,7 +26,7 @@ library
                        , Data.Carthage.Common
                        , Data.Carthage.VersionFile
                        , Data.Romefile
-                       , Data.Ini.Utils
+                       , Data.S3Config
                        , Text.Parsec.Utils
 
   build-depends:       base >= 4.7 && < 5

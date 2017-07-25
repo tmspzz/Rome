@@ -50,17 +50,13 @@ repoHosting :: Parsec.Parsec String () RepoHosting
 repoHosting = Parsec.try parseGit <|> parseGitHub
 
 quotedContent :: Parsec.Parsec String () String
-quotedContent = do
-  Parsec.char '"'
-  location <- Parsec.parseUnquotedString
-  Parsec.char '"'
-  return location
+quotedContent = Parsec.char '"' *> Parsec.parseUnquotedString <* Parsec.char '"'
 
 parseCartfileResolvedLine :: Parsec.Parsec String () CartfileEntry
 parseCartfileResolvedLine = do
   hosting <- repoHosting
   location <- Location <$> quotedContent
-  Parsec.many1 Parsec.space
+  _ <- Parsec.many1 Parsec.space
   version <- Version <$> quotedContent
   return CartfileEntry {..}
 

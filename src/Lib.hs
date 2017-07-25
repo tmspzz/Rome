@@ -31,14 +31,13 @@ import qualified Data.Conduit                 as C (Conduit, await, yield, ($$),
                                                     (=$=))
 import qualified Data.Conduit.Binary          as C (sinkFile, sinkLbs,
                                                     sourceFile, sourceLbs)
-import           Data.Ini                     as INI
-import           Data.Ini.Utils               as INI
+import qualified Data.S3Config                as S3Config
 import           Data.Maybe                   (fromMaybe)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import qualified Data.Text                    as T
+import qualified Data.Text.IO                 as T
 import qualified Network.AWS                  as AWS
-import qualified Network.AWS.Data             as AWS
 import qualified Network.AWS.S3               as S3
 import           System.Directory
 import           System.Environment
@@ -77,7 +76,8 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
 
   let cInfo = romeFileParseResult^.cacheInfo
   let mS3BucketName = S3.BucketName <$> cInfo^.bucket
-  let mlCacheDir = cInfo^.localCacheDir
+
+  mlCacheDir <- liftIO $ traverse absolutizePath $ cInfo^.localCacheDir
 
   case options of
 
@@ -125,7 +125,7 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
             (cachePrefix, SkipLocalCacheFlag False, verbose)
 
   where
-    sayVersionWarning vers verb = runExceptT $ do
+    sayVersionWarning vers verb = do
               let sayFunc = if verb then sayLnWithTime else sayLn
               (uptoDate, latestVersion) <- checkIfRomeLatestVersionIs vers
               unless uptoDate $ sayFunc $ redControlSequence
@@ -1432,12 +1432,7 @@ getRegionFromFile :: MonadIO m
                   -> String -- ^ The name of the profile to use
                   -> ExceptT String m AWS.Region
 getRegionFromFile f profile = do
-  i <- liftIO (INI.readIniFile f)
-  case i of
-    Left e -> throwError e
-    Right ini -> do
-      region <- withExceptT (\e -> "Could not parse " <> f <> ": " <> T.unpack e) $ INI.requireKey "region" `INI.inRequiredSection` T.pack profile `INI.fromIni''` ini
-      let eitherAWSRegion = AWS.fromText region :: Either String AWS.Region
-      case eitherAWSRegion of
-        Left e  -> throwError e
-        Right r -> return r
+  file <- liftIO (T.readFile f)
+  withExceptT (("Could not parse " <> f <> ": ") <>) . ExceptT . return $ do
+    config <- S3Config.parse file
+    S3Config.regionOf (T.pack profile) config

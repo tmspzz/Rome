@@ -7,6 +7,7 @@ import           Data.Char                    (isLetter)
 import           Data.Either.Utils            (maybeToEither)
 import           Data.List                    (nub)
 import           Data.List.Split              (wordsBy)
+import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import           Options.Applicative          as Opts
 import           Text.Read                    (readMaybe)

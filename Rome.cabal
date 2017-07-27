@@ -30,7 +30,7 @@ library
                        , Text.Parsec.Utils
 
   build-depends:       base >= 4.7 && < 5
-                       , amazonka >= 1.4.1
+                       , amazonka >= 1.4.3
                        , amazonka-s3 >= 1.4.1
                        , exceptions >= 0.8
                        , lens >= 4.13
@@ -43,6 +43,7 @@ library
                        , unordered-containers >= 0.2.7
                        , conduit >= 1.2
                        , http-conduit >= 2.1.0
+                       , http-client >= 0.5
                        , http-types >= 0.9
                        , conduit-extra >= 1.1
                        , ini >= 0.3.5

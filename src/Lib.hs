@@ -51,7 +51,9 @@ import           Utils
 
 
 getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
-getAWSRegion = discoverRegion >>= flip AWS.newEnv AWS.Discover
+getAWSRegion = do
+  region <- discoverRegion
+  set AWS.envRegion region <$> AWS.newEnv AWS.Discover
 
 
 bothCacheKeysMissingMessage :: String
@@ -1233,8 +1235,8 @@ downloadBinary s3BucketName objectRemotePath objectName = do
     when verbose $
       sayFunc $ "Started downloading " <> objectName <> " from: " <> objectRemotePath
     rs <- AWS.send $ S3.getObject s3BucketName objectKey
-    let cotentLength = fromMaybe 0 (view S3.gorsContentLength rs)
-    binary <- view S3.gorsBody rs `AWS.sinkBody` sink verbose cotentLength
+    let contentLength = fromIntegral $ fromMaybe 0 $ view S3.gorsContentLength rs
+    binary <- view S3.gorsBody rs `AWS.sinkBody` sink verbose contentLength
     sayFunc $ "Downloaded " <> objectName <> " from: " <> objectRemotePath
     return binary
 

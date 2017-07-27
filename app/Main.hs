@@ -1,5 +1,6 @@
 module Main where
 
+import           Data.Monoid          ((<>))
 import           CommandParsers       (parseRomeOptions)
 import           Control.Monad.Except
 import           Lib

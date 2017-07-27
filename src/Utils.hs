@@ -47,10 +47,10 @@ romeVersionToString (major, minor, patch, build) = show major <> "." <> show min
 -- | Check if the given `RomeVersion` is the latest version compared to GitHub releases
 checkIfRomeLatestVersionIs :: MonadIO m => RomeVersion -> ExceptT String m (Bool, RomeVersion)
 checkIfRomeLatestVersionIs currentRomeVersion = do
-  req <- liftIO $ HTTP.parseUrl "https://api.github.com/repos/blender/Rome/releases/latest"
+  req <- liftIO $ HTTP.parseRequest "https://api.github.com/repos/blender/Rome/releases/latest"
 
   let headers = HTTP.requestHeaders req <> [(HTTP.hUserAgent, userAgent)]
-  let req' = req { HTTP.responseTimeout = Just timeout, HTTP.requestHeaders = headers }
+  let req' = req { HTTP.responseTimeout = timeout, HTTP.requestHeaders = headers }
 
   manager <- liftIO $ HTTP.newManager HTTP.tlsManagerSettings
 
@@ -64,7 +64,7 @@ checkIfRomeLatestVersionIs currentRomeVersion = do
       stringToVersionTuple = versionTupleOrZeros . map (fromMaybe 0 . readMaybe . T.unpack) . take 4 . splitWithSeparator '.' . T.pack . dropWhile (not . isNumber)
       versionTupleOrZeros a = (fromMaybe 0 (a !!? 0), fromMaybe 0 (a !!? 1), fromMaybe 0 (a !!? 2), fromMaybe 0 (a !!? 3))
 
-      timeout = 1000000 -- 1 second timeout, in microseconds
+      timeout = responseTimeoutMicro 1000000 -- 1 second
       userAgent = BS.pack $ "Rome/" <> romeVersionToString currentRomeVersion
 
 

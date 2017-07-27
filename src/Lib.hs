@@ -31,6 +31,7 @@ import qualified Data.Conduit                 as C (Conduit, await, yield, ($$),
                                                     (=$=))
 import qualified Data.Conduit.Binary          as C (sinkFile, sinkLbs,
                                                     sourceFile, sourceLbs)
+import           Control.Concurrent.Async.Lifted.Safe (mapConcurrently)
 import qualified Data.S3Config                as S3Config
 import           Data.Maybe                   (fromMaybe)
 import           Data.Monoid                  ((<>))
@@ -1280,9 +1281,10 @@ probeS3ForFrameworks :: S3.BucketName -- ^ The chache definition.
                      -> ReaderT (AWS.Env, CachePrefix, Bool) IO [FrameworkAvailability]
 probeS3ForFrameworks s3BucketName
                      reverseRomeMap
-                     frameworkVersions = sequence . probeForEachFramework
+                     frameworkVersions
+                     platforms = mapConcurrently probe frameworkVersions
   where
-    probeForEachFramework = mapM (probeS3ForFramework s3BucketName reverseRomeMap) frameworkVersions
+    probe framework = probeS3ForFramework s3BucketName reverseRomeMap framework platforms
 
 
 
@@ -1297,7 +1299,7 @@ probeS3ForFramework s3BucketName
                     frameworkVersion
                     platforms = fmap (FrameworkAvailability frameworkVersion) probeForEachPlatform
   where
-    probeForEachPlatform = mapM (probeS3ForFrameworkOnPlatform s3BucketName reverseRomeMap frameworkVersion) platforms
+    probeForEachPlatform = mapConcurrently (probeS3ForFrameworkOnPlatform s3BucketName reverseRomeMap frameworkVersion) platforms
 
 
 -- | Probes the caches described by `RomeCacheInfo` to check whether a `FrameworkVersion` is present or not for a `TargetPlatform`.

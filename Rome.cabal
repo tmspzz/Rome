@@ -56,6 +56,7 @@ library
                        , resourcet >= 1.1
                        , optparse-applicative >= 0.12
                        , aeson >= 0.11
+                       , lifted-async >= 0.9
 
   ghc-options:         -Wall -fno-warn-unused-do-bind
 

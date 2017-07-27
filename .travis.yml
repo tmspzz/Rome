@@ -13,8 +13,8 @@ addons:
 # The different configurations we want to test. You could also do things like
 # change flags or use --stack-yaml to point to a different file.
 env:
-- ARGS="--resolver=lts-6"
-- ARGS="--resolver=lts-7"
+- ARGS="--resolver=lts-8"
+- ARGS="--resolver=lts-9"
 
 before_install:
 # Update ruby

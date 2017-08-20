@@ -1,5 +1,5 @@
 name:                Rome
-version:             0.12.0.31
+version:             0.13.0.32
 synopsis:            An S3 cache for Carthage
 description:         Please see README.md
 homepage:            https://github.com/blender/Rome
@@ -28,10 +28,11 @@ library
                        , Data.Romefile
                        , Data.S3Config
                        , Text.Parsec.Utils
+                       , Xcode.DWARF
 
   build-depends:       base >= 4.7 && < 5
-                       , amazonka >= 1.4.5
-                       , amazonka-s3 >= 1.4.5
+                       , amazonka >= 1.4.1
+                       , amazonka-s3 >= 1.4.1
                        , exceptions >= 0.8
                        , lens >= 4.13
                        , parsec >= 3.1.10
@@ -43,7 +44,6 @@ library
                        , unordered-containers >= 0.2.7
                        , conduit >= 1.2
                        , http-conduit >= 2.1.0
-                       , http-client >= 0.5
                        , http-types >= 0.9
                        , conduit-extra >= 1.1
                        , ini >= 0.3.5
@@ -57,7 +57,7 @@ library
                        , resourcet >= 1.1
                        , optparse-applicative >= 0.12
                        , aeson >= 0.11
-                       , lifted-async >= 0.9
+                       , lifted-async >= 0.9.3
 
   ghc-options:         -Wall -fno-warn-unused-do-bind
 

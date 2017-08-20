@@ -14,38 +14,39 @@ module Lib (module Lib
 
 
 {- Imports -}
-import qualified Codec.Archive.Zip            as Zip
+import qualified Codec.Archive.Zip                    as Zip
 import           Configuration
-import           Control.Lens                 hiding (List)
+import           Control.Concurrent.Async.Lifted.Safe (mapConcurrently)
+import           Control.Lens                         hiding (List)
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.Except
-import           Control.Monad.Reader         (ReaderT, ask, runReaderT,
-                                               withReaderT)
-import           Control.Monad.Trans.Resource (runResourceT)
-import qualified Data.ByteString              as BS
-import qualified Data.ByteString.Lazy         as LBS
+import           Control.Monad.Reader                 (ReaderT, ask, runReaderT,
+                                                       withReaderT)
+import           Control.Monad.Trans.Resource         (runResourceT)
+import qualified Data.ByteString                      as BS
+import qualified Data.ByteString.Lazy                 as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
-import qualified Data.Conduit                 as C (Conduit, await, yield, ($$),
-                                                    (=$=))
-import qualified Data.Conduit.Binary          as C (sinkFile, sinkLbs,
-                                                    sourceFile, sourceLbs)
-import           Control.Concurrent.Async.Lifted.Safe (mapConcurrently)
-import qualified Data.S3Config                as S3Config
-import           Data.Maybe                   (fromMaybe)
-import           Data.Monoid                  ((<>))
+import qualified Data.Conduit                         as C (Conduit, await,
+                                                            yield, ($$), (=$=))
+import qualified Data.Conduit.Binary                  as C (sinkFile, sinkLbs,
+                                                            sourceFile,
+                                                            sourceLbs)
+import           Data.Maybe                           (fromMaybe)
+import           Data.Monoid                          ((<>))
 import           Data.Romefile
-import qualified Data.Text                    as T
-import qualified Data.Text.IO                 as T
-import qualified Network.AWS                  as AWS
-import qualified Network.AWS.S3               as S3
+import qualified Data.S3Config                        as S3Config
+import qualified Data.Text                            as T
+import qualified Data.Text.IO                         as T
+import qualified Network.AWS                          as AWS
+import qualified Network.AWS.S3                       as S3
 import           System.Directory
 import           System.Environment
 import           System.FilePath
 import qualified Turtle
 import           Types
-import           Types.Commands               as Commands
+import           Types.Commands                       as Commands
 import           Utils
 
 
@@ -1449,5 +1450,5 @@ getRegionFromFile :: MonadIO m
 getRegionFromFile f profile = do
   file <- liftIO (T.readFile f)
   withExceptT (("Could not parse " <> f <> ": ") <>) . ExceptT . return $ do
-    config <- S3Config.parse file
+    config <- S3Config.parseS3Config file
     S3Config.regionOf (T.pack profile) config

@@ -50,7 +50,7 @@ import qualified Turtle
 import           Types
 import           Types.Commands                       as Commands
 import           Utils
-
+import           Xcode.DWARF
 
 
 getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
@@ -238,7 +238,7 @@ downloadArtifacts mS3BucketName
       env <- lift getAWSRegion
       let uploadDownloadEnv = (env, cachePrefix, s, verbose)
       liftIO $ runReaderT
-        (downloadFrameworksAndDsymsFromCaches s3BucketName lCacheDir reverseRepositoryMap frameworkVersions platforms)
+        (downloadFrameworksAndArtifactsFromCaches s3BucketName lCacheDir reverseRepositoryMap frameworkVersions platforms)
         uploadDownloadEnv
       liftIO $ runReaderT
         (downloadVersionFilesFromCaches s3BucketName lCacheDir gitRepoNamesAndVersions)
@@ -289,7 +289,7 @@ uploadArtifacts mS3BucketName
       env <- lift getAWSRegion
       let uploadDownloadEnv = (env, cachePrefix, s, verbose)
       liftIO $ runReaderT
-        (uploadFrameworksAndDsymsToCaches s3BucketName lCacheDir reverseRepositoryMap frameworkVersions platforms)
+        (uploadFrameworksAndArtifactsToCaches s3BucketName lCacheDir reverseRepositoryMap frameworkVersions platforms)
         uploadDownloadEnv
       liftIO $ runReaderT
         (uploadVersionFilesToCaches s3BucketName lCacheDir gitRepoNamesAndVersions)
@@ -300,7 +300,7 @@ uploadArtifacts mS3BucketName
       when skipLocalCache $
         throwError conflictingSkipLocalCacheOptionMessage
       liftIO $
-        runReaderT (saveFrameworksAndDSYMsToLocalCache lCacheDir reverseRepositoryMap frameworkVersions platforms) readerEnv
+        runReaderT (saveFrameworksAndArtifactsToLocalCache lCacheDir reverseRepositoryMap frameworkVersions platforms) readerEnv
         >> runReaderT (saveVersionFilesToLocalCache lCacheDir gitRepoNamesAndVersions) readerEnv
 
 
@@ -429,18 +429,18 @@ saveVersionFileBinaryToLocalCache lCacheDir
 
 
 -- | Uploads a list of Framewokrs and relative dSYMs to a caches.
-uploadFrameworksAndDsymsToCaches :: S3.BucketName -- ^ The chache definition.
-                                 -> Maybe FilePath -- ^ Just the path to a local cache or Nothing
-                                 -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-                                 -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` idenfitying the Frameworks and dSYMs.
-                                 -> [TargetPlatform] -- ^ A list of `TargetPlatform`s restricting the scope of this action.
-                                 -> ReaderT UploadDownloadCmdEnv IO ()
-uploadFrameworksAndDsymsToCaches s3BucketName
-                                 mlCacheDir
-                                 reverseRomeMap
-                                 fvs = mapM_ (sequence . upload)
+uploadFrameworksAndArtifactsToCaches :: S3.BucketName -- ^ The chache definition.
+                                     -> Maybe FilePath -- ^ Just the path to a local cache or Nothing
+                                     -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                                     -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` idenfitying the Frameworks and dSYMs.
+                                     -> [TargetPlatform] -- ^ A list of `TargetPlatform`s restricting the scope of this action.
+                                     -> ReaderT UploadDownloadCmdEnv IO ()
+uploadFrameworksAndArtifactsToCaches s3BucketName
+                                     mlCacheDir
+                                     reverseRomeMap
+                                     fvs = mapM_ (sequence . upload)
   where
-    upload = mapM (uploadFrameworkAndDsymToCaches s3BucketName mlCacheDir reverseRomeMap) fvs
+    upload = mapM (uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap) fvs
 
 
 
@@ -484,26 +484,50 @@ uploadDsymToS3 dSYMArchive
   where
     remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
 
+-- | Uploads a bcsymbolmap `Zip.Archive` to an S3 Bucket.
+uploadBcsymbolmapToS3 :: DwarfUUID -- ^ The UUID of the bcsymblmap
+                      -> Zip.Archive -- ^ The `Zip.Archive` of the dSYM.
+                      -> S3.BucketName -- ^ The cache definition.
+                      -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                      -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM.
+                      -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
+                      -> ReaderT UploadDownloadEnv IO ()
+uploadBcsymbolmapToS3 dwarfUUID
+               dwarfArchive
+               s3BucketName
+               reverseRomeMap
+               (FrameworkVersion f@(FrameworkName fwn) version)
+               platform = do
+  (env, CachePrefix prefix, verbose) <- ask
+  withReaderT (const (env, verbose)) $
+    uploadBinary s3BucketName
+                (Zip.fromArchive dwarfArchive)
+                (prefix </> remoteBcsymbolmapUploadPath)
+                (fwn ++ "." ++ bcsymbolmapNameFrom dwarfUUID)
+
+  where
+    remoteBcsymbolmapUploadPath = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
 
 
--- | Uploads a Framework and the relative dSYM to the caches.
-uploadFrameworkAndDsymToCaches :: S3.BucketName -- ^ The chache definition.
-                               -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
-                               -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-                               -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM
-                               -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
-                               -> ReaderT UploadDownloadCmdEnv IO ()
-uploadFrameworkAndDsymToCaches s3BucketName
+
+-- | Uploads a Framework, the relative dSYM and bcsybolmaps to the caches.
+uploadFrameworkAndArtifactsToCaches :: S3.BucketName -- ^ The chache definition.
+                                    -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
+                                    -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                                    -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM
+                                    -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
+                                    -> ReaderT UploadDownloadCmdEnv IO ()
+uploadFrameworkAndArtifactsToCaches s3BucketName
                                mlCacheDir
                                reverseRomeMap
-                               fVersion@(FrameworkVersion f@(FrameworkName _) _)
+                               fVersion@(FrameworkVersion f@(FrameworkName fwn) _)
                                platform = do
   (env,  cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
 
   let uploadDownloadEnv = (env, cachePrefix, verbose)
 
   void . runExceptT $ do
-    frameworkArchive <- zipDir frameworkDirectory verbose
+    frameworkArchive <- createZipArchive frameworkDirectory verbose
     unless skipLocalCache $
       maybe (return ()) liftIO $
         runReaderT
@@ -521,7 +545,7 @@ uploadFrameworkAndDsymToCaches s3BucketName
       uploadDownloadEnv
 
   void . runExceptT $ do
-    dSYMArchive <- zipDir dSYMdirectory verbose
+    dSYMArchive <- createZipArchive dSYMdirectory verbose
     unless skipLocalCache $
       maybe (return ()) liftIO $
         runReaderT
@@ -538,6 +562,33 @@ uploadFrameworkAndDsymToCaches s3BucketName
       (uploadDsymToS3 dSYMArchive s3BucketName reverseRomeMap fVersion platform)
       uploadDownloadEnv
 
+  void . runExceptT $ do
+    dwarfUUIDs <- dwarfUUIDsFrom (frameworkDirectory </> fwn)
+    maybeUUIDsArchives <- liftIO $ forM dwarfUUIDs $ \dwarfUUID -> runMaybeT $ do
+                        dwarfArchive <- exceptToMaybeT $ createZipArchive (bcSybolMapPath dwarfUUID) verbose
+                        return (dwarfUUID, dwarfArchive)
+
+    unless skipLocalCache $
+        forM_ maybeUUIDsArchives $ mapM $
+          \(dwarfUUID, dwarfArchive) -> maybe (return ()) liftIO $
+             runReaderT
+               <$> (
+                   saveBcsymbolmapToLocalCache
+                   <$> mlCacheDir
+                   <*> Just dwarfUUID
+                   <*> Just dwarfArchive
+                   <*> Just reverseRomeMap
+                   <*> Just fVersion
+                   <*> Just platform
+                   )
+               <*> Just (cachePrefix, s, verbose)
+
+    forM_ maybeUUIDsArchives $ mapM $
+      \(dwarfUUID, dwarfArchive) -> liftIO $
+        runReaderT
+          (uploadBcsymbolmapToS3 dwarfUUID dwarfArchive s3BucketName reverseRomeMap fVersion platform)
+          uploadDownloadEnv
+
   where
 
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
@@ -545,47 +596,60 @@ uploadFrameworkAndDsymToCaches s3BucketName
     frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
     dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension ++ ".dSYM"
     dSYMdirectory = platformBuildDirectory </> dSYMNameWithDSYMExtension
+    bcSybolMapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
 
 
 -- | Saves a list of Frameworks and relative dYSMs to a local cache.
-saveFrameworksAndDSYMsToLocalCache :: MonadIO m
-                                   => FilePath -- ^ The cache definition.
-                                   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-                                   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` idenfitying Frameworks and dSYMs
-                                   -> [TargetPlatform] -- ^ A list of `TargetPlatform` restricting the scope of this action.
-                                   -> ReaderT (CachePrefix, Bool) m ()
-saveFrameworksAndDSYMsToLocalCache lCacheDir reverseRomeMap fvs = mapM_ (sequence . save)
+saveFrameworksAndArtifactsToLocalCache :: MonadIO m
+                                       => FilePath -- ^ The cache definition.
+                                       -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                                       -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` idenfitying Frameworks and dSYMs
+                                       -> [TargetPlatform] -- ^ A list of `TargetPlatform` restricting the scope of this action.
+                                       -> ReaderT (CachePrefix, Bool) m ()
+saveFrameworksAndArtifactsToLocalCache lCacheDir reverseRomeMap fvs = mapM_ (sequence . save)
   where
-    save = mapM (saveFrameworkAndDSYMToLocalCache lCacheDir reverseRomeMap) fvs
+    save = mapM (saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap) fvs
 
 
 
--- | Saves a Framework the relative dYSM to a local cache.
-saveFrameworkAndDSYMToLocalCache :: MonadIO m
-                                 => FilePath -- ^ The cache definition
-                                 -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-                                 -> FrameworkVersion -- ^ A `FrameworkVersion` idenfitying Framework and dSYM.
-                                 -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
-                                 -> ReaderT (CachePrefix, Bool) m ()
-saveFrameworkAndDSYMToLocalCache lCacheDir
-                                 reverseRomeMap
-                                 fVersion@(FrameworkVersion f@(FrameworkName _) _)
-                                 platform = do
+-- | Saves a Framework, the relative dYSM and then bcsymbolmaps to a local cache.
+saveFrameworkAndArtifactsToLocalCache :: MonadIO m
+                                      => FilePath -- ^ The cache definition
+                                      -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                                      -> FrameworkVersion -- ^ A `FrameworkVersion` idenfitying Framework and dSYM.
+                                      -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
+                                      -> ReaderT (CachePrefix, Bool) m ()
+saveFrameworkAndArtifactsToLocalCache lCacheDir
+                                      reverseRomeMap
+                                      fVersion@(FrameworkVersion f@(FrameworkName fwn) _)
+                                      platform = do
   (cachePrefix, verbose) <- ask
   let readerEnv = (cachePrefix, SkipLocalCacheFlag False, verbose)
+
   void . runExceptT $ do
-    frameworkArchive <- zipDir frameworkDirectory verbose
+    frameworkArchive <- createZipArchive frameworkDirectory verbose
     liftIO $
       runReaderT
         (saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap fVersion platform)
         readerEnv
 
   void . runExceptT $ do
-    dSYMArchive <- zipDir dSYMdirectory verbose
+    dSYMArchive <- createZipArchive dSYMdirectory verbose
     liftIO $
       runReaderT
         (saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap fVersion platform)
         readerEnv
+
+  void . runExceptT $ do
+    dwarfUUIDs <- dwarfUUIDsFrom (frameworkDirectory </> fwn)
+    maybeUUIDsArchives <- liftIO $ forM dwarfUUIDs $ \dwarfUUID -> runMaybeT $ do
+                        dwarfArchive <- exceptToMaybeT $ createZipArchive (bcSybolMapPath dwarfUUID) verbose
+                        return (dwarfUUID, dwarfArchive)
+    forM_ maybeUUIDsArchives $ mapM $
+      \(dwarfUUID, dwarfArchive) -> liftIO $
+         runReaderT
+          (saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap fVersion platform)
+          readerEnv
 
   where
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
@@ -593,6 +657,8 @@ saveFrameworkAndDSYMToLocalCache lCacheDir
     frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
     dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension ++ ".dSYM"
     dSYMdirectory = platformBuildDirectory </> dSYMNameWithDSYMExtension
+    bcSybolMapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
+
 
 
 
@@ -642,26 +708,37 @@ saveDsymToLocalCache lCacheDir
                           (prefix </> remoteDsymUploadPath)
                           (fwn ++ ".dSYM")
                           verbose
-
   where
     remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
 
 
-
--- | Creates a Zip archive of a file system directory
-zipDir :: MonadIO m
-       => FilePath -- ^ The directory to Zip.
-       -> Bool -- ^ A flag controlling verbosity.
-       -> ExceptT String m Zip.Archive
-zipDir dir verbose = do
-  directoryExists <- liftIO $ doesDirectoryExist dir
-  if directoryExists
-    then do
-      when verbose $
-          sayLnWithTime $ "Staring to zip: " <> dir
-      liftIO $ Zip.addFilesToArchive [Zip.OptRecursive] Zip.emptyArchive [dir]
-    else throwError $ "Error: " <> dir <> " does not exist"
-
+-- | Saves a bcsymbolmap `Zip.Archive` to a local cache.
+saveBcsymbolmapToLocalCache :: FilePath -- ^ The cache definition.
+                            -> DwarfUUID -- ^ The UUID of the bcsymblmap
+                            -> Zip.Archive -- ^ The zipped archive of the bcsymbolmap.
+                            -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                            -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the dSYM.
+                            -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
+                            -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
+saveBcsymbolmapToLocalCache lCacheDir
+                     dwarfUUID
+                     dwarfArchive
+                     reverseRomeMap
+                     (FrameworkVersion f@(FrameworkName _) version)
+                     platform = do
+  (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+  unless skipLocalCache $
+   saveBinaryToLocalCache lCacheDir
+                          (Zip.fromArchive dwarfArchive)
+                          (prefix </> remoteBcSymbolmapUploadPath)
+                          (bcsymbolmapNameFrom dwarfUUID)
+                          verbose
+  where
+    remoteBcSymbolmapUploadPath = remoteBcsymbolmapPath dwarfUUID
+                                                        platform
+                                                        reverseRomeMap
+                                                        f
+                                                        version
 
 
 
@@ -817,39 +894,39 @@ getAndSaveVersionFileFromLocalCache lCacheDir gitRepoNameAndVersion = do
 
 
 -- | Downloads a list Frameworks and relative dSYMs from an S3 Bucket or a local cache.
-downloadFrameworksAndDsymsFromCaches :: S3.BucketName -- ^ The chache definition.
-                                     -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
-                                     -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-                                     -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` indentifying the Frameworks and dSYMs
-                                     -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
-                                     -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworksAndDsymsFromCaches s3BucketName mlCacheDir reverseRomeMap fvs = mapM_ (sequence . downloadFramework)
+downloadFrameworksAndArtifactsFromCaches :: S3.BucketName -- ^ The chache definition.
+                                         -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
+                                         -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                                         -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` indentifying the Frameworks and dSYMs
+                                         -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
+                                         -> ReaderT UploadDownloadCmdEnv IO ()
+downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap fvs = mapM_ (sequence . downloadFramework)
   where
-    downloadFramework = mapM (downloadFrameworkAndDsymFromCaches s3BucketName mlCacheDir reverseRomeMap) fvs
+    downloadFramework = mapM (downloadFrameworkAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap) fvs
 
 
 
 -- | Downloads a Framework and it's relative dSYM from and S3 Bucket or a local cache.
 -- | If the Framework and dSYM are not found in the local cache then they are downloaded from S3.
--- | If SkipLocalCache is specified, the local cache is ignored.
-downloadFrameworkAndDsymFromCaches :: S3.BucketName -- ^ The chache definition.
-                                   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
-                                   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-                                   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and dSYM
-                                   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
-                                   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworkAndDsymFromCaches s3BucketName
-                                   (Just lCacheDir)
-                                   reverseRomeMap
-                                   fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
-                                   platform = do
+-- | If SkipLocalCache is specified, th local cache is ignored.
+downloadFrameworkAndArtifactsFromCaches :: S3.BucketName -- ^ The chache definition.
+                                        -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
+                                        -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+                                        -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and dSYM
+                                        -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
+                                        -> ReaderT UploadDownloadCmdEnv IO ()
+downloadFrameworkAndArtifactsFromCaches s3BucketName
+                                        (Just lCacheDir)
+                                        reverseRomeMap
+                                        fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
+                                        platform = do
   (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, verbose) <- ask
 
   let remoteReaderEnv = (env, cachePrefix, verbose)
   let localReaderEnv  = (cachePrefix, verbose)
 
   when skipLocalCache $
-    downloadFrameworkAndDsymFromCaches s3BucketName Nothing reverseRomeMap fVersion platform
+    downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVersion platform
 
   unless skipLocalCache $ do
     eitherFrameworkSuccess <- runReaderT (runExceptT $ getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap fVersion platform)
@@ -899,11 +976,11 @@ downloadFrameworkAndDsymFromCaches s3BucketName
     dSYMName = fwn ++ ".dSYM"
 
 
-downloadFrameworkAndDsymFromCaches s3BucketName
-                                   Nothing
-                                   reverseRomeMap
-                                   frameworkVersion
-                                   platform = do
+downloadFrameworkAndArtifactsFromCaches s3BucketName
+                                        Nothing
+                                        reverseRomeMap
+                                        frameworkVersion
+                                        platform = do
   (env, cachePrefix,  _, verbose) <- ask
 
   let readerEnv = (env, cachePrefix, verbose)

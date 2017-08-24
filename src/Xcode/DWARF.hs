@@ -1,7 +1,10 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE OverloadedStrings         #-}
 
-module Xcode.DWARF where
+module Xcode.DWARF ( dwarfUUIDsFrom
+                   , DwarfUUID(..)
+                   , bcsymbolmapNameFrom
+                   ) where
 
 
 import           Control.Monad.Except
@@ -48,10 +51,10 @@ data DwarfUUID = DwarfUUID { _uuid :: String
 
 -- | Attemps to get UUIDs of DWARFs form a .framework/<binary-name> or .dSYM
 -- | by running `xcrun dwarfdump --uuid <path>`
-dwarfUUIDs :: MonadIO m
-           => FilePath -- ^ Path to dSYM or .framework/<binary-name>
-           -> ExceptT String m [DwarfUUID]
-dwarfUUIDs fPath = do
+dwarfUUIDsFrom :: MonadIO m
+               => FilePath -- ^ Path to dSYM or .framework/<binary-name>
+               -> ExceptT String m [DwarfUUID]
+dwarfUUIDsFrom fPath = do
   (exitCode, stdOutText, stdErrText) <- Turtle.procStrictWithErr
     "xcrun" ["dwarfdump", "--uuid", T.pack fPath]
     (return $ Turtle.unsafeTextToLine "")
@@ -62,8 +65,8 @@ dwarfUUIDs fPath = do
   where
     errorMessageHeader = "Failed parsing DWARF UUID: "
 
-
---- UUID: EDF2AE8A-2EB4-3CA0-986F-D3E49D8C675F (i386) Carthage/Build/iOS/Alamofire.framework/Alamofire
+-- | Parses a DwarfUUID from a string like
+--   UUID: EDF2AE8A-2EB4-3CA0-986F-D3E49D8C675F (i386) Carthage/Build/iOS/Alamofire.framework/Alamofire
 parseDwarfdumpUUID :: Parsec.Parsec String () DwarfUUID
 parseDwarfdumpUUID = do
   uuidSegments <- Parsec.string "UUID:"
@@ -73,3 +76,7 @@ parseDwarfdumpUUID = do
   return DwarfUUID { _uuid = (intercalate "-" . concat) uuidSegments , _arch = read archString }
   where
     paren = Parsec.between (Parsec.char '(') (Parsec.char ')')
+
+
+bcsymbolmapNameFrom :: DwarfUUID -> String
+bcsymbolmapNameFrom (DwarfUUID _uuid _) = _uuid ++ ".bcsymbolmap"

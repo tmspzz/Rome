@@ -5,6 +5,7 @@
 
 module Utils where
 
+import qualified Codec.Archive.Zip            as Zip
 import           Configuration                (carthageBuildDirectoryForPlatform)
 import           Control.Arrow                (left)
 import           Control.Exception            as E (try)
@@ -20,7 +21,7 @@ import           Data.Char                    (isNumber)
 import           Data.Function                (on)
 import           Data.List
 import qualified Data.Map.Strict              as M
-import           Data.Maybe                   (fromMaybe, fromJust)
+import           Data.Maybe                   (fromJust, fromMaybe)
 import           Data.Monoid
 import           Data.Romefile
 import qualified Data.Text                    as T
@@ -31,18 +32,24 @@ import qualified Network.AWS                  as AWS (Error, ErrorMessage (..),
 import           Network.HTTP.Conduit         as HTTP
 import           Network.HTTP.Types.Header    as HTTP (hUserAgent)
 import           Numeric                      (showFFloat)
-import           System.Directory             (getHomeDirectory)
-import           System.FilePath              ((</>), normalise, addTrailingPathSeparator)
+import           System.Directory             (getHomeDirectory, doesDirectoryExist, doesFileExist)
+import           System.FilePath              (addTrailingPathSeparator,
+                                               normalise, (</>))
 import           System.Path.NameManip        (absolute_path, guess_dotdot)
 import           Text.Read                    (readMaybe)
 import           Types
+import           Xcode.DWARF                  (DwarfUUID, bcsymbolmapNameFrom)
 
 
 -- | Pretty print a `RomeVersion`
 romeVersionToString :: RomeVersion -> String
-romeVersionToString (major, minor, patch, build) = show major <> "." <> show minor <> "." <> show patch <> "." <> show build
-
-
+romeVersionToString (major, minor, patch, build) = show major
+                                                  <> "."
+                                                  <> show minor
+                                                  <> "."
+                                                  <> show patch
+                                                  <> "."
+                                                  <> show build
 
 -- | Check if the given `RomeVersion` is the latest version compared to GitHub releases
 checkIfRomeLatestVersionIs :: MonadIO m => RomeVersion -> ExceptT String m (Bool, RomeVersion)
@@ -132,6 +139,11 @@ frameworkArchiveName f (Version v)  = appendFrameworkExtensionTo f ++ "-" ++ v +
 dSYMArchiveName :: FrameworkName -> Version -> String
 dSYMArchiveName f (Version v) = appendFrameworkExtensionTo f ++ ".dSYM" ++ "-" ++ v ++ ".zip"
 
+-- | Given a `FrameworkName` and a `Version` produces a name
+-- | for a bcsymbolmap Zip archive.
+bcsymbolmapArchiveName :: DwarfUUID -> Version -> String
+bcsymbolmapArchiveName d (Version v) =  bcsymbolmapNameFrom d ++ "-" ++ v ++ ".zip"
+
 
 
 -- | Given a list of `CartfileEntry`s  and a list of `GitRepoName`s
@@ -176,15 +188,17 @@ restrictRepositoryMapToGitRepoName repoMap repoName = maybe M.empty (M.singleton
 
 
 
--- | Builds a string representing the remote path to framework zip archive.
+-- | Builds a string representing the remote path to a framework zip archive.
 remoteFrameworkPath :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> Version -> String
 remoteFrameworkPath p r f v = remoteCacheDirectory p r f ++ frameworkArchiveName f v
 
-
-
--- | Builds a `String` representing the remote path to dSYM zip archive
+-- | Builds a `String` representing the remote path to a dSYM zip archive
 remoteDsymPath :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> Version -> String
 remoteDsymPath p r f v = remoteCacheDirectory p r f ++ dSYMArchiveName f v
+
+-- | Builds a `String` representing the remote path to a bcsymbolmap zip archive
+remoteBcsymbolmapPath :: DwarfUUID -> TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> Version -> String
+remoteBcsymbolmapPath d p r f v = remoteCacheDirectory p r f ++ bcsymbolmapArchiveName d v
 
 
 
@@ -285,7 +299,7 @@ versionFileNameForGitRepoNameVersioned grn version = versionFileNameForGitRepoNa
 formattedPlatformAvailability :: PlatformAvailability -> String
 formattedPlatformAvailability p = availabilityPrefix p ++ platformName p
   where
-    availabilityPrefix (PlatformAvailability _ True) = "+"
+    availabilityPrefix (PlatformAvailability _ True)  = "+"
     availabilityPrefix (PlatformAvailability _ False) = "-"
     platformName = show . _availabilityPlatform
 
@@ -377,6 +391,23 @@ absolutizePath aPath
     | otherwise = do
         pathMaybeWithDots <- absolute_path aPath
         return $ fromJust $ guess_dotdot pathMaybeWithDots
+
+
+-- | Creates a Zip archive of a file system path
+createZipArchive :: MonadIO m
+       => FilePath -- ^ The path to Zip.
+       -> Bool -- ^ A flag controlling verbosity.
+       -> ExceptT String m Zip.Archive
+createZipArchive filePath verbose = do
+  fileExists <- liftIO $ doesFileExist filePath
+  directoryExist <- liftIO $ doesDirectoryExist filePath
+  if fileExists || directoryExist
+    then do
+      when verbose $
+          sayLnWithTime $ "Staring to zip: " <> filePath
+      liftIO $ Zip.addFilesToArchive [Zip.OptRecursive] Zip.emptyArchive [filePath]
+    else throwError $ "Error: " <> filePath <> " does not exist"
+
 
 
 

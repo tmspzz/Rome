@@ -23,6 +23,8 @@ import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Reader                 (ReaderT, ask, runReaderT,
                                                        withReaderT)
+import           Control.Monad.Trans.Maybe            (exceptToMaybeT,
+                                                       runMaybeT)
 import           Control.Monad.Trans.Resource         (runResourceT)
 import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Lazy                 as LBS
@@ -129,7 +131,7 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
             (cachePrefix, SkipLocalCacheFlag False, verbose)
 
   where
-    sayVersionWarning vers verb = do
+    sayVersionWarning vers verb = runMaybeT $ exceptToMaybeT $ do
               let sayFunc = if verb then sayLnWithTime else sayLn
               (uptoDate, latestVersion) <- checkIfRomeLatestVersionIs vers
               unless uptoDate $ sayFunc $ redControlSequence

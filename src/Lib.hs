@@ -46,6 +46,7 @@ import qualified Network.AWS.S3                       as S3
 import           System.Directory
 import           System.Environment
 import           System.FilePath
+import           System.IO.Error                      (isDoesNotExistError)
 import qualified Turtle
 import           Types
 import           Types.Commands                       as Commands
@@ -249,12 +250,14 @@ downloadArtifacts mS3BucketName
       liftIO $ do
         runReaderT
           (do
-            errors <- mapM runExceptT $ getAndUnzipFrameworksAndDSYMsFromLocalCache lCacheDir reverseRepositoryMap frameworkVersions platforms
+            errors <- mapM runExceptT $
+              getAndUnzipFrameworksAndArtifactsFromLocalCache lCacheDir reverseRepositoryMap frameworkVersions platforms
             mapM_ (whenLeft sayFunc) errors
           ) readerEnv
         runReaderT
           (do
-            errors <- mapM runExceptT $ getAndSaveVersionFilesFromLocalCache lCacheDir gitRepoNamesAndVersions
+            errors <- mapM runExceptT $
+              getAndSaveVersionFilesFromLocalCache lCacheDir gitRepoNamesAndVersions
             mapM_ (whenLeft sayFunc) errors
           ) readerEnv
 
@@ -475,7 +478,7 @@ uploadDsymToS3 dSYMArchive
                platform = do
   (env, CachePrefix prefix, verbose) <- ask
   withReaderT (const (env, verbose)) $
-    uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) (prefix </> remoteDsymUploadPath) (fwn ++ ".dSYM")
+    uploadBinary s3BucketName (Zip.fromArchive dSYMArchive) (prefix </> remoteDsymUploadPath) (fwn <> ".dSYM")
 
   where
     remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
@@ -499,7 +502,7 @@ uploadBcsymbolmapToS3 dwarfUUID
     uploadBinary s3BucketName
                 (Zip.fromArchive dwarfArchive)
                 (prefix </> remoteBcsymbolmapUploadPath)
-                (fwn ++ "." ++ bcsymbolmapNameFrom dwarfUUID)
+                (fwn <> "." <> bcsymbolmapNameFrom dwarfUUID)
 
   where
     remoteBcsymbolmapUploadPath = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
@@ -590,7 +593,7 @@ uploadFrameworkAndArtifactsToCaches s3BucketName
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
     platformBuildDirectory = carthageBuildDirectoryForPlatform platform
     frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
-    dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension ++ ".dSYM"
+    dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension <> ".dSYM"
     dSYMdirectory = platformBuildDirectory </> dSYMNameWithDSYMExtension
     bcSybolMapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
 
@@ -651,7 +654,7 @@ saveFrameworkAndArtifactsToLocalCache lCacheDir
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
     platformBuildDirectory = carthageBuildDirectoryForPlatform platform
     frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
-    dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension ++ ".dSYM"
+    dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension <> ".dSYM"
     dSYMdirectory = platformBuildDirectory </> dSYMNameWithDSYMExtension
     bcSybolMapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
 
@@ -702,7 +705,7 @@ saveDsymToLocalCache lCacheDir
    saveBinaryToLocalCache lCacheDir
                           (Zip.fromArchive dSYMArchive)
                           (prefix </> remoteDsymUploadPath)
-                          (fwn ++ ".dSYM")
+                          (fwn <> ".dSYM")
                           verbose
   where
     remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
@@ -969,7 +972,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName
     remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
     dSYMZipName = dSYMArchiveName f version
     remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
-    dSYMName = fwn ++ ".dSYM"
+    dSYMName = fwn <> ".dSYM"
 
 
 downloadFrameworkAndArtifactsFromCaches s3BucketName
@@ -1025,6 +1028,22 @@ deleteDirectory path
     Turtle.rmtree . Turtle.fromString $ path
     when verbose $
       sayFunc $ "Deleted: " <> path
+
+-- | Delete a file
+deleteFile :: MonadIO m
+           => FilePath -- ^ The path to the directory to delete
+           -> Bool -- ^ A flag controlling verbosity
+           -> m ()
+deleteFile path
+          verbose = do
+  let sayFunc = if verbose then sayLnWithTime else sayLn
+  liftIO $ removeFile path `catch` handleError sayFunc
+  when verbose $
+      liftIO . sayFunc $ "Deleted: " <> path
+  where
+    handleError f e
+      | isDoesNotExistError e = f $ "Error: no such file " <> path
+      | otherwise = throwM e
 
 
 
@@ -1107,6 +1126,33 @@ getDSYMFromLocalCache lCacheDir
     dSYMName = fwn <> ".dSYM"
 
 
+-- | Retrieves a bcsymbolmap from a local cache
+getBcsymbolmapFromLocalCache :: MonadIO m
+                             => FilePath -- ^ The cache definition
+                             -> CachePrefix -- ^ A prefix for folders at top level in the cache.
+                             -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
+                             -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the dSYM
+                             -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
+                             -> DwarfUUID -- ^ The UUID of the bcsymbolmap
+                             -> ExceptT String m LBS.ByteString
+getBcsymbolmapFromLocalCache lCacheDir
+                             (CachePrefix prefix)
+                             reverseRomeMap
+                             (FrameworkVersion f@(FrameworkName fwn) version)
+                             platform
+                             dwarfUUID = do
+  let finalBcsymbolmapLocalPath = bcsymbolmapLocalCachePath prefix
+  bcSymbolmapExistsInLocalCache <- liftIO . doesFileExist $ finalBcsymbolmapLocalPath
+  if bcSymbolmapExistsInLocalCache
+    then liftIO . runResourceT $ C.sourceFile finalBcsymbolmapLocalPath C.$$ C.sinkLbs
+    else throwError $ "Error: could not find " <> bcsymbolmapName <> " in local cache at : " <> finalBcsymbolmapLocalPath
+  where
+    remoteBcsymbolmapPathUploadPath = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
+    bcsymbolmapLocalCachePath cPrefix = lCacheDir </> cPrefix </> remoteBcsymbolmapPathUploadPath
+    bcsymbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
+
+
+
 
 -- | Retrieves a .version file from a local cache
 getVersionFileFromLocalCache :: MonadIO m
@@ -1131,20 +1177,23 @@ getVersionFileFromLocalCache lCacheDir
 
 
 -- | Retrieves a Frameworks and the corresponding dSYMs from a local cache for given `TargetPlatform`s, then unzips the contents
-getAndUnzipFrameworksAndDSYMsFromLocalCache :: MonadIO m
-                                            => FilePath -- ^ The cache definition
-                                            -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
-                                            -> [FrameworkVersion] -- ^ The a list of `FrameworkVersion` identifying the Frameworks and dSYMs
-                                            -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to
-                                            -> [ExceptT String (ReaderT (CachePrefix, Bool) m) ()]
-getAndUnzipFrameworksAndDSYMsFromLocalCache lCacheDir
-                                            reverseRomeMap
-                                            fvs
-                                            platforms =
-  concatMap getAndUnzipFramework platforms <> concatMap getAndUnzipDSYM platforms
+getAndUnzipFrameworksAndArtifactsFromLocalCache :: MonadIO m
+                                                => FilePath -- ^ The cache definition
+                                                -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
+                                                -> [FrameworkVersion] -- ^ The a list of `FrameworkVersion` identifying the Frameworks and dSYMs
+                                                -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to
+                                                -> [ExceptT String (ReaderT (CachePrefix, Bool) m) ()]
+getAndUnzipFrameworksAndArtifactsFromLocalCache lCacheDir
+                                                reverseRomeMap
+                                                fvs
+                                                platforms =
+  concatMap getAndUnzipFramework platforms
+    <> concatMap getAndUnzipBcsymbolmaps platforms
+    <> concatMap getAndUnzipDSYM platforms
   where
-  getAndUnzipFramework = mapM (getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap) fvs
-  getAndUnzipDSYM      = mapM (getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap) fvs
+  getAndUnzipFramework    = mapM (getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap) fvs
+  getAndUnzipBcsymbolmaps = mapM (getAndUnzipBcsymbolmapsFromLocalCache lCacheDir reverseRomeMap) fvs
+  getAndUnzipDSYM         = mapM (getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap) fvs
 
 
 
@@ -1195,6 +1244,45 @@ getAndUnzipDSYMFromLocalCache lCacheDir
     dSYMLocalCachePath cPrefix = lCacheDir </> cPrefix </> remotedSYMUploadPath
     remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
     dSYMZipName = dSYMArchiveName f version
+
+
+
+-- | Retrieves all the bcsymbolmap files from a local cache and unzip the contents
+getAndUnzipBcsymbolmapsFromLocalCache :: MonadIO m
+                                      => FilePath -- ^ The cache definition
+                                      -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
+                                      -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+                                      -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
+                                      -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
+getAndUnzipBcsymbolmapsFromLocalCache lCacheDir
+                                      reverseRomeMap
+                                      fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
+                                      platform = do
+  (cachePrefix@(CachePrefix prefix), verbose) <- ask
+  let sayFunc = if verbose then sayLnWithTime else sayLn
+
+  dwarfUUIDs <- dwarfUUIDsFrom (frameworkDirectory </> fwn)
+  mapM_
+    (\dwarfUUID ->
+      (do
+        let symbolmapName = bcsymbolmapNameFrom dwarfUUID
+        binary <- getBcsymbolmapFromLocalCache lCacheDir cachePrefix reverseRomeMap fVersion platform dwarfUUID
+        sayFunc $ "Found " <> symbolmapName <> " in local cache at: " <> frameworkLocalCachePath prefix
+        deleteFile (bcsybolmapPath dwarfUUID) verbose
+        unzipBinary binary (fwn <> "." <> symbolmapName) (bcsymbolmapZipName dwarfUUID) verbose
+      )
+      `catchError`
+        sayFunc
+    )
+    dwarfUUIDs
+  where
+    frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
+    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+    frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
+    frameworkLocalCachePath cPrefix = lCacheDir </> cPrefix </> remoteFrameworkUploadPath
+    remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
+    bcsymbolmapZipName d = bcsymbolmapArchiveName d version
+    bcsybolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
 
 
 
@@ -1271,7 +1359,7 @@ getDSYMFromS3 s3BucketName
               getArtifactFromS3 s3BucketName finalRemoteDSYMUploadPath dSYMName
   where
     remoteDSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
-    dSYMName = fwn ++ ".dSYM"
+    dSYMName = fwn <> ".dSYM"
 
 
 
@@ -1331,7 +1419,7 @@ downloadBinary s3BucketName objectRemotePath objectName = do
             let len = consumedLen + BS.length bs
             let diffGreaterThan1MB = len - lastLen >= 1024*1024
             when ( diffGreaterThan1MB || len == t) $
-               sayLnWithTime $ "Downloaded " ++ showInMegabytes len ++ " of " ++ showInMegabytes totalLength ++ " for " ++ objName
+               sayLnWithTime $ "Downloaded " <> showInMegabytes len <> " of " <> showInMegabytes totalLength <> " for " <> objName
             C.yield bs
             let a = if diffGreaterThan1MB then len else lastLen
             loop t len a)

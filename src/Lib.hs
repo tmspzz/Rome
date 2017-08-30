@@ -35,6 +35,7 @@ import qualified Data.Conduit                         as C (Conduit, await,
 import qualified Data.Conduit.Binary                  as C (sinkFile, sinkLbs,
                                                             sourceFile,
                                                             sourceLbs)
+import           Data.Either                          (lefts)
 import           Data.Maybe                           (fromMaybe)
 import           Data.Monoid                          ((<>))
 import           Data.Romefile
@@ -930,12 +931,13 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName
   unless skipLocalCache $ do
     eitherFrameworkSuccess <- runReaderT (runExceptT $ getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap fVersion platform)
                                          localReaderEnv
+    let
+      sayFunc :: MonadIO m => String -> m ()
+      sayFunc = if verbose then sayLnWithTime else sayLn
+
     case eitherFrameworkSuccess of
       Right _ -> return ()
       Left  e -> liftIO $ do
-                  let
-                    sayFunc :: MonadIO m => String -> m ()
-                    sayFunc = if verbose then sayLnWithTime else sayLn
                   sayFunc e
                   runReaderT
                     ( do
@@ -948,14 +950,35 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName
                      ) remoteReaderEnv
 
 
+    eitherBcsymbolmapsOrErrors <- runReaderT (runExceptT $ getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir reverseRomeMap fVersion platform)
+                                             localReaderEnv
+    case eitherBcsymbolmapsOrErrors of
+      Right _ ->
+          return ()
+      Left ErrorGettingDwarfUUIDs ->
+        sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
+      Left (FailedDwarfUUIDs dwardUUIDsAndErrors) -> do
+        mapM_ (sayFunc . snd) dwardUUIDsAndErrors
+        forM_ (map fst dwardUUIDsAndErrors) $ \dwarfUUID ->
+          liftIO $ runReaderT
+            ( do
+              e <- runExceptT $ do
+                  let symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
+                  let bcsymbolmapZipName d = bcsymbolmapArchiveName d version
+                  let bcsybolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
+                  symbolmapBinary <- getBcsymbolmapFromS3 s3BucketName reverseRomeMap fVersion platform dwarfUUID
+                  saveBinaryToLocalCache lCacheDir symbolmapBinary (prefix </> remoteFrameworkUploadPath) fwn verbose
+                  deleteFile (bcsybolmapPath dwarfUUID) verbose
+                  unzipBinary symbolmapBinary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
+              whenLeft sayFunc e
+            ) remoteReaderEnv
+
+
     eitherDSYMSuccess <- runReaderT (runExceptT $ getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVersion platform)
                                     localReaderEnv
     case eitherDSYMSuccess of
      Right _ -> return ()
      Left  e -> liftIO $ do
-                 let
-                   sayFunc :: MonadIO m => String -> m ()
-                   sayFunc = if verbose then sayLnWithTime else sayLn
                  sayFunc e
                  runReaderT
                    ( do
@@ -972,13 +995,14 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName
     remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
     dSYMZipName = dSYMArchiveName f version
     remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
+    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
     dSYMName = fwn <> ".dSYM"
 
 
 downloadFrameworkAndArtifactsFromCaches s3BucketName
                                         Nothing
                                         reverseRomeMap
-                                        frameworkVersion
+                                        fVersion@(FrameworkVersion (FrameworkName fwn) _)
                                         platform = do
   (env, cachePrefix,  _, verbose) <- ask
 
@@ -986,13 +1010,26 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName
 
   let sayFunc = if verbose then sayLnWithTime else sayLn
   eitherError <- liftIO $ runReaderT
-                          (runExceptT $ getAndUnzipFrameworkFromS3 s3BucketName reverseRomeMap frameworkVersion platform)
+                          (runExceptT $ getAndUnzipFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform)
                           readerEnv
   whenLeft sayFunc eitherError
+
   eitherDSYMError <- liftIO $ runReaderT
-                     (runExceptT $ getAndUnzipDSYMFromS3 s3BucketName reverseRomeMap frameworkVersion platform)
+                     (runExceptT $ getAndUnzipDSYMFromS3 s3BucketName reverseRomeMap fVersion platform)
                      readerEnv
   whenLeft sayFunc eitherDSYMError
+
+  eitherSymbolmapsOrErrors <- liftIO $ runReaderT
+                     (runExceptT $ getAndUnzipBcsymbolmapsFromS3' s3BucketName reverseRomeMap fVersion platform)
+                     readerEnv
+  flip whenLeft eitherSymbolmapsOrErrors $ \e ->
+    case e of
+      ErrorGettingDwarfUUIDs ->
+        sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
+      (FailedDwarfUUIDs dwardUUIDsAndErrors) ->
+          mapM_ (sayFunc . snd) dwardUUIDsAndErrors
+
+  -- whenLeft sayFunc eitherDSYMError
 
 
 whenLeft :: Monad m => (l -> m ()) -> Either l r -> m ()
@@ -1147,8 +1184,8 @@ getBcsymbolmapFromLocalCache lCacheDir
     then liftIO . runResourceT $ C.sourceFile finalBcsymbolmapLocalPath C.$$ C.sinkLbs
     else throwError $ "Error: could not find " <> bcsymbolmapName <> " in local cache at : " <> finalBcsymbolmapLocalPath
   where
-    remoteBcsymbolmapPathUploadPath = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
-    bcsymbolmapLocalCachePath cPrefix = lCacheDir </> cPrefix </> remoteBcsymbolmapPathUploadPath
+    remoteBcsymbolmapUploadPath = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
+    bcsymbolmapLocalCachePath cPrefix = lCacheDir </> cPrefix </> remoteBcsymbolmapUploadPath
     bcsymbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
 
 
@@ -1237,13 +1274,14 @@ getAndUnzipDSYMFromLocalCache lCacheDir
   let finalDSYMLocalPath = dSYMLocalCachePath prefix
   let sayFunc = if verbose then sayLnWithTime else sayLn
   binary <- getDSYMFromLocalCache lCacheDir cachePrefix reverseRomeMap fVersion platform
-  sayFunc $ "Found " <> fwn <> " in local cache at: " <> finalDSYMLocalPath
+  sayFunc $ "Found " <> dSYMName <> " in local cache at: " <> finalDSYMLocalPath
   deleteDSYMDirectory fVersion platform verbose
   unzipBinary binary fwn dSYMZipName verbose <* makeExecutable platform f
   where
     dSYMLocalCachePath cPrefix = lCacheDir </> cPrefix </> remotedSYMUploadPath
     remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
     dSYMZipName = dSYMArchiveName f version
+    dSYMName = fwn <> ".dSYM"
 
 
 
@@ -1256,33 +1294,81 @@ getAndUnzipBcsymbolmapsFromLocalCache :: MonadIO m
                                       -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
 getAndUnzipBcsymbolmapsFromLocalCache lCacheDir
                                       reverseRomeMap
-                                      fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
+                                      fVersion@(FrameworkVersion f@(FrameworkName fwn) _)
                                       platform = do
-  (cachePrefix@(CachePrefix prefix), verbose) <- ask
+  (_, verbose) <- ask
   let sayFunc = if verbose then sayLnWithTime else sayLn
 
   dwarfUUIDs <- dwarfUUIDsFrom (frameworkDirectory </> fwn)
-  mapM_
-    (\dwarfUUID ->
-      (do
-        let symbolmapName = bcsymbolmapNameFrom dwarfUUID
-        binary <- getBcsymbolmapFromLocalCache lCacheDir cachePrefix reverseRomeMap fVersion platform dwarfUUID
-        sayFunc $ "Found " <> symbolmapName <> " in local cache at: " <> frameworkLocalCachePath prefix
-        deleteFile (bcsybolmapPath dwarfUUID) verbose
-        unzipBinary binary (fwn <> "." <> symbolmapName) (bcsymbolmapZipName dwarfUUID) verbose
-      )
-      `catchError`
-        sayFunc
-    )
+  mapM_ (\dwarfUUID ->
+    getAndUnzipBcSymbolmapFromLocalCache lCacheDir reverseRomeMap fVersion platform dwarfUUID `catchError` sayFunc)
     dwarfUUIDs
   where
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
     platformBuildDirectory = carthageBuildDirectoryForPlatform platform
     frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
+
+
+data DWARFOpeartionError = ErrorGettingDwarfUUIDs
+                         | FailedDwarfUUIDs [(DwarfUUID, String)]
+
+
+-- | Retrieves all the bcsymbolmap files from a local cache and unzip the contents
+getAndUnzipBcsymbolmapsFromLocalCache' :: MonadIO m
+                                       => FilePath -- ^ The cache definition
+                                       -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
+                                       -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+                                       -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
+                                       -> ExceptT DWARFOpeartionError (ReaderT (CachePrefix, Bool) m) ()
+getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir
+                                       reverseRomeMap
+                                       fVersion@(FrameworkVersion f@(FrameworkName fwn) _)
+                                       platform = do
+
+  dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs) $ dwarfUUIDsFrom (frameworkDirectory </> fwn)
+  eitherDwarfUUIDsOrSucces <- forM dwarfUUIDs
+    (\dwarfUUID ->
+      lift $ runExceptT (withExceptT
+        (\e -> (dwarfUUID, e)) $
+          getAndUnzipBcSymbolmapFromLocalCache lCacheDir reverseRomeMap fVersion platform dwarfUUID))
+
+  let failedUUIDsAndErrors = lefts eitherDwarfUUIDsOrSucces
+  unless (null failedUUIDsAndErrors) $
+      throwError $ FailedDwarfUUIDs failedUUIDsAndErrors
+
+  where
+    frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
+    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+    frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
+
+
+
+getAndUnzipBcSymbolmapFromLocalCache :: MonadIO m
+                                     => FilePath -- ^ The cache definition
+                                     -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
+                                     -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+                                     -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
+                                     -> DwarfUUID
+                                     -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
+getAndUnzipBcSymbolmapFromLocalCache lCacheDir
+                                     reverseRomeMap
+                                     fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
+                                     platform
+                                     dwarfUUID = do
+  (cachePrefix@(CachePrefix prefix), verbose) <- ask
+  let sayFunc = if verbose then sayLnWithTime else sayLn
+  let symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
+  binary <- getBcsymbolmapFromLocalCache lCacheDir cachePrefix reverseRomeMap fVersion platform dwarfUUID
+  sayFunc $ "Found " <> symbolmapName <> " in local cache at: " <> frameworkLocalCachePath prefix
+  deleteFile (bcsybolmapPath dwarfUUID) verbose
+  unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
+  where
     frameworkLocalCachePath cPrefix = lCacheDir </> cPrefix </> remoteFrameworkUploadPath
     remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
     bcsymbolmapZipName d = bcsymbolmapArchiveName d version
     bcsybolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
+    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+
 
 
 
@@ -1341,6 +1427,55 @@ getAndUnzipDSYMFromS3 s3BucketName
   where
       dSYMZipName = dSYMArchiveName f version
 
+-- | Retrieves a dSYM from an S3 Cache and unzip the contents
+getAndUnzipBcsymbolmapFromS3 :: S3.BucketName -- ^ The cache definition
+                             -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
+                             -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
+                             -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
+                             -> DwarfUUID -- ^ The UUID of the bcsymblmap
+                             -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
+getAndUnzipBcsymbolmapFromS3 s3BucketName
+                             reverseRomeMap
+                             fVersion@(FrameworkVersion (FrameworkName fwn) version)
+                             platform
+                             dwarfUUID = do
+    (_, _, verbose) <- ask
+    let symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
+    binary <- getBcsymbolmapFromS3 s3BucketName reverseRomeMap fVersion platform dwarfUUID
+    deleteFile (bcsybolmapPath dwarfUUID) verbose
+    unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
+  where
+      platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+      bcsymbolmapZipName d = bcsymbolmapArchiveName d version
+      bcsybolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
+
+
+-- | Retrieves all the bcsymbolmap files from S3 and unzip the contents
+getAndUnzipBcsymbolmapsFromS3' :: S3.BucketName -- ^ The cache definition
+                               -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
+                               -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
+                               -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
+                               -> ExceptT DWARFOpeartionError (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
+getAndUnzipBcsymbolmapsFromS3' lCacheDir
+                               reverseRomeMap
+                               fVersion@(FrameworkVersion f@(FrameworkName fwn) _)
+                               platform = do
+
+  dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs) $ dwarfUUIDsFrom (frameworkDirectory </> fwn)
+  eitherDwarfUUIDsOrSucces <- forM dwarfUUIDs
+    (\dwarfUUID ->
+      lift $ runExceptT (withExceptT
+        (\e -> (dwarfUUID, e)) $
+          getBcsymbolmapFromS3 lCacheDir reverseRomeMap fVersion platform dwarfUUID))
+
+  let failedUUIDsAndErrors = lefts eitherDwarfUUIDsOrSucces
+  unless (null failedUUIDsAndErrors) $
+      throwError $ FailedDwarfUUIDs failedUUIDsAndErrors
+
+  where
+    frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
+    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+    frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
 
 
 -- | Retrieves a dSYM from an S3 Cache
@@ -1362,6 +1497,26 @@ getDSYMFromS3 s3BucketName
     dSYMName = fwn <> ".dSYM"
 
 
+-- | Retrieves a bcsymbolmap from an S3 Cache
+getBcsymbolmapFromS3 :: S3.BucketName -- ^ The cache definition
+                     -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
+                     -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
+                     -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
+                     -> DwarfUUID -- ^ The UUID of the bcsymblmap
+                     -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) LBS.ByteString
+getBcsymbolmapFromS3 s3BucketName
+                     reverseRomeMap
+                     (FrameworkVersion f@(FrameworkName fwn) version)
+                     platform
+                     dwarfUUID = do
+  (env, CachePrefix prefix, verbose) <-  ask
+  let finalRemoteBcsymbolmaploadPath = prefix </> remoteBcSymbolmapUploadPath
+  mapExceptT (withReaderT (const (env, verbose))) $
+              getArtifactFromS3 s3BucketName finalRemoteBcsymbolmaploadPath symbolmapName
+  where
+    remoteBcSymbolmapUploadPath = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
+    symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
+
 
 -- | Retrieves an artifact from an S3 Cache
 getArtifactFromS3 :: S3.BucketName -- ^ The cache definition
@@ -1376,6 +1531,7 @@ getArtifactFromS3 s3BucketName
     Left e -> throwError $ "Error: could not download " <> name <> " : " <> awsErrorToString e
     Right artifactBinary -> return artifactBinary
 
+-- | Retrieves a .version file from S3
 getVersionFileFromS3 :: S3.BucketName
                      -> GitRepoNameAndVersion
                      -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) LBS.ByteString

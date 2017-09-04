@@ -31,8 +31,8 @@ library
                        , Xcode.DWARF
 
   build-depends:       base >= 4.7 && < 5
-                       , amazonka >= 1.4.1
-                       , amazonka-s3 >= 1.4.1
+                       , amazonka >= 1.4
+                       , amazonka-s3 >= 1.4
                        , exceptions >= 0.8
                        , lens >= 4.13
                        , parsec >= 3.1.10

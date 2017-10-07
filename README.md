@@ -291,11 +291,13 @@ Multiple aliases are supported in `[IgnoreMap]` too
 
 The following describes the structure of the cache that Rome creates and manages.
 
-By default frameworks and dSYMs are placed in the cache (local and/or remote)
+By default frameworks, dSYMs and .bcsymbolmaps are placed in the cache (local and/or remote)
 according to the following convention:
 
 ```
 <git-repository-name>/<platform>/<framework-name>.framework(.dSYM)-<version-hash>.zip
+<git-repository-name>/<platform>/<bcsymbolmap-hash>.bcsymbolmap-<version-hash>.zip
+
 ```
 
 [Carthage version files](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
@@ -313,7 +315,8 @@ would look like the following
 ├── HockeySDK-iOS
 │   └── iOS
 │       ├── HockeySDK.framework-3.8.6.zip
-│       └── HockeySDK.framework.dSYM-3.8.6.zip
+│       ├── HockeySDK.framework.dSYM-3.8.6.zip
+│		└── D034377A-B469-3819-97A7-1DC0AA293AC3.bcsymbolmap
 ├── awesome-framework-for-cat-names
 │		├── iOS
 │		│   ├── CatFramework.framework-883eea474e3932607988d4e74bf50c9799bfd99a.zip
@@ -513,7 +516,9 @@ $ rome list --missing --platform ios | awk '{print $1}' | xargs carthage build -
 *** xcodebuild output can be found in ...
 ```
 
-Note: `list` __completely ignores dSYMs and Carthage version files__. If a dSYM
+Since version v0.13.0.33 list results can also be printed as JSON by specifying `--print-format=JSON`
+
+Note: `list` __completely ignores dSYMs, bcsymbolmap and Carthage version files__. If a dSYM
 or a [Carthage version file](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
 is missing, __the corresponding framework is still reported as present__.
 

@@ -53,8 +53,11 @@ listModeParser = (
                  )
                 <|> Opts.flag All All (Opts.help "Reports missing or present status of frameworks in the cache. Ignores dSYMs.")
 
+printFormatParser :: Opts.Parser PrintFormat
+printFormatParser = Opts.option Opts.auto (Opts.value Text <> Opts.long "print-format" <> Opts.metavar "FORMATS" <> Opts.help "Avaiable print formats: JSON or if omitted, default to Text")
+
 listPayloadParser :: Opts.Parser RomeListPayload
-listPayloadParser = RomeListPayload <$> listModeParser <*> platformsParser <*> cachePrefixParser
+listPayloadParser = RomeListPayload <$> listModeParser <*> platformsParser <*> cachePrefixParser <*> printFormatParser
 
 listParser :: Opts.Parser RomeCommand
 listParser = List <$> listPayloadParser

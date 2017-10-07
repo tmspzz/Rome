@@ -120,11 +120,11 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
                 (downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
                 (cachePrefix, skipLocalCache, verbose)
 
-      List (RomeListPayload listMode platforms cachePrefixString) ->
+      List (RomeListPayload listMode platforms cachePrefixString printFormat) ->
           let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
               cachePrefix = CachePrefix cachePrefixString in
           runReaderT
-            (listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVersions platforms)
+            (listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVersions platforms printFormat)
             (cachePrefix, SkipLocalCacheFlag False, verbose)
 
   where
@@ -147,20 +147,24 @@ listArtifacts :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
               -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
               -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks
               -> [TargetPlatform] -- ^ A list of `TargetPlatform` to limit the operation to.
+              -> PrintFormat -- ^ A format of the string result: text or JSON.
               -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
 listArtifacts mS3BucketName
               mlCacheDir
               listMode
               reverseRepositoryMap
               frameworkVersions
-              platforms = do
+              platforms
+              format = do
   (_, _, verbose) <- ask
   let sayFunc = if verbose then sayLnWithTime else sayLn
   repoAvailabilities <- getRepoAvailabilityFromCaches mS3BucketName
                                                       mlCacheDir
                                                       reverseRepositoryMap
                                                       frameworkVersions platforms
-  mapM_ sayFunc $ repoLines repoAvailabilities
+  if format == Text
+    then mapM_ sayFunc $ repoLines repoAvailabilities
+    else sayFunc $ toJSONStr $ ReposJSON (fmap formattedRepoAvailabilityJSON repoAvailabilities)
   where
     repoLines repoAvailabilities = filter (not . null) $
                                       fmap (formattedRepoAvailability listMode)
@@ -1407,6 +1411,13 @@ formattedRepoAvailability listMode (GitRepoAvailability (GitRepoName rn) (Versio
     filteredAvailabilities = filterAccordingToListMode listMode pas
     formattedAvailabilities = unwords (formattedPlatformAvailability <$> filteredAvailabilities)
 
+
+formattedRepoAvailabilityJSON :: GitRepoAvailability
+                              -> RepoJSON
+formattedRepoAvailabilityJSON (GitRepoAvailability (GitRepoName name) (Version version) ps) =
+  RepoJSON { name = name, Types.version = version, present = getPlatforms Commands.Present, missing = getPlatforms Commands.Missing }
+  where
+    getPlatforms mode = show . _availabilityPlatform <$> filterAccordingToListMode mode ps
 
 
 -- | Filters a list of `PlatformAvailability` according to a `ListMode`

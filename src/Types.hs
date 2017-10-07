@@ -1,5 +1,7 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Types where
 
+import           Data.Aeson
 import           Control.Monad.Except         (ExceptT)
 import           Data.Carthage.Cartfile       (Version)
 import           Data.Carthage.TargetPlatform
@@ -7,6 +9,7 @@ import qualified Data.Map.Strict              as M
 import           Data.Romefile                (FrameworkName, GitRepoName)
 import qualified Network.AWS.Env              as AWS (Env)
 import           Types.Commands
+import           GHC.Generics
 
 
 
@@ -53,3 +56,16 @@ data FrameworkAvailability = FrameworkAvailability { _availabilityFramework     
                                                    , _frameworkPlatformAvailabilities :: [PlatformAvailability]
                                                    }
                                                    deriving (Show, Eq)
+
+data RepoJSON = RepoJSON { name    :: String
+                         , version :: String
+                         , present :: [String]
+                         , missing :: [String]
+                         }
+                         deriving (Show, Eq, Generic)
+
+instance ToJSON RepoJSON where
+
+newtype ReposJSON = ReposJSON [RepoJSON] deriving (Show, Eq, Generic)
+
+instance ToJSON ReposJSON where

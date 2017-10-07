@@ -24,6 +24,7 @@ import           Data.Maybe                   (fromMaybe, fromJust)
 import           Data.Monoid
 import           Data.Romefile
 import qualified Data.Text                    as T
+import           Data.Text.Encoding
 import           Data.Time
 import qualified Network.AWS                  as AWS (Error, ErrorMessage (..),
                                                       serviceMessage,
@@ -391,3 +392,6 @@ noColorControlSequence = "\ESC[0m"
 
 third :: (a, b, c) -> c
 third (_, _, c) = c
+
+toJSONStr :: ToJSON a => a -> String
+toJSONStr = T.unpack . decodeUtf8 . LBS.toStrict . encode

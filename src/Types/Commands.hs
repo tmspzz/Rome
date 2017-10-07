@@ -24,8 +24,13 @@ newtype SkipLocalCacheFlag = SkipLocalCacheFlag { _skipLocalCache :: Bool }
 data RomeListPayload = RomeListPayload { _listMode        :: ListMode
                                        , _listPlatforms   :: [TargetPlatform]
                                        , _listCachePrefix :: String
+                                       , _listFormat      :: PrintFormat
                                        }
                                        deriving (Show, Eq)
+
+data PrintFormat = Text
+                 | JSON
+                 deriving (Show, Eq, Read)
 
 data ListMode = All
                | Missing

@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Data.S3Config
   ( S3Config
-  , parse
+  , parseS3Config
   , regionOf
   ) where
 
@@ -28,5 +29,5 @@ regionOf profile = parseRegion <=< lookupValue profile "region" . _ini
       then Left "Failed reading: Failure parsing Region from empty string"
       else AWS.fromText s
 
-parse :: Text -> Either String S3Config
-parse = fmap S3Config . parseIni
+parseS3Config :: Text -> Either String S3Config
+parseS3Config = fmap S3Config . parseIni

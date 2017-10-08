@@ -8,7 +8,7 @@ import           Types
 import           Utils
 import           Xcode.DWARF
 import qualified Text.Parsec            as Parsec
-import           Data.List                        (intercalate)
+import           Data.List              (intercalate)
 
 import           Test.Hspec
 import           Test.QuickCheck
@@ -63,7 +63,7 @@ instance Arbitrary TestDwarfUUID where
         "UUID: " ++ uuid ++ " (" ++ show arch ++ ") Carthage/Build/iOS/Foo.framework/Foo"
       arbitraryUUID = fmap (intercalate "-")
                            (sequence [vectorOf 8 hexDigits, vectorOf 4 hexDigits, vectorOf 4 hexDigits, vectorOf 12 hexDigits])
-      hexDigits = elements (concat [['A'..'F'], ['0'..'9']])
+      hexDigits = elements (['A'..'F'] ++ ['0'..'9'])
       arbitraryArch = arbitrary
 
 instance Arbitrary Arch where

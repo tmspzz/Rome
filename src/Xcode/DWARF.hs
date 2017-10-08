@@ -11,8 +11,8 @@ module Xcode.DWARF ( dwarfUUIDsFrom
 
 
 import           Control.Monad.Except
+import           Control.Applicative  ((<|>))
 import           Data.Char            (toLower)
-import           Data.List            (intercalate)
 import qualified Data.Text            as T
 import qualified Text.Parsec          as Parsec
 import           Text.Read
@@ -72,11 +72,11 @@ dwarfUUIDsFrom fPath = do
 --   UUID: EDF2AE8A-2EB4-3CA0-986F-D3E49D8C675F (i386) Carthage/Build/iOS/Alamofire.framework/Alamofire
 parseDwarfdumpUUID :: Parsec.Parsec String () DwarfUUID
 parseDwarfdumpUUID = do
-  uuidSegments <- Parsec.string "UUID:"
+  uuid <- Parsec.string "UUID:"
     >> Parsec.spaces
-    >> Parsec.manyTill (Parsec.many1 Parsec.hexDigit `Parsec.sepBy` Parsec.char '-') Parsec.space
+    >> Parsec.manyTill (Parsec.hexDigit <|> Parsec.char '-') Parsec.space
   archString <- paren $ Parsec.many1 (Parsec.noneOf [')', ' ', '\t', '\n', '\r'])
-  return DwarfUUID { _uuid = (intercalate "-" . concat) uuidSegments , _arch = read archString }
+  return DwarfUUID { _uuid = uuid , _arch = read archString }
   where
     paren = Parsec.between (Parsec.char '(') (Parsec.char ')')
 

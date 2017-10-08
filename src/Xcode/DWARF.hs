@@ -4,6 +4,9 @@
 module Xcode.DWARF ( dwarfUUIDsFrom
                    , DwarfUUID(..)
                    , bcsymbolmapNameFrom
+                   -- test only
+                   , Arch (..)
+                   , parseDwarfdumpUUID
                    ) where
 
 

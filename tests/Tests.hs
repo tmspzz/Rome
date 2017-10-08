@@ -6,6 +6,9 @@ import           Data.Romefile
 import qualified Data.Text              as T
 import           Types
 import           Utils
+import           Xcode.DWARF
+import qualified Text.Parsec            as Parsec
+import           Data.List                        (intercalate)
 
 import           Test.Hspec
 import           Test.QuickCheck
@@ -50,6 +53,28 @@ prop_split_string ls =
   not (null ls) ==>
     splitWithSeparator '/' (T.pack ls) == T.split (=='/') (T.pack ls)
 
+instance Arbitrary TestDwarfUUID where
+  arbitrary = do
+    uuid <- arbitraryUUID
+    arch <- arbitraryArch
+    return $ TDUUID (toInputLine uuid arch) uuid arch
+    where
+      toInputLine uuid arch =
+        "UUID: " ++ uuid ++ " (" ++ show arch ++ ") Carthage/Build/iOS/Foo.framework/Foo"
+      arbitraryUUID = fmap (intercalate "-")
+                           (sequence [vectorOf 8 hexDigits, vectorOf 4 hexDigits, vectorOf 4 hexDigits, vectorOf 12 hexDigits])
+      hexDigits = elements (concat [['A'..'F'], ['0'..'9']])
+      arbitraryArch = arbitrary
+
+instance Arbitrary Arch where
+  arbitrary = oneof $ fmap return [ARMV7, ARM64, I386, X86_64, Other "foobar"]
+
+data TestDwarfUUID = TDUUID String String Arch deriving Show
+
+prop_parse_dwarf_dumpUUID :: TestDwarfUUID -> Bool
+prop_parse_dwarf_dumpUUID (TDUUID inputLine uuid arch) =
+  Right (DwarfUUID uuid arch) == Parsec.parse parseDwarfdumpUUID "test" inputLine
+
 main :: IO ()
 main =
   do
@@ -76,3 +101,6 @@ main =
 
     putStrLn "prop_split_string"
     quickCheck prop_split_string
+
+    putStrLn "prop_parse_dwarf_dumpUUID"
+    quickCheck prop_parse_dwarf_dumpUUID

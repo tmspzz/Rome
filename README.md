@@ -1,6 +1,6 @@
 ![](logo/colosseum.jpg)
 
-# Rome [![rome-latest](https://img.shields.io/badge/release-v0.12.0.31-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.12.0.31) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/netbe/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
+# Rome [![rome-latest](https://img.shields.io/badge/release-v0.13.0.33-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.13.0.33) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/netbe/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
 
 
 Rome is a tool that allows developers on Apple platforms to use:
@@ -316,7 +316,7 @@ would look like the following
 │   └── iOS
 │       ├── HockeySDK.framework-3.8.6.zip
 │       ├── HockeySDK.framework.dSYM-3.8.6.zip
-│		└── D034377A-B469-3819-97A7-1DC0AA293AC3.bcsymbolmap
+│       └── D034377A-B469-3819-97A7-1DC0AA293AC3.bcsymbolmap
 ├── awesome-framework-for-cat-names
 │		├── iOS
 │		│   ├── CatFramework.framework-883eea474e3932607988d4e74bf50c9799bfd99a.zip
@@ -418,7 +418,7 @@ Available commands:
 
 ### Uploading
 
-Uploading one or more frameworks, corresponding dSYMs and [Carthage version files](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
+Uploading one or more frameworks, corresponding dSYMs, .bcsymbolmaps and [Carthage version files](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
 if present (an empty list of frameworks will upload all frameworks found in `Cartfile.resolved`):
 
 Referring to the `Cartfile.resolved` in [RepositoryMap](#repositorymap)
@@ -445,7 +445,7 @@ If a local cache is specified in your `Romefile` and you wish to ignore it pass 
 
 ### Downloading
 
-Downloading one or more frameworks, corresponding dSYMs and
+Downloading one or more frameworks, corresponding dSYMs, .bcsymbolmaps and
 [Carthage version files](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
 if present
 (an empty list of frameworks will download all frameworks found in `Cartfile.resolved`):
@@ -516,7 +516,7 @@ $ rome list --missing --platform ios | awk '{print $1}' | xargs carthage build -
 *** xcodebuild output can be found in ...
 ```
 
-Since version v0.13.0.33 list results can also be printed as JSON by specifying `--print-format=JSON`
+Since version `0.13.0.33` list results can also be printed as JSON by specifying `--print-format=JSON`
 
 Note: `list` __completely ignores dSYMs, bcsymbolmap and Carthage version files__. If a dSYM
 or a [Carthage version file](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)

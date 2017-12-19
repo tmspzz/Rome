@@ -26,6 +26,9 @@ cachePrefixParser = Opts.strOption (Opts.value "" <> Opts.metavar "PREFIX" <> Op
 skipLocalCacheParser :: Parser SkipLocalCacheFlag
 skipLocalCacheParser = SkipLocalCacheFlag <$> Opts.switch (Opts.long "skip-local-cache" <> Opts.help "Ignore the local cache when performing the operation.")
 
+noIgnoreParser :: Parser NoIgnoreFlag
+noIgnoreParser = NoIgnoreFlag <$> Opts.switch (Opts.long "no-ignore" <> Opts.help "Ignore the [IgnoreMap] section in the current Romefile when performing the operation.")
+
 reposParser :: Opts.Parser [GitRepoName]
 reposParser = Opts.many (Opts.argument (GitRepoName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."))
 
@@ -38,7 +41,7 @@ platformsParser = (nub . concat <$> Opts.some (Opts.option (eitherReader platfor
     platformListOrError s = mapM platformOrError $ splitPlatforms s
 
 udcPayloadParser :: Opts.Parser RomeUDCPayload
-udcPayloadParser = RomeUDCPayload <$> reposParser <*> platformsParser <*> cachePrefixParser <*> skipLocalCacheParser
+udcPayloadParser = RomeUDCPayload <$> reposParser <*> platformsParser <*> cachePrefixParser <*> skipLocalCacheParser <*> noIgnoreParser
 
 uploadParser :: Opts.Parser RomeCommand
 uploadParser = pure Upload <*> udcPayloadParser
@@ -57,7 +60,7 @@ printFormatParser :: Opts.Parser PrintFormat
 printFormatParser = Opts.option Opts.auto (Opts.value Text <> Opts.long "print-format" <> Opts.metavar "FORMATS" <> Opts.help "Avaiable print formats: JSON or if omitted, default to Text")
 
 listPayloadParser :: Opts.Parser RomeListPayload
-listPayloadParser = RomeListPayload <$> listModeParser <*> platformsParser <*> cachePrefixParser <*> printFormatParser
+listPayloadParser = RomeListPayload <$> listModeParser <*> platformsParser <*> cachePrefixParser <*> printFormatParser <*> noIgnoreParser
 
 listParser :: Opts.Parser RomeCommand
 listParser = List <$> listPayloadParser

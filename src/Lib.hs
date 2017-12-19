@@ -89,44 +89,49 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
 
   case options of
 
-      Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache) -> do
+      Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag) -> do
 
         sayVersionWarning romeVersion verbose
 
+        let finalIgnoreNames = if _noIgnore noIgnoreFlag then [] else ignoreNames
+
         if null gitRepoNames
           then
-              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
+              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
                   cachePrefix = CachePrefix cachePrefixString in
               runReaderT
                 (uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
                 (cachePrefix, skipLocalCache, verbose)
           else
-              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
+              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
                   cachePrefix = CachePrefix cachePrefixString in
               runReaderT
                 (uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
                 (cachePrefix, skipLocalCache, verbose)
 
-      Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache) -> do
+      Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag) -> do
 
         sayVersionWarning romeVersion verbose
 
+        let finalIgnoreNames = if _noIgnore noIgnoreFlag then [] else ignoreNames
+
         if null gitRepoNames
           then
-              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
+              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
                   cachePrefix = CachePrefix cachePrefixString in
               runReaderT
                 (downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
                 (cachePrefix, skipLocalCache, verbose)
           else
-              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
+              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
                   cachePrefix = CachePrefix cachePrefixString in
               runReaderT
                 (downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
                 (cachePrefix, skipLocalCache, verbose)
 
-      List (RomeListPayload listMode platforms cachePrefixString printFormat) ->
-          let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` ignoreNames
+      List (RomeListPayload listMode platforms cachePrefixString printFormat noIgnoreFlag) ->
+          let finalIgnoreNames = if _noIgnore noIgnoreFlag then [] else ignoreNames
+              frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
               cachePrefix = CachePrefix cachePrefixString in
           runReaderT
             (listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVersions platforms printFormat)

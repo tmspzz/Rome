@@ -24,7 +24,7 @@ newtype Location = Location { unLocation :: String }
                    deriving (Eq, Show, Ord)
 
 
-data RepoHosting = GitHub | Git
+data RepoHosting = GitHub | Git | Binary
   deriving (Eq, Show)
 
 data CartfileEntry = CartfileEntry { hosting  :: RepoHosting
@@ -46,8 +46,11 @@ parseGitHub = Parsec.string "github" >> Parsec.many1 Parsec.space >> pure GitHub
 parseGit :: Parsec.Parsec String () RepoHosting
 parseGit = Parsec.string "git" >> Parsec.many1 Parsec.space >> pure Git
 
+parseBinary :: Parsec.Parsec String () RepoHosting
+parseBinary = Parsec.string "binary" >> Parsec.many1 Parsec.space >> pure Binary
+
 repoHosting :: Parsec.Parsec String () RepoHosting
-repoHosting = Parsec.try parseGit <|> parseGitHub
+repoHosting = Parsec.try parseGit <|> parseGitHub <|> parseBinary
 
 quotedContent :: Parsec.Parsec String () String
 quotedContent = Parsec.char '"' *> Parsec.parseUnquotedString <* Parsec.char '"'

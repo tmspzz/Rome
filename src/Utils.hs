@@ -164,6 +164,7 @@ filterCartfileEntriesByGitRepoNames repoNames cartfileEntries = [c | c <- cartfi
 gitRepoNameFromCartfileEntry :: CartfileEntry -> GitRepoName
 gitRepoNameFromCartfileEntry (CartfileEntry GitHub (Location l) _) = GitRepoName . T.unpack . last . splitWithSeparator '/' . T.pack $ l
 gitRepoNameFromCartfileEntry (CartfileEntry Git (Location l) _) = GitRepoName . T.unpack . T.replace ".git" "" . last . splitWithSeparator '/' . T.pack $ l
+gitRepoNameFromCartfileEntry (CartfileEntry Binary (Location l) _) = GitRepoName . T.unpack . T.replace ".json" "" . last . splitWithSeparator '/' . T.pack $ l
 
 
 
@@ -317,14 +318,10 @@ deriveFrameworkNamesAndVersion romeMap = concatMap (deriveFrameworkNameAndVersio
 -- | `FrameworkVersion` by attaching the `Version` information from the
 -- | `FrameworkName` in the `CartfileEntry`.
 deriveFrameworkNameAndVersion ::  RepositoryMap -> CartfileEntry -> [FrameworkVersion]
-deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry GitHub (Location _) v) = map (`FrameworkVersion` v) $
-  fromMaybe [FrameworkName gitHubRepositoryName] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
+deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry _ _ v) = map (`FrameworkVersion` v) $
+  fromMaybe [FrameworkName repositoryName] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
   where
-    gitHubRepositoryName = unGitRepoName $ gitRepoNameFromCartfileEntry cfe
-deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry Git (Location _) v)    = map (`FrameworkVersion` v) $
-  fromMaybe [FrameworkName gitRepositoryName] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
-  where
-    gitRepositoryName = unGitRepoName $ gitRepoNameFromCartfileEntry cfe
+    repositoryName = unGitRepoName $ gitRepoNameFromCartfileEntry cfe
 
 
 

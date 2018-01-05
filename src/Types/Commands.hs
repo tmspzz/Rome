@@ -13,6 +13,7 @@ data RomeUDCPayload = RomeUDCPayload { _payload            :: [GitRepoName]
                                      , _cachePrefix        :: String
                                     --  , _verifyFlag         :: VerifyFlag
                                      , _skipLocalCacheFlag :: SkipLocalCacheFlag
+                                     , _noIgnoreFlag       :: NoIgnoreFlag
                                      }
                                      deriving (Show, Eq)
 
@@ -21,10 +22,14 @@ data RomeUDCPayload = RomeUDCPayload { _payload            :: [GitRepoName]
 newtype SkipLocalCacheFlag = SkipLocalCacheFlag { _skipLocalCache :: Bool }
                                                 deriving (Show, Eq)
 
-data RomeListPayload = RomeListPayload { _listMode        :: ListMode
-                                       , _listPlatforms   :: [TargetPlatform]
-                                       , _listCachePrefix :: String
-                                       , _listFormat      :: PrintFormat
+newtype NoIgnoreFlag = NoIgnoreFlag { _noIgnore :: Bool }
+                                    deriving (Show, Eq)
+
+data RomeListPayload = RomeListPayload { _listMode         :: ListMode
+                                       , _listPlatforms    :: [TargetPlatform]
+                                       , _listCachePrefix  :: String
+                                       , _listFormat       :: PrintFormat
+                                       , _listNoIgnoreFlag :: NoIgnoreFlag
                                        }
                                        deriving (Show, Eq)
 

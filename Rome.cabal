@@ -53,7 +53,7 @@ library
                        , turtle >= 1.2
                        , transformers >= 0.4
                        , bytestring >= 0.10
-                       , zip-archive >= 0.2
+                       , zip-archive >= 0.3
                        , resourcet >= 1.1
                        , optparse-applicative >= 0.12
                        , aeson >= 0.11

@@ -403,7 +403,7 @@ createZipArchive filePath verbose = do
     then do
       when verbose $
           sayLnWithTime $ "Staring to zip: " <> filePath
-      liftIO $ Zip.addFilesToArchive [Zip.OptRecursive] Zip.emptyArchive [filePath]
+      liftIO $ Zip.addFilesToArchive [Zip.OptRecursive, Zip.OptPreserveSymbolicLinks] Zip.emptyArchive [filePath]
     else throwError $ "Error: " <> filePath <> " does not exist"
 
 

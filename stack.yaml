@@ -41,8 +41,7 @@ packages:
 # (e.g., acme-missiles-0.3)
 extra-deps:
   - git: https://github.com/blender/zip-archive
-    commit: 47b788a3c6389432560529734837d0063429a55f
-
+    commit: 3625f54d94f065c2fa2a26b17dca9c973b12837e 
 # Override default flag values for local packages and extra-deps
 flags: {}
 

@@ -1601,7 +1601,7 @@ unzipBinary :: MonadIO m
 unzipBinary objectBinary objectName objectZipName verbose = do
   when verbose $
    sayLnWithTime $ "Staring to unzip " <> objectZipName
-  liftIO $ Zip.extractFilesFromArchive [Zip.OptRecursive] (Zip.toArchive objectBinary)
+  liftIO $ Zip.extractFilesFromArchive [Zip.OptRecursive, Zip.OptPreserveSymbolicLinks] (Zip.toArchive objectBinary)
   when verbose $
     sayLnWithTime $ "Unzipped " <> objectName <> " from: " <> objectZipName
 

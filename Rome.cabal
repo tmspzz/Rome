@@ -1,5 +1,5 @@
 name:                Rome
-version:             0.13.1.35
+version:             0.14.0.38
 synopsis:            An S3 cache for Carthage
 description:         Please see README.md
 homepage:            https://github.com/blender/Rome
@@ -53,7 +53,7 @@ library
                        , turtle >= 1.2
                        , transformers >= 0.4
                        , bytestring >= 0.10
-                       , zip-archive >= 0.2
+                       , zip-archive >= 0.3
                        , resourcet >= 1.1
                        , optparse-applicative >= 0.12
                        , aeson >= 0.11

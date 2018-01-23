@@ -737,7 +737,7 @@ saveBcsymbolmapToLocalCache lCacheDir
                      platform = do
   (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   unless skipLocalCache $
-   saveBinaryToLocalCache lCacheDir
+    saveBinaryToLocalCache lCacheDir
                           (Zip.fromArchive dwarfArchive)
                           (prefix </> remoteBcSymbolmapUploadPath)
                           (bcsymbolmapNameFrom dwarfUUID)
@@ -972,13 +972,13 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName
           liftIO $ runReaderT
             ( do
               e <- runExceptT $ do
-                  let symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
+                  let symbolmapLoggingName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
                   let bcsymbolmapZipName d = bcsymbolmapArchiveName d version
-                  let bcsybolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
+                  let localBcsybolmapPathFrom d = platformBuildDirectory </> bcsymbolmapNameFrom d
                   symbolmapBinary <- getBcsymbolmapFromS3 s3BucketName reverseRomeMap fVersion platform dwarfUUID
-                  saveBinaryToLocalCache lCacheDir symbolmapBinary (prefix </> remoteFrameworkUploadPath) fwn verbose
-                  deleteFile (bcsybolmapPath dwarfUUID) verbose
-                  unzipBinary symbolmapBinary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
+                  saveBinaryToLocalCache lCacheDir symbolmapBinary (prefix </> remoteBcSymbolmapUploadPathFromDwarf dwarfUUID) fwn verbose
+                  deleteFile (localBcsybolmapPathFrom dwarfUUID) verbose
+                  unzipBinary symbolmapBinary symbolmapLoggingName (bcsymbolmapZipName dwarfUUID) verbose
               whenLeft sayFunc e
             ) remoteReaderEnv
 
@@ -1002,6 +1002,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName
   where
     frameworkZipName = frameworkArchiveName f version
     remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
+    remoteBcSymbolmapUploadPathFromDwarf dwarfUUID = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
     dSYMZipName = dSYMArchiveName f version
     remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
     platformBuildDirectory = carthageBuildDirectoryForPlatform platform

@@ -3,18 +3,18 @@
 module Data.Carthage.VersionFile where
 
 
+import           Data.Aeson
+import           Data.Aeson.Types
 import           Data.Carthage.Common
 import           Data.Carthage.TargetPlatform
 import qualified Data.Map.Strict              as M
-import           Data.Aeson
-import           Data.Aeson.Types
 
 
 type FrameworkPlatformInfoMap = M.Map TargetPlatform [FrameworkPlatformInfo]
 
 
-data FrameworkInfo = FrameworkInfo { _hash           :: String
-                                   , _frameworkName  :: String
+data FrameworkInfo = FrameworkInfo { _hash          :: String
+                                   , _frameworkName :: String
                                    }
                                   deriving (Show, Eq)
 

@@ -1,18 +1,18 @@
 module Data.Carthage.TargetPlatform where
 
 
+import           Data.Char     (toLower)
 import           Text.Read
 import qualified Text.Read.Lex as L
-import           Data.Char (toLower)
 
 data TargetPlatform = IOS | MacOS | TVOS | WatchOS
              deriving (Ord, Eq)
 
 instance Show TargetPlatform where
- show IOS      = "iOS"
- show MacOS    = "Mac"
- show TVOS     = "tvOS"
- show WatchOS  = "watchOS"
+ show IOS     = "iOS"
+ show MacOS   = "Mac"
+ show TVOS    = "tvOS"
+ show WatchOS = "watchOS"
 
 allTargetPlatforms :: [TargetPlatform]
 allTargetPlatforms = [IOS, MacOS, TVOS, WatchOS]

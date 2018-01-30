@@ -11,12 +11,12 @@ module Data.S3Config
 -- `Data.Romefile` and `Data.Carthage` and avoids dealing with the raw INI
 -- file representation (String-keyed hashmaps) in the main logic.
 
-import           Control.Monad       ((<=<))
-import           Data.Text           (Text)
-import qualified Data.Text           as T
-import           Data.Ini            (Ini, lookupValue, parseIni)
-import qualified Network.AWS         as AWS
-import qualified Network.AWS.Data    as AWS
+import           Control.Monad    ((<=<))
+import           Data.Ini         (Ini, lookupValue, parseIni)
+import           Data.Text        (Text)
+import qualified Data.Text        as T
+import qualified Network.AWS      as AWS
+import qualified Network.AWS.Data as AWS
 
 
 newtype S3Config = S3Config { _ini :: Ini }

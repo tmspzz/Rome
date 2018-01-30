@@ -8,9 +8,9 @@ module Text.Parsec.Utils
 
 
 
-import           Control.Applicative ((<|>))
-import qualified Text.Parsec         as Parsec
-import Data.Functor.Identity
+import           Control.Applicative    ((<|>))
+import           Data.Functor.Identity
+import qualified Text.Parsec            as Parsec
 
 
 

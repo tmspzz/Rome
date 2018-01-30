@@ -4,9 +4,9 @@ module Configuration where
 import           Control.Monad.Except
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
-import           Data.Monoid                     ((<>))
+import           Data.Monoid                  ((<>))
 import           Data.Romefile
-import qualified Data.Text.IO                    as T
+import qualified Data.Text.IO                 as T
 import           System.Directory
 import           System.FilePath
 import           Types

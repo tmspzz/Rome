@@ -1,15 +1,15 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Types where
 
-import           Data.Aeson
 import           Control.Monad.Except         (ExceptT)
+import           Data.Aeson
 import           Data.Carthage.Cartfile       (Version)
 import           Data.Carthage.TargetPlatform
 import qualified Data.Map.Strict              as M
 import           Data.Romefile                (FrameworkName, GitRepoName)
+import           GHC.Generics
 import qualified Network.AWS.Env              as AWS (Env)
 import           Types.Commands
-import           GHC.Generics
 
 
 

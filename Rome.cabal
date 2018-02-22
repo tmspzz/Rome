@@ -29,6 +29,14 @@ library
                        , Data.S3Config
                        , Text.Parsec.Utils
                        , Xcode.DWARF
+                       , Caches.S3.Probing
+                       , Caches.S3.Uploading
+                       , Caches.S3.Downloading
+                       , Caches.Local.Probing
+                       , Caches.Local.Uploading
+                       , Caches.Local.Downloading
+                       , Caches.Common
+
 
   build-depends:       base >= 4.7 && < 5
                        , amazonka >= 1.4

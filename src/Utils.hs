@@ -10,7 +10,9 @@ import           Configuration                (carthageBuildDirectoryForPlatform
 import           Control.Arrow                (left)
 import           Control.Exception            as E (try)
 import           Control.Lens                 hiding (List)
+import           Control.Monad.Catch
 import           Control.Monad.Except
+import           Control.Monad.Trans.Resource (runResourceT)
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.ByteString.Char8        as BS
@@ -18,6 +20,8 @@ import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
 import           Data.Char                    (isNumber)
+import qualified Data.Conduit                 as C (($$))
+import qualified Data.Conduit.Binary          as C (sinkFile, sourceLbs)
 import           Data.Function                (on)
 import           Data.List
 import qualified Data.Map.Strict              as M
@@ -33,11 +37,16 @@ import qualified Network.AWS                  as AWS (Error, ErrorMessage (..),
 import           Network.HTTP.Conduit         as HTTP
 import           Network.HTTP.Types.Header    as HTTP (hUserAgent)
 import           Numeric                      (showFFloat)
-import           System.Directory             (getHomeDirectory, doesDirectoryExist, doesFileExist)
+import           System.Directory             (createDirectoryIfMissing,
+                                               doesDirectoryExist,
+                                               doesFileExist, getHomeDirectory,
+                                               removeFile)
 import           System.FilePath              (addTrailingPathSeparator,
-                                               normalise, (</>))
+                                               dropFileName, normalise, (</>))
+import           System.IO.Error              (isDoesNotExistError)
 import           System.Path.NameManip        (absolute_path, guess_dotdot)
 import           Text.Read                    (readMaybe)
+import qualified Turtle
 import           Types
 import           Xcode.DWARF                  (DwarfUUID, bcsymbolmapNameFrom)
 
@@ -378,6 +387,7 @@ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap = conca
         sortAndGroupPlatformAvailabilities = groupBy ((==) `on` _availabilityPlatform) . sortBy (compare `on` _availabilityPlatform)
 
 
+
 --- | Take a path and makes it absolute resolving ../ and ~
 --- See https://www.schoolofhaskell.com/user/dshevchenko/cookbook/transform-relative-path-to-an-absolute-path
 absolutizePath :: FilePath -> IO FilePath
@@ -389,6 +399,7 @@ absolutizePath aPath
     | otherwise = do
         pathMaybeWithDots <- absolute_path aPath
         return $ fromJust $ guess_dotdot pathMaybeWithDots
+
 
 
 -- | Creates a Zip archive of a file system path
@@ -408,18 +419,139 @@ createZipArchive filePath verbose = do
 
 
 
+-- | Adds executable permissions to a Framework. See https://github.com/blender/Rome/issues/57
+makeExecutable :: MonadIO m
+               => TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
+               -> FrameworkName -- ^ The name of the Framework
+               -> m Turtle.Permissions
+makeExecutable p fname = Turtle.chmod Turtle.executable
+                        (
+                          Turtle.fromString $
+                            frameworkBuildBundleForPlatform p fname
+                            </> unFrameworkName fname
+                        )
+
+
+
+-- | Delete a directory an all it's contents
+deleteDirectory :: MonadIO m
+                => FilePath -- ^ The path to the directory to delete
+                -> Bool -- ^ A flag controlling verbosity
+                -> m ()
+deleteDirectory path
+                verbose = do
+  directoryExists <- liftIO $ doesDirectoryExist path
+  let sayFunc = if verbose then sayLnWithTime else sayLn
+  when directoryExists $ do
+    Turtle.rmtree . Turtle.fromString $ path
+    when verbose $
+      sayFunc $ "Deleted: " <> path
+
+
+
+-- | Delete a file
+deleteFile :: MonadIO m
+           => FilePath -- ^ The path to the directory to delete
+           -> Bool -- ^ A flag controlling verbosity
+           -> m ()
+deleteFile path
+          verbose = do
+  let sayFunc = if verbose then sayLnWithTime else sayLn
+  liftIO $ removeFile path `catch` handleError sayFunc
+  when verbose $
+      liftIO . sayFunc $ "Deleted: " <> path
+  where
+    handleError f e
+      | isDoesNotExistError e = f $ "Error: no such file " <> path
+      | otherwise = throwM e
+
+
+
+-- | Deletes a Framework from the Carthage Build folder
+deleteFrameworkDirectory :: MonadIO m
+                         => FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework to delete
+                         -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
+                         -> Bool -- ^ A flag controlling verbosity
+                         -> m ()
+deleteFrameworkDirectory (FrameworkVersion f _)
+                         platform =
+  deleteDirectory frameworkDirectory
+  where
+    frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
+    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+    frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
+
+
+
+-- | Deletes a dSYM from the Carthage Build folder
+deleteDSYMDirectory :: MonadIO m
+                    => FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM to delete
+                    -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
+                    -> Bool -- ^ A flag controlling verbosity
+                    -> m ()
+deleteDSYMDirectory (FrameworkVersion f _)
+                    platform =
+  deleteDirectory dSYMDirectory
+  where
+    frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
+    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+    dSYMDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension <> ".dSYM"
+
+
+
+-- | Unzips a zipped (as in zip compression) `LBS.ByteString` in the current directory.
+unzipBinary :: MonadIO m
+            => LBS.ByteString -- ^ `LBS.The ByteString`.
+            -> String -- ^ A colloquial name for the `LBS.ByteString` printed when verbose is `True`.
+            -> String -- ^ A colloquial name for the artifact printed when verbose is `True`. Does not influence the artifact's name on disk.
+            -> Bool -- ^ A verbostiry flag.
+            -> m ()
+unzipBinary objectBinary objectName objectZipName verbose = do
+  when verbose $
+   sayLnWithTime $ "Staring to unzip " <> objectZipName
+  liftIO $ Zip.extractFilesFromArchive [Zip.OptRecursive, Zip.OptPreserveSymbolicLinks] (Zip.toArchive objectBinary)
+  when verbose $
+    sayLnWithTime $ "Unzipped " <> objectName <> " from: " <> objectZipName
+
+
+
+-- | Saves a ByteString to file
+saveBinaryToFile :: MonadIO m
+                 => LBS.ByteString -- ^ The `ByteString` to save.
+                 -> FilePath -- ^ The destination path.
+                 -> m ()
+saveBinaryToFile binaryArtifact destinationPath = do
+  liftIO $ createDirectoryIfMissing True (dropFileName destinationPath)
+  liftIO . runResourceT $ C.sourceLbs binaryArtifact C.$$ C.sinkFile destinationPath
+
+
 
 redControlSequence :: String
 redControlSequence = "\ESC[0;31m"
 
+
+
 greenControlSequence :: String
 greenControlSequence = "\ESC[0;32m"
+
+
 
 noColorControlSequence :: String
 noColorControlSequence = "\ESC[0m"
 
+
+
 third :: (a, b, c) -> c
 third (_, _, c) = c
 
+
+
 toJSONStr :: ToJSON a => a -> String
 toJSONStr = T.unpack . decodeUtf8 . LBS.toStrict . encode
+
+
+
+whenLeft :: Monad m => (l -> m ()) -> Either l r -> m ()
+whenLeft f (Left e)  = f e
+whenLeft _ (Right _) = return ()
+

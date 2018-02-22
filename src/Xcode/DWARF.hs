@@ -10,8 +10,8 @@ module Xcode.DWARF ( dwarfUUIDsFrom
                    ) where
 
 
-import           Control.Monad.Except
 import           Control.Applicative  ((<|>))
+import           Control.Monad.Except
 import           Data.Char            (toLower)
 import qualified Data.Text            as T
 import qualified Text.Parsec          as Parsec

@@ -10,19 +10,16 @@ module Data.Carthage.Cartfile
     , Location (..)
     ) where
 
-
 import           Control.Applicative  ((<|>))
 import           Control.Monad.Trans  (MonadIO, liftIO)
 import           Data.Maybe
 import qualified Text.Parsec          as Parsec
 import qualified Text.Parsec.String   as Parsec
 import qualified Text.Parsec.Utils    as Parsec
-
 import           Data.Carthage.Common
 
 newtype Location = Location { unLocation :: String }
                    deriving (Eq, Show, Ord)
-
 
 data RepoHosting = GitHub | Git | Binary
   deriving (Eq, Show)

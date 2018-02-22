@@ -1,20 +1,29 @@
-#### Enhancement Suggestion
+## Enhancement Suggestion / Bug Report 
 
-    [Short description of suggestion]
+    [Short description of suggestion or bug]
 
-    **Steps which explain the enhancement**
+**Steps which explain the enhancement or reproduce the bug**
 
-    1. [First Step]
-    2. [Second Step]
-    3. [Other Steps...]
+1. [First Step]
+2. [Second Step]
+3. [Other Steps...]
 
-    **Current and suggested behavior**
+**Current behavior**
 
-    [Describe current and suggested behavior here]
+    [Describe current behavior here]
 
-    **Why would the enhancement be useful to most users**
+**Suggested behavior**
+
+    [Describe suggested behavior here]
+
+**Why would the enhancement be useful to most users**
 
     [Explain why the enhancement would be useful to most users, list some use cases]
 
-    **Rome version:** [Enter Rome version here]
-    **OS and version:** [Enter OS name and version here]
+**Rome version:** 
+
+    [Enter Rome version here]
+
+**OS and version:** 
+
+    [Enter OS name and version here]

@@ -3,25 +3,20 @@ module Caches.Local.Uploading where
 
 
 import qualified Codec.Archive.Zip            as Zip
+import           Configuration
+import           Control.Monad                (unless, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader         (ReaderT, ask)
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.TargetPlatform
+import           Data.Monoid                  ((<>))
 import           Data.Romefile                (FrameworkName (..))
 import           System.Directory
-import           System.FilePath              (dropFileName, (</>))
+import           System.FilePath              ((</>))
 import           Types                        hiding (version)
 import           Types.Commands               (SkipLocalCacheFlag (..))
 import           Utils
 import           Xcode.DWARF
-
-import qualified Data.Conduit                 as C (($$))
-import qualified Data.Conduit.Binary          as C (sinkFile, sourceLbs)
-
-import           Configuration
-import           Control.Monad                (unless, when)
-import           Control.Monad.Trans.Resource (runResourceT)
-import           Data.Monoid                  ((<>))
 
 
 

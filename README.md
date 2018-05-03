@@ -6,6 +6,7 @@
 Rome is a tool that allows developers on Apple platforms to use:
 
 - Amazon's S3
+- [Minio](https://www.minio.io/)
 - or/and a local folder
 
 as a shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
@@ -23,6 +24,7 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 - [Set up](#set-up)
 	- [Setting up AWS credentials](#setting-up-aws-credentials)
 	- [Selecting the AWS Region](#selecting-the-aws-region)
+  - [Setting up endpoint override for Minio](#setting-up-endpoint-override-for-minio)
 	- [Romefile](#romefile)
 		- [Cache section](#cache-section)
 		- [RepositoryMap](#repositorymap)
@@ -175,6 +177,19 @@ region = us-east-1
 
 To use configurations other than the `default` profile set the `$AWS_PROFILE`
 environment variable to your desired profile.
+
+### Setting up endpoint override for Minio
+
+To you `.aws/config` in the profile you wish to use add the an `endpoint` key like so
+
+```
+[default]
+region = us-east-1
+endpoint = https://my.minio.host:9091
+```
+
+__Do not remove the `region` key__
+If you don't specify a port, `9000` will be used as default.
 
 ### Romefile
 

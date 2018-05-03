@@ -30,6 +30,7 @@ import           Data.Monoid
 import           Data.Romefile
 import qualified Data.Text                    as T
 import           Data.Text.Encoding
+import qualified Data.Text.IO                 as T
 import           Data.Time
 import qualified Network.AWS                  as AWS (Error, ErrorMessage (..),
                                                       serviceMessage,
@@ -555,3 +556,13 @@ whenLeft :: Monad m => (l -> m ()) -> Either l r -> m ()
 whenLeft f (Left e)  = f e
 whenLeft _ (Right _) = return ()
 
+
+
+-- | Read a file as `Text` and pefrom an action
+fromFile :: MonadIO m
+         => FilePath -- ^ The `FilePath` to the file to read
+         -> (T.Text -> ExceptT String m a) -- ^ The action
+         -> ExceptT String m a
+fromFile f action = do
+  file <- liftIO (T.readFile f)
+  withExceptT (("Could not parse " <> f <> ": ") <>) (action file)

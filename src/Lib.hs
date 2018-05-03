@@ -24,6 +24,7 @@ import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Reader         (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans.Maybe    (exceptToMaybeT, runMaybeT)
+import qualified Data.ByteString.Char8        as BS (pack)
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
@@ -32,9 +33,9 @@ import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import qualified Data.S3Config                as S3Config
 import qualified Data.Text                    as T
-import qualified Data.Text.IO                 as T
 import qualified Network.AWS                  as AWS
 import qualified Network.AWS.S3               as S3
+import           Network.URL
 import           System.Directory
 import           System.Environment
 import           System.FilePath
@@ -44,10 +45,24 @@ import           Utils
 import           Xcode.DWARF
 
 
+
+s3EndpointOverride :: URL -> AWS.Service
+s3EndpointOverride (URL (Absolute h) _ _) =
+  let isSecure = secure $ h
+      host' = host h
+      port' = port h
+   in
+    AWS.setEndpoint isSecure (BS.pack host') (fromInteger $ fromMaybe 9000 port') S3.s3
+s3EndpointOverride _ = S3.s3
+
+
+
 getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSRegion = do
   region <- discoverRegion
-  set AWS.envRegion region <$> AWS.newEnv AWS.Discover
+  profile <- liftIO $ lookupEnv "AWS_PROFILE"
+  endpointURL <- (lift getS3ConfigFile) >>= \f -> getEndpointFromFile f (fromMaybe "default" profile)
+  set AWS.envRegion region <$> (AWS.newEnv AWS.Discover <&> AWS.configure (s3EndpointOverride endpointURL))
 
 
 
@@ -782,7 +797,19 @@ getRegionFromFile :: MonadIO m
                   -> String -- ^ The name of the profile to use
                   -> ExceptT String m AWS.Region
 getRegionFromFile f profile = do
-  file <- liftIO (T.readFile f)
-  withExceptT (("Could not parse " <> f <> ": ") <>) . ExceptT . return $ do
+  fromFile f $ \file -> ExceptT . return $ do
     config <- S3Config.parseS3Config file
     S3Config.regionOf (T.pack profile) config
+
+
+
+-- | Reads an `URL` from a file for a given profile
+getEndpointFromFile :: MonadIO m
+                    => FilePath -- ^ The path to the file containing the `AWS.Region`
+                    -> String -- ^ The name of the profile to use
+                    -> ExceptT String m URL
+getEndpointFromFile f profile = do
+  fromFile f $ \file -> ExceptT . return $ do
+    config <- S3Config.parseS3Config file
+    S3Config.endPointOf (T.pack profile) config
+

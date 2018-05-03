@@ -180,7 +180,7 @@ environment variable to your desired profile.
 
 ### Setting up endpoint override for Minio
 
-To you `.aws/config` in the profile you wish to use add the an `endpoint` key like so
+To your `.aws/config` in the profile section you wish to use, add an `endpoint` key like so
 
 ```
 [default]

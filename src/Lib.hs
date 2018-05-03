@@ -61,7 +61,7 @@ getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSRegion = do
   region <- discoverRegion
   profile <- liftIO $ lookupEnv "AWS_PROFILE"
-  endpointURL <- lift getS3ConfigFile >>= (flip getEndpointFromFile) (fromMaybe "default" profile)
+  endpointURL <- lift getS3ConfigFile >>= flip getEndpointFromFile (fromMaybe "default" profile)
   set AWS.envRegion region <$> (AWS.newEnv AWS.Discover <&> AWS.configure (s3EndpointOverride endpointURL))
 
 

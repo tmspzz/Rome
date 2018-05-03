@@ -48,7 +48,7 @@ import           Xcode.DWARF
 
 s3EndpointOverride :: URL -> AWS.Service
 s3EndpointOverride (URL (Absolute h) _ _) =
-  let isSecure = secure $ h
+  let isSecure = secure h
       host' = host h
       port' = port h
    in
@@ -61,7 +61,7 @@ getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSRegion = do
   region <- discoverRegion
   profile <- liftIO $ lookupEnv "AWS_PROFILE"
-  endpointURL <- (lift getS3ConfigFile) >>= \f -> getEndpointFromFile f (fromMaybe "default" profile)
+  endpointURL <- lift getS3ConfigFile >>= (flip getEndpointFromFile) (fromMaybe "default" profile)
   set AWS.envRegion region <$> (AWS.newEnv AWS.Discover <&> AWS.configure (s3EndpointOverride endpointURL))
 
 
@@ -796,8 +796,8 @@ getRegionFromFile :: MonadIO m
                   => FilePath -- ^ The path to the file containing the `AWS.Region`
                   -> String -- ^ The name of the profile to use
                   -> ExceptT String m AWS.Region
-getRegionFromFile f profile = do
-  fromFile f $ \file -> ExceptT . return $ do
+getRegionFromFile f profile = fromFile f $ \file -> ExceptT . return $
+  do
     config <- S3Config.parseS3Config file
     S3Config.regionOf (T.pack profile) config
 
@@ -808,8 +808,8 @@ getEndpointFromFile :: MonadIO m
                     => FilePath -- ^ The path to the file containing the `AWS.Region`
                     -> String -- ^ The name of the profile to use
                     -> ExceptT String m URL
-getEndpointFromFile f profile = do
-  fromFile f $ \file -> ExceptT . return $ do
+getEndpointFromFile f profile = fromFile f $ \file -> ExceptT . return $
+  do
     config <- S3Config.parseS3Config file
     S3Config.endPointOf (T.pack profile) config
 

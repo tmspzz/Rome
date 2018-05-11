@@ -55,14 +55,12 @@ s3EndpointOverride (URL (Absolute h) _ _) =
     AWS.setEndpoint isSecure (BS.pack host') (fromInteger $ fromMaybe 9000 port') S3.s3
 s3EndpointOverride _ = S3.s3
 
-
-
 getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSRegion = do
   region <- discoverRegion
   profile <- liftIO $ lookupEnv "AWS_PROFILE"
-  endpointURL <- lift getS3ConfigFile >>= flip getEndpointFromFile (fromMaybe "default" profile)
-  set AWS.envRegion region <$> (AWS.newEnv AWS.Discover <&> AWS.configure (s3EndpointOverride endpointURL))
+  endpointURL <- runMaybeT . exceptToMaybeT $ lift getS3ConfigFile >>= flip getEndpointFromFile (fromMaybe "default" profile)
+  set AWS.envRegion region <$> (AWS.newEnv AWS.Discover <&> AWS.configure (fromMaybe S3.s3 (s3EndpointOverride <$> endpointURL)))
 
 
 

@@ -59,8 +59,6 @@ s3EndpointOverride (URL (Absolute h) _ _) =
     AWS.setEndpoint isSecure (BS.pack host') (fromInteger $ fromMaybe 9000 port') S3.s3
 s3EndpointOverride _ = S3.s3
 
-
-
 getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSRegion = do
   region <- discoverRegion

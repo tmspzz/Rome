@@ -35,7 +35,7 @@ endPointOf profile = parseURL <=< lookupValue profile "endpoint" . _ini
   where
     parseURL s = if T.null s
       then Left "Failed reading: Failure parsing Endpoint from empty string"
-      else maybeToEither "Failed reading: Endpoint is not a valid URL" $ importURL . T.unpack  $ s
+      else maybeToEither "Failed reading: Endpoint is not a valid URL" $ importURL . T.unpack $ s
 
 parseS3Config :: T.Text -> Either String S3Config
 parseS3Config = fmap S3Config . parseIni

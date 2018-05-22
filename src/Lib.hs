@@ -1,6 +1,7 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE NamedFieldPuns    #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 
 
@@ -18,6 +19,7 @@ import           Caches.S3.Downloading
 import           Caches.S3.Probing
 import           Caches.S3.Uploading
 import           Configuration
+import           Control.Applicative          ((<|>))
 import           Control.Lens                 hiding (List)
 import           Control.Monad
 import           Control.Monad.Catch
@@ -28,12 +30,14 @@ import qualified Data.ByteString.Char8        as BS (pack)
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
+import           Data.Either.Extra            (maybeToEither)
 import           Data.Maybe                   (fromMaybe)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import qualified Data.S3Config                as S3Config
 import qualified Data.Text                    as T
 import qualified Network.AWS                  as AWS
+import qualified Network.AWS.Data             as AWS (fromText)
 import qualified Network.AWS.S3               as S3
 import           Network.URL
 import           System.Directory
@@ -55,11 +59,12 @@ s3EndpointOverride (URL (Absolute h) _ _) =
     AWS.setEndpoint isSecure (BS.pack host') (fromInteger $ fromMaybe 9000 port') S3.s3
 s3EndpointOverride _ = S3.s3
 
+
+
 getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSRegion = do
   region <- discoverRegion
-  profile <- liftIO $ lookupEnv "AWS_PROFILE"
-  endpointURL <- runMaybeT . exceptToMaybeT $ lift getS3ConfigFile >>= flip getEndpointFromFile (fromMaybe "default" profile)
+  endpointURL <- runMaybeT . exceptToMaybeT $ discoverEndpoint
   set AWS.envRegion region <$> (AWS.newEnv AWS.Discover <&> AWS.configure (fromMaybe S3.s3 (s3EndpointOverride <$> endpointURL)))
 
 
@@ -778,14 +783,18 @@ filterAccordingToListMode Commands.Present = filter _isAvailable
 
 
 
--- | Discovers which `AWS.Region` to use by looking either at the _AWS_PROFILE_ environment variable
--- | or by falling back to using _default_. The region is then read from `Configuration.getS3ConfigFile`.
+-- | Discovers which `AWS.Region` to use. First it looks for the environment variable `AWS_REGION`,
+-- | then if not found the region is read via `Configuration.getS3ConfigFile`
+-- | looking at the _AWS_PROFILE_ environment variable
+-- | or falling back to _default_ profile.
 discoverRegion :: MonadIO m
                => ExceptT String m AWS.Region
 discoverRegion = do
+  envRegion <- liftIO $ maybeToEither "No env variable AWS_REGION found. " <$> lookupEnv "AWS_REGION"
   f <- getS3ConfigFile
   profile <- liftIO $ lookupEnv "AWS_PROFILE"
-  getRegionFromFile f (fromMaybe "default" profile)
+  let eitherText = ExceptT . return $ envRegion >>= AWS.fromText . T.pack
+  eitherText <|> getRegionFromFile f (fromMaybe "default" profile)
 
 
 
@@ -798,6 +807,21 @@ getRegionFromFile f profile = fromFile f $ \file -> ExceptT . return $
   do
     config <- S3Config.parseS3Config file
     S3Config.regionOf (T.pack profile) config
+
+
+
+-- | Discovers which endpoint to use. First it looks for the environment variable `AWS_ENDPOINT`,
+-- | then if not found the endpoint is read via `Configuration.getS3ConfigFile`
+-- | looking at the _AWS_PROFILE_ environment variable
+-- | or falling back to _default_ profile.
+discoverEndpoint :: MonadIO m
+                 => ExceptT String m URL
+discoverEndpoint = do
+  maybeString <- liftIO $ lookupEnv "AWS_ENDPOINT"
+  let envEndpointURL =  maybeToEither "No env variable AWS_ENDPOINT found. " $ maybeString >>= importURL
+  profile <- liftIO $ lookupEnv "AWS_PROFILE"
+  let fileEndpointURL = liftIO getS3ConfigFile >>= flip getEndpointFromFile (fromMaybe "default" profile)
+  (ExceptT . return $ envEndpointURL) <|> fileEndpointURL
 
 
 

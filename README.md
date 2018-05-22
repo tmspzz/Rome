@@ -178,6 +178,8 @@ region = us-east-1
 To use configurations other than the `default` profile set the `$AWS_PROFILE`
 environment variable to your desired profile.
 
+Alternatively the AWS Region can also be specified by setting an `AWS_REGION` environment variable.
+
 ### Setting up endpoint override for Minio
 
 To your `.aws/config` in the profile section you wish to use, add an `endpoint` key like so
@@ -190,6 +192,8 @@ endpoint = https://my.minio.host:9091
 
 __Do not remove the `region` key__
 If you don't specify a port, `9000` will be used as default.
+
+Alternatively the endpoint can also be specified by setting an `AWS_ENDPOINT` environment variable.
 
 ### Romefile
 

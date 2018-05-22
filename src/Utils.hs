@@ -9,7 +9,6 @@ import qualified Codec.Archive.Zip            as Zip
 import           Configuration                (carthageBuildDirectoryForPlatform)
 import           Control.Arrow                (left)
 import           Control.Exception            as E (try)
-import           Control.Lens                 hiding (List)
 import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Trans.Resource (runResourceT)
@@ -32,9 +31,7 @@ import qualified Data.Text                    as T
 import           Data.Text.Encoding
 import qualified Data.Text.IO                 as T
 import           Data.Time
-import qualified Network.AWS                  as AWS (Error, ErrorMessage (..),
-                                                      serviceMessage,
-                                                      _ServiceError)
+import qualified Network.AWS                  as AWS (Error)
 import           Network.HTTP.Conduit         as HTTP
 import           Network.HTTP.Types.Header    as HTTP (hUserAgent)
 import           Numeric                      (showFFloat)
@@ -96,11 +93,7 @@ checkIfRomeLatestVersionIs currentRomeVersion = do
 
 -- | Turns an `AWS.Error` to `String` or defaults to "Unexpected Error".
 awsErrorToString :: AWS.Error -> String
-awsErrorToString e = fromErrorMessage $ fromMaybe (AWS.ErrorMessage "Unexpected Error") maybeServiceError
-  where
-    maybeServiceError = view AWS.serviceMessage =<< (e ^? AWS._ServiceError)
-    fromErrorMessage :: AWS.ErrorMessage -> String
-    fromErrorMessage (AWS.ErrorMessage t) = T.unpack t
+awsErrorToString e = show e
 
 
 

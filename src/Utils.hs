@@ -93,7 +93,7 @@ checkIfRomeLatestVersionIs currentRomeVersion = do
 
 -- | Turns an `AWS.Error` to `String` or defaults to "Unexpected Error".
 awsErrorToString :: AWS.Error -> String
-awsErrorToString e = show e
+awsErrorToString = show
 
 
 

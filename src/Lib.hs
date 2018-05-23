@@ -54,7 +54,7 @@ s3EndpointOverride :: URL -> AWS.Service
 s3EndpointOverride (URL (Absolute h) _ _) =
   let isSecure = secure h
       host' = host h
-      port' = port h
+      port' = port h <|> if isSecure then Just 443 else Nothing
    in
     AWS.setEndpoint isSecure (BS.pack host') (fromInteger $ fromMaybe 9000 port') S3.s3
 s3EndpointOverride _ = S3.s3

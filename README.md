@@ -192,8 +192,10 @@ region = us-east-1
 endpoint = https://my.minio.host:9091
 ```
 
-__Do not remove the `region` key__
+__Do not remove the `region` key__.
+
 Default port for `https` endpoints is __443__ if the port is left unspecified.
+
 Default port for `http` endpoints is __9000__ if the port is left unspecified.
 
 Alternatively the endpoint can also be specified by setting an `AWS_ENDPOINT` environment variable.

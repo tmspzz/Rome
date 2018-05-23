@@ -1,6 +1,7 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE NamedFieldPuns    #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 
 
@@ -18,23 +19,27 @@ import           Caches.S3.Downloading
 import           Caches.S3.Probing
 import           Caches.S3.Uploading
 import           Configuration
+import           Control.Applicative          ((<|>))
 import           Control.Lens                 hiding (List)
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Reader         (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans.Maybe    (exceptToMaybeT, runMaybeT)
+import qualified Data.ByteString.Char8        as BS (pack)
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
+import           Data.Either.Extra            (maybeToEither)
 import           Data.Maybe                   (fromMaybe)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import qualified Data.S3Config                as S3Config
 import qualified Data.Text                    as T
-import qualified Data.Text.IO                 as T
 import qualified Network.AWS                  as AWS
+import qualified Network.AWS.Data             as AWS (fromText)
 import qualified Network.AWS.S3               as S3
+import           Network.URL
 import           System.Directory
 import           System.Environment
 import           System.FilePath
@@ -44,10 +49,23 @@ import           Utils
 import           Xcode.DWARF
 
 
+
+s3EndpointOverride :: URL -> AWS.Service
+s3EndpointOverride (URL (Absolute h) _ _) =
+  let isSecure = secure h
+      host' = host h
+      port' = port h <|> if isSecure then Just 443 else Nothing
+   in
+    AWS.setEndpoint isSecure (BS.pack host') (fromInteger $ fromMaybe 9000 port') S3.s3
+s3EndpointOverride _ = S3.s3
+
+
+
 getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSRegion = do
   region <- discoverRegion
-  set AWS.envRegion region <$> AWS.newEnv AWS.Discover
+  endpointURL <- runMaybeT . exceptToMaybeT $ discoverEndpoint
+  set AWS.envRegion region <$> (AWS.newEnv AWS.Discover <&> AWS.configure (fromMaybe S3.s3 (s3EndpointOverride <$> endpointURL)))
 
 
 
@@ -765,14 +783,18 @@ filterAccordingToListMode Commands.Present = filter _isAvailable
 
 
 
--- | Discovers which `AWS.Region` to use by looking either at the _AWS_PROFILE_ environment variable
--- | or by falling back to using _default_. The region is then read from `Configuration.getS3ConfigFile`.
+-- | Discovers which `AWS.Region` to use. First it looks for the environment variable `AWS_REGION`,
+-- | then if not found the region is read via `Configuration.getS3ConfigFile`
+-- | looking at the _AWS_PROFILE_ environment variable
+-- | or falling back to _default_ profile.
 discoverRegion :: MonadIO m
                => ExceptT String m AWS.Region
 discoverRegion = do
+  envRegion <- liftIO $ maybeToEither "No env variable AWS_REGION found. " <$> lookupEnv "AWS_REGION"
   f <- getS3ConfigFile
   profile <- liftIO $ lookupEnv "AWS_PROFILE"
-  getRegionFromFile f (fromMaybe "default" profile)
+  let eitherText = ExceptT . return $ envRegion >>= AWS.fromText . T.pack
+  eitherText <|> getRegionFromFile f (fromMaybe "default" profile)
 
 
 
@@ -781,8 +803,35 @@ getRegionFromFile :: MonadIO m
                   => FilePath -- ^ The path to the file containing the `AWS.Region`
                   -> String -- ^ The name of the profile to use
                   -> ExceptT String m AWS.Region
-getRegionFromFile f profile = do
-  file <- liftIO (T.readFile f)
-  withExceptT (("Could not parse " <> f <> ": ") <>) . ExceptT . return $ do
+getRegionFromFile f profile = fromFile f $ \file -> ExceptT . return $
+  do
     config <- S3Config.parseS3Config file
     S3Config.regionOf (T.pack profile) config
+
+
+
+-- | Discovers which endpoint to use. First it looks for the environment variable `AWS_ENDPOINT`,
+-- | then if not found the endpoint is read via `Configuration.getS3ConfigFile`
+-- | looking at the _AWS_PROFILE_ environment variable
+-- | or falling back to _default_ profile.
+discoverEndpoint :: MonadIO m
+                 => ExceptT String m URL
+discoverEndpoint = do
+  maybeString <- liftIO $ lookupEnv "AWS_ENDPOINT"
+  let envEndpointURL =  maybeToEither "No env variable AWS_ENDPOINT found. " $ maybeString >>= importURL
+  profile <- liftIO $ lookupEnv "AWS_PROFILE"
+  let fileEndpointURL = liftIO getS3ConfigFile >>= flip getEndpointFromFile (fromMaybe "default" profile)
+  (ExceptT . return $ envEndpointURL) <|> fileEndpointURL
+
+
+
+-- | Reads an `URL` from a file for a given profile
+getEndpointFromFile :: MonadIO m
+                    => FilePath -- ^ The path to the file containing the `AWS.Region`
+                    -> String -- ^ The name of the profile to use
+                    -> ExceptT String m URL
+getEndpointFromFile f profile = fromFile f $ \file -> ExceptT . return $
+  do
+    config <- S3Config.parseS3Config file
+    S3Config.endPointOf (T.pack profile) config
+

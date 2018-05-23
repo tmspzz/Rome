@@ -7,6 +7,8 @@ Rome is a tool that allows developers on Apple platforms to use:
 
 - Amazon's S3
 - [Minio](https://www.minio.io/)
+- [Ceph](https://ceph.com/ceph-storage/object-storage/)
+- other S3 compatible object stores
 - or/and a local folder
 
 as a shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
@@ -24,7 +26,7 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 - [Set up](#set-up)
 	- [Setting up AWS credentials](#setting-up-aws-credentials)
 	- [Selecting the AWS Region](#selecting-the-aws-region)
-  - [Setting up endpoint override for Minio](#setting-up-endpoint-override-for-minio)
+  - [Setting up endpoint override for Minio, Ceph, or other S3 compatible stores](#setting-up-endpoint-override)
 	- [Romefile](#romefile)
 		- [Cache section](#cache-section)
 		- [RepositoryMap](#repositorymap)
@@ -180,7 +182,7 @@ environment variable to your desired profile.
 
 Alternatively the AWS Region can also be specified by setting an `AWS_REGION` environment variable.
 
-### Setting up endpoint override for Minio
+### Setting up endpoint override
 
 To your `.aws/config` in the profile section you wish to use, add an `endpoint` key like so
 
@@ -191,7 +193,8 @@ endpoint = https://my.minio.host:9091
 ```
 
 __Do not remove the `region` key__
-If you don't specify a port, `9000` will be used as default.
+Default port for `https` endpoints is __443__ if the port is left unspecified.
+Default port for `http` endpoints is __9000__ if the port is left unspecified.
 
 Alternatively the endpoint can also be specified by setting an `AWS_ENDPOINT` environment variable.
 

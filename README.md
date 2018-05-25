@@ -1,6 +1,6 @@
 ![](logo/colosseum.jpg)
 
-# Rome [![rome-latest](https://img.shields.io/badge/release-v0.15.0.43-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.15.0.43) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/netbe/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
+# Rome [![rome-latest](https://img.shields.io/badge/release-v0.15.0.43-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.15.0.43) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
 
 
 Rome is a tool that allows developers on Apple platforms to use:
@@ -41,6 +41,8 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 - [Troubleshooting & FAQ](#troubleshooting--faq)
 	- [Getting "Image not found" when running an application using binaries](#getting-image-not-found-when-running-an-application-using-binaries)
 	- [Supporting multiple Swift Versions](#supporting-multiple-swift-versions)
+- [Developing](#developing)
+- [Releasing](#releasing)
 - [Presentations and Tutorials](#presentations-and-tutorials)
 - [Who uses Rome?](#who-uses-rome)
 - [License](#license)
@@ -592,6 +594,25 @@ the example above at `~/Library/Caches/Rome/Swift3/Alamofire`
 See [Cache Structure](#cache-structure) and [Cache Prefix](#cache-prefix)
 for an in depth explanation.
 
+## Developing
+
+1. Install [Stack](https://github.com/commercialhaskell/stack) via homebrew `brew install stack`
+1. Clone the repo `git clone https://github.com/blender/Rome.git`
+1. `cd Rome && stack build`
+1. Optional: If you use VIM install [haskell-vim-how](https://github.com/begriffs/haskell-vim-now)
+
+## Releasing
+
+1. Increase the version number in [Rome.cabal](https://github.com/blender/Rome/blob/master/Rome.cabal#L2) 
+1. Increase the version number in [app/Main.hs](https://github.com/blender/Rome/blob/master/app/Main.hs#L13)
+1. Increase the version number in [Rome.podspec](https://github.com/blender/Rome/blob/master/Rome.podspec#L3)
+1. Commit
+1. Create a [new pre-release](https://github.com/blender/Rome/releases) on Github
+1. Attach the zipped binary
+1. Promote to release
+1. Run `pod trunk push Rome.podspec`
+1. [Update the homebrew formula](https://github.com/blender/homebrew-tap)
+
 ## Presentations and Tutorials
 
 Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org/) and [slides](https://speakerdeck.com/blender/caching-a-simple-solution-to-speeding-up-build-times)
@@ -604,7 +625,9 @@ Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org
 
 ## Who uses Rome?
 
-- https://www.sharecare.com/
+
+<a href="https://www.sharecare.com"><img src="https://www.hmnads.com/wp-content/uploads/2015/06/Sharecare-logo.png" alt="sharecare" height="90px"/></a>
+<a href="https://line.me"><img src="https://vignette.wikia.nocookie.net/starwars/images/b/b1/LINE_Corp_logo.png/revision/latest?cb=20170923181031" alt="linecorp" height="90px"/></a>
 
 ## License
 Rome is released under MIT License

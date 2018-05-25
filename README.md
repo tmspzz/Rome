@@ -41,6 +41,8 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 - [Troubleshooting & FAQ](#troubleshooting--faq)
 	- [Getting "Image not found" when running an application using binaries](#getting-image-not-found-when-running-an-application-using-binaries)
 	- [Supporting multiple Swift Versions](#supporting-multiple-swift-versions)
+- [Developing](#developing)
+- [Releasing](#releasing)
 - [Presentations and Tutorials](#presentations-and-tutorials)
 - [Who uses Rome?](#who-uses-rome)
 - [License](#license)
@@ -591,6 +593,24 @@ the example above at `~/Library/Caches/Rome/Swift3/Alamofire`
 
 See [Cache Structure](#cache-structure) and [Cache Prefix](#cache-prefix)
 for an in depth explanation.
+
+## Developing
+
+1. Install [Stack]() via homebrew `brew install stack`
+1. Clone the repo `git clone https://github.com/blender/Rome.git`
+1. `cd Rome && stack build`
+1. Optional: If you use VIM install haskell-vim-how
+
+# Releasing
+
+1. Increase the version number in Rome.cabal and app/Main.hs
+1. Increase the version number in Rome.podspec
+1. Commit
+1. Create a [new pre-release](https://github.com/blender/Rome/releases) on Github
+1. Attach the zipped binary
+1. Promote to release
+1. Run `pod trunk push Rome.podspec`
+1. [Update the homebrew formula](https://github.com/blender/homebrew-tap)
 
 ## Presentations and Tutorials
 

@@ -604,8 +604,8 @@ Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org
 
 ## Who uses Rome?
 
-- [![Sharecare](https://www.hmnads.com/wp-content/uploads/2015/06/Sharecare-logo.png)](https://www.sharecare.com/)
-- [![Line](https://scdn.line-apps.com/n/_s1/_0/linecorpweb-uit/images/logo_h1_v2.png)](https://line.me/en/)
+[![Sharecare](https://www.hmnads.com/wp-content/uploads/2015/06/Sharecare-logo.png)](https://www.sharecare.com/)
+[![Line](https://vignette.wikia.nocookie.net/starwars/images/b/b1/LINE_Corp_logo.png/revision/latest?cb=20170923181031)](https://line.me/en/)
 
 ## License
 Rome is released under MIT License

@@ -601,7 +601,7 @@ for an in depth explanation.
 1. `cd Rome && stack build`
 1. Optional: If you use VIM install [haskell-vim-how](https://github.com/begriffs/haskell-vim-now)
 
-# Releasing
+## Releasing
 
 1. Increase the version number in [Rome.cabal](https://github.com/blender/Rome/blob/master/Rome.cabal#L2) 
 1. Increase the version number in [app/Main.hs](https://github.com/blender/Rome/blob/master/app/Main.hs#L13)

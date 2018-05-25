@@ -26,7 +26,7 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 - [Set up](#set-up)
 	- [Setting up AWS credentials](#setting-up-aws-credentials)
 	- [Selecting the AWS Region](#selecting-the-aws-region)
-  - [Setting up endpoint override for Minio, Ceph, or other S3 compatible stores](#setting-up-endpoint-override)
+	- [Setting up endpoint override for Minio, Ceph, or other S3 compatible stores](#setting-up-endpoint-override)
 	- [Romefile](#romefile)
 		- [Cache section](#cache-section)
 		- [RepositoryMap](#repositorymap)

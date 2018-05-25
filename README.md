@@ -603,8 +603,9 @@ for an in depth explanation.
 
 # Releasing
 
-1. Increase the version number in Rome.cabal and app/Main.hs
-1. Increase the version number in Rome.podspec
+1. Increase the version number in [Rome.cabal](https://github.com/blender/Rome/blob/master/Rome.cabal#L2) 
+1. Increase the version number in [app/Main.hs](https://github.com/blender/Rome/blob/master/app/Main.hs#L13)
+1. Increase the version number in [Rome.podspec](https://github.com/blender/Rome/blob/master/Rome.podspec#L3)
 1. Commit
 1. Create a [new pre-release](https://github.com/blender/Rome/releases) on Github
 1. Attach the zipped binary

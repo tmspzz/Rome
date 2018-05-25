@@ -46,7 +46,18 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 - [License](#license)
 
 ## Get Rome
+### Using Homebrew
 `$ brew install blender/homebrew-tap/rome`
+
+### Using CocoaPods
+Simply add the following line to your Podfile:
+```
+pod 'Rome'
+```
+
+This will download Rome to the `Pods/` folder during your next `pod install`
+execution and will allow you to invoke it via `${PODS_ROOT}/Rome/rome` in your
+Script Build Phases.
 
 The Rome binary is also attached as a zip to each release on the [releases page](https://github.com/blender/Rome/releases) here on GitHub.
 

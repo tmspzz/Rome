@@ -1,6 +1,6 @@
 ![](logo/colosseum.jpg)
 
-# Rome [![rome-latest](https://img.shields.io/badge/release-v0.15.0.43-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.15.0.43) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/netbe/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
+# Rome [![rome-latest](https://img.shields.io/badge/release-v0.15.0.43-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.15.0.43) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
 
 
 Rome is a tool that allows developers on Apple platforms to use:
@@ -604,7 +604,8 @@ Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org
 
 ## Who uses Rome?
 
-- https://www.sharecare.com/
+- [![Sharecare](https://www.hmnads.com/wp-content/uploads/2015/06/Sharecare-logo.png)](https://www.sharecare.com/)
+- [![Line](https://scdn.line-apps.com/n/_s1/_0/linecorpweb-uit/images/logo_h1_v2.png)](https://line.me/en/)
 
 ## License
 Rome is released under MIT License

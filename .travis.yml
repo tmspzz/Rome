@@ -42,6 +42,7 @@ script:
   - stack $ARGS test --no-terminal --haddock --no-haddock-deps
   - stack $ARGS build
   - stack $ARGS sdist
+  - bundle exec pod lib lint
 
 # Caching so the next build will be fast too.
 cache:

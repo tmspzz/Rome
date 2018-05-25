@@ -596,10 +596,10 @@ for an in depth explanation.
 
 ## Developing
 
-1. Install [Stack]() via homebrew `brew install stack`
+1. Install [Stack](https://github.com/commercialhaskell/stack) via homebrew `brew install stack`
 1. Clone the repo `git clone https://github.com/blender/Rome.git`
 1. `cd Rome && stack build`
-1. Optional: If you use VIM install haskell-vim-how
+1. Optional: If you use VIM install [haskell-vim-how](https://github.com/begriffs/haskell-vim-now)
 
 # Releasing
 

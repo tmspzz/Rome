@@ -628,6 +628,7 @@ Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org
 
 <a href="https://www.sharecare.com"><img src="https://www.hmnads.com/wp-content/uploads/2015/06/Sharecare-logo.png" alt="sharecare" height="90px"/></a>
 <a href="https://line.me"><img src="https://vignette.wikia.nocookie.net/starwars/images/b/b1/LINE_Corp_logo.png/revision/latest?cb=20170923181031" alt="linecorp" height="90px"/></a>
+<a href="https://www.daimler-tss.com"><img src="https://www.hdm-stuttgart.de/unternehmen/karrieremarktplatz/anmeldung/aussteller_uploads/99/dLlVePMVtu191516349018.png" alt="DaimlerTSS" height="90px"/></a>
 
 ## License
 Rome is released under MIT License

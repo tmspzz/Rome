@@ -202,7 +202,7 @@ getArtifactFromS3 :: S3.BucketName -- ^ The cache definition
 getArtifactFromS3 s3BucketName
                   remotePath
                   name = do
-  eitherArtifact <- AWS.trying AWS._Error $ downloadBinary s3BucketName remotePath name
+  eitherArtifact <- AWS.trying AWS._Error $ lift $ downloadBinary s3BucketName remotePath name
   case eitherArtifact of
     Left e -> throwError $ "Error: could not download " <> name <> " : " <> awsErrorToString e
     Right artifactBinary -> return artifactBinary
@@ -213,7 +213,7 @@ getArtifactFromS3 s3BucketName
 downloadBinary :: S3.BucketName
                -> FilePath
                -> FilePath
-               -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
+               -> ReaderT (AWS.Env, Bool) IO LBS.ByteString
 downloadBinary s3BucketName objectRemotePath objectName = do
   (env, verbose) <- ask
   AWS.runResourceT . AWS.runAWS env $ do

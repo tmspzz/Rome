@@ -587,7 +587,7 @@ $ rome download --platform iOS --cache-prefix Swift3 Alamofire
 $ rome list --platform iOS --cache-prefix Swift3
 ```
 
-If you pref a more accurate way of generating cache prefixes for different swift versions
+If you prefer a more accurate way of generating cache prefixes for different swift versions
 consider using the following:
 
 ```

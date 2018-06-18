@@ -11,7 +11,7 @@ import           Control.Arrow                (left)
 import           Control.Exception            as E (try)
 import           Control.Monad.Catch
 import           Control.Monad.Except
-import           Control.Monad.Trans.Resource (runResourceT)
+import           Control.Monad.Trans.Resource (runResourceT, MonadUnliftIO)
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.ByteString.Char8        as BS
@@ -19,7 +19,7 @@ import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
 import           Data.Char                    (isNumber)
-import qualified Data.Conduit                 as C (($$))
+import qualified Data.Conduit                 as C (runConduit, (.|))
 import qualified Data.Conduit.Binary          as C (sinkFile, sourceLbs)
 import           Data.Function                (on)
 import           Data.List
@@ -510,13 +510,13 @@ unzipBinary objectBinary objectName objectZipName verbose = do
 
 
 -- | Saves a ByteString to file
-saveBinaryToFile :: MonadIO m
+saveBinaryToFile :: (MonadUnliftIO m, MonadIO m)
                  => LBS.ByteString -- ^ The `ByteString` to save.
                  -> FilePath -- ^ The destination path.
                  -> m ()
 saveBinaryToFile binaryArtifact destinationPath = do
   liftIO $ createDirectoryIfMissing True (dropFileName destinationPath)
-  liftIO . runResourceT $ C.sourceLbs binaryArtifact C.$$ C.sinkFile destinationPath
+  runResourceT $ C.runConduit $ C.sourceLbs binaryArtifact C..| C.sinkFile destinationPath
 
 
 

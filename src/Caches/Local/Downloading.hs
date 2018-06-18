@@ -295,7 +295,7 @@ getAndSaveVersionFileFromLocalCache lCacheDir gitRepoNameAndVersion = do
   let sayFunc = if verbose then sayLnWithTime else sayLn
   versionFileBinary <- getVersionFileFromLocalCache lCacheDir cachePrefix gitRepoNameAndVersion
   sayFunc $ "Found " <> versionFileName <> " in local cache at: " <> finalVersionFileLocalCachePath
-  saveBinaryToFile versionFileBinary versionFileLocalPath
+  liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
   sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
 
   where

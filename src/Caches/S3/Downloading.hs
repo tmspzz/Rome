@@ -10,7 +10,7 @@ import qualified Data.ByteString              as BS
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.TargetPlatform
 import qualified Data.Conduit                 as C (ConduitT, await, yield,
-                                                    (=$=))
+                                                    (.|))
 import qualified Data.Conduit.Binary          as C (sinkLbs)
 import           Data.Either                  (lefts)
 import           Data.Maybe                   (fromMaybe)
@@ -228,7 +228,7 @@ downloadBinary s3BucketName objectRemotePath objectName = do
 
   where
     objectKey = S3.ObjectKey . T.pack $ objectRemotePath
-    sink verbose totalLength = if verbose then printProgress objectName totalLength C.=$= C.sinkLbs else C.sinkLbs
+    sink verbose totalLength = if verbose then printProgress objectName totalLength C..| C.sinkLbs else C.sinkLbs
 
     printProgress :: MonadIO m => String -> Int -> C.ConduitT BS.ByteString BS.ByteString m ()
     printProgress objName totalLength = loop totalLength 0 0

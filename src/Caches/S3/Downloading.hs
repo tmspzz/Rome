@@ -2,10 +2,11 @@ module Caches.S3.Downloading where
 
 import           Caches.Common
 import           Configuration                (carthageBuildDirectoryForPlatform)
+import           Control.Exception            (try)
 import           Control.Lens                 (view)
 import           Control.Monad
 import           Control.Monad.Except
-import           Control.Monad.Reader         (ReaderT, ask, withReaderT)
+import           Control.Monad.Reader         (runReaderT, ReaderT, ask, withReaderT)
 import qualified Data.ByteString              as BS
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.TargetPlatform
@@ -201,10 +202,11 @@ getArtifactFromS3 :: S3.BucketName -- ^ The cache definition
                   -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
 getArtifactFromS3 s3BucketName
                   remotePath
-                  name = do
-  eitherArtifact <- AWS.trying AWS._Error $ lift $ downloadBinary s3BucketName remotePath name
+                  artifactName = do
+  env <- ask
+  eitherArtifact <- liftIO $ try $ runReaderT (downloadBinary s3BucketName remotePath artifactName) env
   case eitherArtifact of
-    Left e -> throwError $ "Error: could not download " <> name <> " : " <> awsErrorToString e
+    Left e -> throwError $ "Error: could not download " <> artifactName <> " : " <> awsErrorToString e
     Right artifactBinary -> return artifactBinary
 
 

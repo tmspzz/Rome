@@ -587,6 +587,13 @@ $ rome download --platform iOS --cache-prefix Swift3 Alamofire
 $ rome list --platform iOS --cache-prefix Swift3
 ```
 
+If you prefer a more accurate way of generating cache prefixes for different swift versions
+consider using the following:
+
+```
+--cache-prefix `swift --version | head -1 | sed 's/.*\((.*)\).*/\1/' | tr -d "()" | tr " " "-"`
+```
+
 The specified prefix is prepended to the git repository name in the caches.
 Using a local cache path like `~/Library/Caches/Rome` will store Alamofire from
 the example above at `~/Library/Caches/Rome/Swift3/Alamofire`

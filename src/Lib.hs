@@ -582,7 +582,7 @@ downloadVersionFileFromCaches s3BucketName (Just lCacheDir) gitRepoNameAndVersio
             e2 <- runExceptT $ do
               versionFileBinary <- getVersionFileFromS3 s3BucketName gitRepoNameAndVersion
               saveBinaryToLocalCache lCacheDir versionFileBinary (prefix </> versionFileRemotePath) versionFileName verbose
-              saveBinaryToFile versionFileBinary versionFileLocalPath
+              liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
               sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
             whenLeft sayFunc e2
            ) (env, cachePrefix, verbose)
@@ -600,7 +600,7 @@ downloadVersionFileFromCaches s3BucketName Nothing gitRepoNameAndVersion = do
   eitherError <- liftIO $ runReaderT
                           (runExceptT $ do
                             versionFileBinary <- getVersionFileFromS3 s3BucketName gitRepoNameAndVersion
-                            saveBinaryToFile versionFileBinary versionFileLocalPath
+                            liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
                             sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
                           )
                           (env, cachePrefix, verbose)

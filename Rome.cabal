@@ -1,5 +1,5 @@
 name:                Rome
-version:             0.15.0.43
+version:             0.16.0.45
 synopsis:            An S3 cache for Carthage
 description:         Please see README.md
 homepage:            https://github.com/blender/Rome
@@ -11,7 +11,7 @@ copyright:           2016, 2017, 2018 Tommaso Piazza
 category:            Utility
 build-type:          Simple
 -- extra-source-files:
-cabal-version:       >=1.10
+cabal-version:       >=1.24
 
 library
   hs-source-dirs:      src
@@ -39,8 +39,8 @@ library
 
 
   build-depends:       base >= 4.7 && < 5
-                       , amazonka >= 1.4
-                       , amazonka-s3 >= 1.4
+                       , amazonka >= 1.6
+                       , amazonka-s3 >= 1.6
                        , exceptions >= 0.8
                        , lens >= 4.13
                        , parsec >= 3.1.10

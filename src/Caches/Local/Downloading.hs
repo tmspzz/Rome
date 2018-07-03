@@ -6,7 +6,7 @@ import           Control.Monad.Except
 import           Control.Monad.Trans.Resource (runResourceT)
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.TargetPlatform
-import qualified Data.Conduit                 as C (($$))
+import qualified Data.Conduit                 as C (runConduit, (.|))
 import qualified Data.Conduit.Binary          as C (sinkLbs, sourceFile)
 import           Data.Romefile
 import           System.Directory
@@ -37,7 +37,7 @@ getFrameworkFromLocalCache lCacheDir
                            platform = do
   frameworkExistsInLocalCache <- liftIO . doesFileExist $ frameworkLocalCachePath prefix
   if frameworkExistsInLocalCache
-    then liftIO . runResourceT $ C.sourceFile (frameworkLocalCachePath prefix) C.$$ C.sinkLbs
+    then liftIO . runResourceT . C.runConduit $ C.sourceFile (frameworkLocalCachePath prefix) C..| C.sinkLbs
     else throwError $ "Error: could not find " <> fwn <> " in local cache at : " <> frameworkLocalCachePath prefix
   where
     frameworkLocalCachePath cPrefix = lCacheDir </> cPrefix </> remoteFrameworkUploadPath
@@ -57,7 +57,7 @@ getVersionFileFromLocalCache lCacheDir
   versionFileExistsInLocalCache <- liftIO . doesFileExist $ versionFileLocalCachePath
 
   if versionFileExistsInLocalCache
-    then liftIO . runResourceT $ C.sourceFile versionFileLocalCachePath C.$$ C.sinkLbs
+    then liftIO . runResourceT . C.runConduit $ C.sourceFile versionFileLocalCachePath C..| C.sinkLbs
     else throwError $ "Error: could not find " <> versionFileName <> " in local cache at : " <> versionFileLocalCachePath
   where
     versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
@@ -84,7 +84,7 @@ getBcsymbolmapFromLocalCache lCacheDir
   let finalBcsymbolmapLocalPath = bcsymbolmapLocalCachePath prefix
   bcSymbolmapExistsInLocalCache <- liftIO . doesFileExist $ finalBcsymbolmapLocalPath
   if bcSymbolmapExistsInLocalCache
-    then liftIO . runResourceT $ C.sourceFile finalBcsymbolmapLocalPath C.$$ C.sinkLbs
+    then liftIO . runResourceT . C.runConduit $ C.sourceFile finalBcsymbolmapLocalPath C..| C.sinkLbs
     else throwError $ "Error: could not find " <> bcsymbolmapName <> " in local cache at : " <> finalBcsymbolmapLocalPath
   where
     remoteBcsymbolmapUploadPath = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
@@ -109,7 +109,7 @@ getDSYMFromLocalCache lCacheDir
   let finalDSYMLocalPath = dSYMLocalCachePath prefix
   dSYMExistsInLocalCache <- liftIO . doesFileExist $ finalDSYMLocalPath
   if dSYMExistsInLocalCache
-    then liftIO . runResourceT $ C.sourceFile finalDSYMLocalPath C.$$ C.sinkLbs
+    then liftIO . runResourceT . C.runConduit $ C.sourceFile finalDSYMLocalPath C..| C.sinkLbs
     else throwError $ "Error: could not find " <> dSYMName <> " in local cache at : " <> finalDSYMLocalPath
   where
     dSYMLocalCachePath cPrefix = lCacheDir </> cPrefix </> remotedSYMUploadPath
@@ -295,7 +295,7 @@ getAndSaveVersionFileFromLocalCache lCacheDir gitRepoNameAndVersion = do
   let sayFunc = if verbose then sayLnWithTime else sayLn
   versionFileBinary <- getVersionFileFromLocalCache lCacheDir cachePrefix gitRepoNameAndVersion
   sayFunc $ "Found " <> versionFileName <> " in local cache at: " <> finalVersionFileLocalCachePath
-  saveBinaryToFile versionFileBinary versionFileLocalPath
+  liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
   sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
 
   where

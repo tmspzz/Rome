@@ -22,21 +22,27 @@ where
 
 import           Control.Lens
 import           Control.Monad.Except
-import           Data.HashMap.Strict   as M
-import           Data.Ini              as INI
+import           Data.HashMap.Strict  as M
+import           Data.Ini             as INI
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Text
 
 
-newtype FrameworkName = FrameworkName { unFrameworkName :: String }
-                                      deriving (Eq, Show, Ord)
+
+data FrameworkType = Dynamic
+                   | Static deriving (Eq, Show, Ord)
+
+data Framework = Framework { _frameworkName :: String
+                           , _frameworkType :: FrameworkType
+                           }
+                           deriving (Eq, Show, Ord)
 
 newtype GitRepoName   = GitRepoName { unGitRepoName :: String }
                                     deriving (Eq, Show, Ord)
 
 data RomefileEntry    = RomefileEntry { gitRepositoryName    :: GitRepoName
-                                      , frameworkCommonNames :: [FrameworkName]
+                                      , frameworkCommonNames :: [Framework]
                                       }
                                       deriving (Eq, Show)
 
@@ -45,6 +51,12 @@ data RomeFileParseResult = RomeFileParseResult { _cacheInfo            :: RomeCa
                                                , _ignoreMapEntries     :: [RomefileEntry]
                                                }
                                                deriving (Eq, Show)
+
+frameworkName :: Lens' Framework String
+frameworkName = lens _frameworkName (\framework newName -> framework { _frameworkName = newName })
+
+frameworkType :: Lens' Framework FrameworkType
+frameworkType = lens _frameworkType (\framework newType -> framework { _frameworkType = newType })
 
 cacheInfo :: Lens' RomeFileParseResult RomeCacheInfo
 cacheInfo = lens _cacheInfo (\parseResult n -> parseResult { _cacheInfo = n })
@@ -130,8 +142,8 @@ getRomefileEntries sectionDelimiter (Ini ini) =
   fmap toEntry . M.toList . fromMaybe M.empty . M.lookup sectionDelimiter $ ini
   where
     toEntry :: (Text, Text) -> RomefileEntry
-    toEntry (repoName, frameworkCommonNames) =
+    toEntry (repoName, frameworksAsStrings) =
       RomefileEntry
         (GitRepoName (unpack repoName))
-        (fmap (FrameworkName . unpack . strip) (splitOn "," frameworkCommonNames))
+        (fmap (Framework . unpack . strip) (splitOn "," frameworksAsStrings))
 

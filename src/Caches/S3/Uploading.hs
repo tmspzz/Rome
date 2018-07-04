@@ -6,7 +6,7 @@ import           Control.Monad.Reader         (ReaderT, ask, withReaderT)
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.TargetPlatform
 import           Data.Monoid                  ((<>))
-import           Data.Romefile                (FrameworkName (..))
+import           Data.Romefile                (Framework (..))
 import qualified Data.Text                    as T
 import qualified Network.AWS                  as AWS
 import qualified Network.AWS.S3               as S3
@@ -27,7 +27,7 @@ uploadFrameworkToS3 :: Zip.Archive -- ^ The `Zip.Archive` of the Framework.
 uploadFrameworkToS3 frameworkArchive
                     s3BucketName
                     reverseRomeMap
-                    (FrameworkVersion f@(FrameworkName fwn) version)
+                    (FrameworkVersion f@(Framework fwn fwt) version)
                     platform = do
   (env, CachePrefix prefix, verbose) <- ask
   withReaderT (const (env, verbose)) $
@@ -48,7 +48,7 @@ uploadDsymToS3 :: Zip.Archive -- ^ The `Zip.Archive` of the dSYM.
 uploadDsymToS3 dSYMArchive
                s3BucketName
                reverseRomeMap
-               (FrameworkVersion f@(FrameworkName fwn) version)
+               (FrameworkVersion f@(Framework fwn fwt) version)
                platform = do
   (env, CachePrefix prefix, verbose) <- ask
   withReaderT (const (env, verbose)) $
@@ -71,7 +71,7 @@ uploadBcsymbolmapToS3 dwarfUUID
                dwarfArchive
                s3BucketName
                reverseRomeMap
-               (FrameworkVersion f@(FrameworkName fwn) version)
+               (FrameworkVersion f@(Framework fwn fwt) version)
                platform = do
   (env, CachePrefix prefix, verbose) <- ask
   withReaderT (const (env, verbose)) $

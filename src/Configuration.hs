@@ -29,8 +29,12 @@ getS3ConfigFile = (</> awsConfigFilePath) `liftM` liftIO getHomeDirectory
   where
       awsConfigFilePath = ".aws/config"
 
-carthageBuildDirectoryForPlatform :: TargetPlatform -> FilePath
-carthageBuildDirectoryForPlatform platform = carthageBuildDirectory </> show platform
+-- carthageBuildDirectoryForPlatform :: TargetPlatform -> FilePath
+-- carthageBuildDirectoryForPlatform platform = carthageBuildDirectory </> show platform
 
 carthageBuildDirectory :: FilePath
 carthageBuildDirectory = "Carthage" </> "Build"
+
+carthageArtifactsBuildDirectoryForPlatform :: TargetPlatform -> Framework -> FilePath
+carthageArtifactsBuildDirectoryForPlatform platform (Framework n Dynamic) = carthageBuildDirectory </> show platform
+carthageArtifactsBuildDirectoryForPlatform platform (Framework n Static) = carthageBuildDirectory </> show platform </> "Static"

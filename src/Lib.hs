@@ -31,7 +31,7 @@ import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
 import           Data.Either.Extra            (maybeToEither)
-import           Data.Maybe                   (fromMaybe)
+import           Data.Maybe                   (fromMaybe, maybe)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import qualified Data.S3Config                as S3Config
@@ -56,7 +56,7 @@ s3EndpointOverride (URL (Absolute h) _ _) =
       host' = host h
       port' = port h <|> if isSecure then Just 443 else Nothing
    in
-    AWS.setEndpoint isSecure (BS.pack host') (fromInteger $ fromMaybe 9000 port') S3.s3
+    AWS.setEndpoint isSecure (BS.pack host') (maybe 9000 fromInteger port') S3.s3
 s3EndpointOverride _ = S3.s3
 
 
@@ -65,7 +65,7 @@ getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSRegion = do
   region <- discoverRegion
   endpointURL <- runMaybeT . exceptToMaybeT $ discoverEndpoint
-  set AWS.envRegion region <$> (AWS.newEnv AWS.Discover <&> AWS.configure (fromMaybe S3.s3 (s3EndpointOverride <$> endpointURL)))
+  set AWS.envRegion region <$> (AWS.newEnv AWS.Discover <&> AWS.configure (maybe S3.s3 s3EndpointOverride endpointURL))
 
 
 
@@ -109,13 +109,13 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
 
         if null gitRepoNames
           then
-              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
+              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                   cachePrefix = CachePrefix cachePrefixString in
               runReaderT
                 (uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
                 (cachePrefix, skipLocalCache, verbose)
           else
-              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
+              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                   cachePrefix = CachePrefix cachePrefixString in
               runReaderT
                 (uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
@@ -129,13 +129,13 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
 
         if null gitRepoNames
           then
-              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
+              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                   cachePrefix = CachePrefix cachePrefixString in
               runReaderT
                 (downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
                 (cachePrefix, skipLocalCache, verbose)
           else
-              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
+              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                   cachePrefix = CachePrefix cachePrefixString in
               runReaderT
                 (downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
@@ -143,7 +143,7 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
 
       List (RomeListPayload listMode platforms cachePrefixString printFormat noIgnoreFlag) ->
           let finalIgnoreNames = if _noIgnore noIgnoreFlag then [] else ignoreNames
-              frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
+              frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
               cachePrefix = CachePrefix cachePrefixString in
           runReaderT
             (listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVersions platforms printFormat)
@@ -402,7 +402,7 @@ uploadFrameworkAndArtifactsToCaches :: S3.BucketName -- ^ The chache definition.
 uploadFrameworkAndArtifactsToCaches s3BucketName
                                mlCacheDir
                                reverseRomeMap
-                               fVersion@(FrameworkVersion f@(FrameworkName fwn) _)
+                               fVersion@(FrameworkVersion f@(Framework fwn fwt) _)
                                platform = do
   (env,  cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
 
@@ -474,7 +474,7 @@ uploadFrameworkAndArtifactsToCaches s3BucketName
   where
 
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+    platformBuildDirectory = carthageArtifactsBuildDirectoryForPlatform platform f
     frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
     dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension <> ".dSYM"
     dSYMdirectory = platformBuildDirectory </> dSYMNameWithDSYMExtension
@@ -504,7 +504,7 @@ saveFrameworkAndArtifactsToLocalCache :: MonadIO m
                                       -> ReaderT (CachePrefix, Bool) m ()
 saveFrameworkAndArtifactsToLocalCache lCacheDir
                                       reverseRomeMap
-                                      fVersion@(FrameworkVersion f@(FrameworkName fwn) _)
+                                      fVersion@(FrameworkVersion f@(Framework fwn fwt) _)
                                       platform = do
   (cachePrefix, verbose) <- ask
   let readerEnv = (cachePrefix, SkipLocalCacheFlag False, verbose)
@@ -536,7 +536,7 @@ saveFrameworkAndArtifactsToLocalCache lCacheDir
 
   where
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+    platformBuildDirectory = carthageArtifactsBuildDirectoryForPlatform platform f
     frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
     dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension <> ".dSYM"
     dSYMdirectory = platformBuildDirectory </> dSYMNameWithDSYMExtension
@@ -636,7 +636,7 @@ downloadFrameworkAndArtifactsFromCaches :: S3.BucketName -- ^ The chache definit
 downloadFrameworkAndArtifactsFromCaches s3BucketName
                                         (Just lCacheDir)
                                         reverseRomeMap
-                                        fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
+                                        fVersion@(FrameworkVersion f@(Framework fwn fwt) version)
                                         platform = do
   (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, verbose) <- ask
 
@@ -714,14 +714,14 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName
     remoteBcSymbolmapUploadPathFromDwarf dwarfUUID = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
     dSYMZipName = dSYMArchiveName f version
     remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
-    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+    platformBuildDirectory = carthageArtifactsBuildDirectoryForPlatform platform f
     dSYMName = fwn <> ".dSYM"
 
 
 downloadFrameworkAndArtifactsFromCaches s3BucketName
                                         Nothing
                                         reverseRomeMap
-                                        fVersion@(FrameworkVersion (FrameworkName fwn) _)
+                                        fVersion@(FrameworkVersion (Framework fwn fwt) _)
                                         platform = do
   (env, cachePrefix,  _, verbose) <- ask
 

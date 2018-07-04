@@ -8,7 +8,7 @@ module Data.Romefile
     ( parseRomefile
     , romefile
     , RomefileEntry (..)
-    , FrameworkName (..)
+    , Framework (..)
     , GitRepoName (..)
     , RomeFileParseResult (..)
     , RomeCacheInfo (..)
@@ -17,21 +17,33 @@ module Data.Romefile
     , ignoreMapEntries
     , bucket
     , localCacheDir
+    , frameworkName
+    , frameworkType
     )
 where
 
 import           Control.Lens
 import           Control.Monad.Except
-import           Data.HashMap.Strict  as M
+import qualified Data.HashMap.Strict  as M
 import           Data.Ini             as INI
 import           Data.Maybe
 import           Data.Monoid
-import           Data.Text
-
+import qualified Data.Text            as T
+import           Text.Read
+import qualified Text.Read.Lex        as L
+import Data.Char
 
 
 data FrameworkType = Dynamic
                    | Static deriving (Eq, Show, Ord)
+
+instance Read FrameworkType where
+  readPrec = parens $ do
+    L.Ident s <- lexP
+    case map toLower s of
+      "dynamic" -> return Dynamic
+      "static" -> return Static
+      o -> fail $ "Could not parse \"" ++ o ++ "\" into a FrameworkType"
 
 data Framework = Framework { _frameworkName :: String
                            , _frameworkType :: FrameworkType
@@ -69,45 +81,43 @@ ignoreMapEntries = lens _ignoreMapEntries (\parseResult n -> parseResult { _igno
 
 
 
-data RomeCacheInfo = RomeCacheInfo { _bucket        :: Maybe Text
+data RomeCacheInfo = RomeCacheInfo { _bucket        :: Maybe T.Text
                                    , _localCacheDir :: Maybe FilePath -- relative path
                                    }
                                    deriving (Eq, Show)
 
-bucket :: Lens' RomeCacheInfo (Maybe Text)
+bucket :: Lens' RomeCacheInfo (Maybe T.Text)
 bucket = lens _bucket (\cInfo n -> cInfo { _bucket = n })
 
 localCacheDir :: Lens' RomeCacheInfo (Maybe FilePath)
 localCacheDir = lens _localCacheDir (\cInfo n -> cInfo { _localCacheDir = n })
-
-
 
 -- |The name of the Romefile
 romefile :: String
 romefile = "Romefile"
 
 -- |The delimiter of the CACHE section a Romefile
-cacheSectionDelimiter :: Text
+cacheSectionDelimiter :: T.Text
 cacheSectionDelimiter = "Cache"
 
 -- |The S3-Bucket Key
-s3BucketKey :: Text
+s3BucketKey :: T.Text
 s3BucketKey = "S3-Bucket"
 
 -- |The local cache dir Key
-localCacheDirKey :: Text
+localCacheDirKey :: T.Text
 localCacheDirKey = "local"
 
 -- |The delimier of the REPOSITORYMAP section
-repositoryMapSectionDelimiter :: Text
+repositoryMapSectionDelimiter :: T.Text
 repositoryMapSectionDelimiter = "RepositoryMap"
 
 -- |The delimier of the IGNOREMAP section
-ignoreMapSectionDelimiter :: Text
+ignoreMapSectionDelimiter :: T.Text
 ignoreMapSectionDelimiter = "IgnoreMap"
 
 
-parseRomefile :: Text -> Either String RomeFileParseResult
+parseRomefile :: T.Text -> Either String RomeFileParseResult
 parseRomefile = toRomefile <=< INI.parseIni
 
 toRomefile :: INI.Ini -> Either String RomeFileParseResult
@@ -119,17 +129,17 @@ toRomefile ini = do
       _cacheInfo = RomeCacheInfo {..}
   return RomeFileParseResult {..}
 
-getSection :: Text -> M.HashMap Text b -> Either String b
+getSection :: T.Text -> M.HashMap T.Text b -> Either String b
 getSection key = maybe (Left err) Right . M.lookup key
   where
     err = "Could not find section: " <> show key
 
-getBucket :: Ini -> Either String (Maybe Text)
+getBucket :: Ini -> Either String (Maybe T.Text)
 getBucket (Ini ini) = M.lookup s3BucketKey <$> getSection cacheSectionDelimiter ini
 
 getLocalCacheDir :: Ini -> Either String (Maybe FilePath)
 getLocalCacheDir (Ini ini) =
-  fmap unpack . M.lookup localCacheDirKey <$> getSection cacheSectionDelimiter ini
+  fmap T.unpack . M.lookup localCacheDirKey <$> getSection cacheSectionDelimiter ini
 
 getRepositoryMapEntries :: Ini -> [RomefileEntry]
 getRepositoryMapEntries = getRomefileEntries repositoryMapSectionDelimiter
@@ -137,13 +147,20 @@ getRepositoryMapEntries = getRomefileEntries repositoryMapSectionDelimiter
 getIgnoreMapEntries :: Ini -> [RomefileEntry]
 getIgnoreMapEntries = getRomefileEntries ignoreMapSectionDelimiter
 
-getRomefileEntries :: Text -> Ini -> [RomefileEntry]
+getRomefileEntries :: T.Text -> Ini -> [RomefileEntry]
 getRomefileEntries sectionDelimiter (Ini ini) =
   fmap toEntry . M.toList . fromMaybe M.empty . M.lookup sectionDelimiter $ ini
   where
-    toEntry :: (Text, Text) -> RomefileEntry
-    toEntry (repoName, frameworksAsStrings) =
-      RomefileEntry
-        (GitRepoName (unpack repoName))
-        (fmap (Framework . unpack . strip) (splitOn "," frameworksAsStrings))
+    toEntry :: (T.Text, T.Text) -> RomefileEntry
+    toEntry _ = undefined
+--    toEntry (repoName, frameworksAsStrings) =
+--      RomefileEntry
+--        (GitRepoName (T.unpack repoName))
+--        (fmap (Framework . T.unpack . T.strip) (T.splitOn "," frameworksAsStrings))
+
+    toFramework :: T.Text -> Framework
+    toFramework t = case T.splitOn "/" t of
+      [] -> undefined
+      [fType, fName] -> Framework (T.unpack fName) (read $ T.unpack fType)
+
 

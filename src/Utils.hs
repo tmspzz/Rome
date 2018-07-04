@@ -6,12 +6,12 @@
 module Utils where
 
 import qualified Codec.Archive.Zip            as Zip
-import           Configuration                (carthageBuildDirectoryForPlatform)
+import           Configuration                (carthageArtifactsBuildDirectoryForPlatform)
 import           Control.Arrow                (left)
 import           Control.Exception            as E (try)
 import           Control.Monad.Catch
 import           Control.Monad.Except
-import           Control.Monad.Trans.Resource (runResourceT, MonadUnliftIO)
+import           Control.Monad.Trans.Resource (MonadUnliftIO, runResourceT)
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.ByteString.Char8        as BS
@@ -47,6 +47,7 @@ import           Text.Read                    (readMaybe)
 import qualified Turtle
 import           Types
 import           Xcode.DWARF                  (DwarfUUID, bcsymbolmapNameFrom)
+
 
 
 -- | Pretty print a `RomeVersion`
@@ -126,24 +127,28 @@ splitWithSeparator a = T.split (== a)
 
 
 
--- | Appends the string ".framework" to a `FrameworkName`.
-appendFrameworkExtensionTo :: FrameworkName -> String
-appendFrameworkExtensionTo (FrameworkName a) = a ++ ".framework"
+-- | Appends the string ".framework" to a `Framework`'s name.
+appendFrameworkExtensionTo :: Framework -> String
+appendFrameworkExtensionTo (Framework a _) = a ++ ".framework"
 
 
 
--- | Given a `FrameworkName` and a `Version` produces a name for a Zip archive.
-frameworkArchiveName :: FrameworkName -> Version -> String
-frameworkArchiveName f (Version v)  = appendFrameworkExtensionTo f ++ "-" ++ v ++ ".zip"
+-- | Given a `Framework` and a `Version` produces a name for a Zip archive.
+frameworkArchiveName :: Framework -> Version -> String
+frameworkArchiveName f@(Framework _ Dynamic)  (Version v) = appendFrameworkExtensionTo f ++ "-" ++ v ++ ".zip"
+frameworkArchiveName f@(Framework _ Static)  (Version v) = appendFrameworkExtensionTo f ++ "-" ++ "static" ++ "-" ++ v ++ ".zip"
 
 
 
--- | Given a `FrameworkName` and a `Version` produces a name
+-- | Given a `Framework` and a `Version` produces a name
 -- | for a dSYM Zip archive.
-dSYMArchiveName :: FrameworkName -> Version -> String
-dSYMArchiveName f (Version v) = appendFrameworkExtensionTo f ++ ".dSYM" ++ "-" ++ v ++ ".zip"
+dSYMArchiveName :: Framework -> Version -> String
+dSYMArchiveName f@(Framework _ Dynamic) (Version v) = appendFrameworkExtensionTo f ++ ".dSYM" ++ "-" ++ v ++ ".zip"
+dSYMArchiveName f@(Framework _ Static) (Version v) = appendFrameworkExtensionTo f ++ ".dSYM" ++ "-" ++ "static" ++ "-" ++ v ++ ".zip"
 
--- | Given a `FrameworkName` and a `Version` produces a name
+
+
+-- | Given a `DwarfUUID` and a `Version` produces a name
 -- | for a bcsymbolmap Zip archive.
 bcsymbolmapArchiveName :: DwarfUUID -> Version -> String
 bcsymbolmapArchiveName d (Version v) =  bcsymbolmapNameFrom d ++ "-" ++ v ++ ".zip"
@@ -171,18 +176,18 @@ gitRepoNameFromCartfileEntry (CartfileEntry Binary (Location l) _) = GitRepoName
 
 
 
--- | Given a lsit of `FrameworkVersion` and a `FrameworkName` returns
--- | a list for `FrameworkVersion` elements matching `FrameworkName`.
-filterByNameEqualTo :: [FrameworkVersion] -> FrameworkName -> [FrameworkVersion]
-filterByNameEqualTo fs s = filter (\(FrameworkVersion name _) -> name == s) fs
+-- | Given a lsit of `FrameworkVersion` and a `Framework` returns
+-- | a list for `FrameworkVersion` elements matching `Framework`.
+filterByFrameworkEqualTo :: [FrameworkVersion] -> Framework -> [FrameworkVersion]
+filterByFrameworkEqualTo versions f = [ ver | ver <- versions, _framework ver == f ]
 
 
 
--- | Given a list of `FrameworkVersion` and a list of `FrameworkName`
+-- | Given a list of `FrameworkVersion` and a list of `Framework`
 -- | filters out of the list of `FrameworkVersion` elements that don't apper
--- | in the list of `FrameworkName`.
-filterOutFrameworkNamesAndVersionsIfNotIn :: [FrameworkVersion] -> [FrameworkName] -> [FrameworkVersion]
-filterOutFrameworkNamesAndVersionsIfNotIn favs fns = [fv |  fv <- favs,  _frameworkName fv `notElem` fns]
+-- | in the list of `Framework`.
+filterOutFrameworksAndVersionsIfNotIn :: [FrameworkVersion] -> [Framework] -> [FrameworkVersion]
+filterOutFrameworksAndVersionsIfNotIn verions fs = [ v |  v <- verions,  _framework v `notElem` fs]
 
 
 
@@ -194,23 +199,23 @@ restrictRepositoryMapToGitRepoName repoMap repoName = maybe M.empty (M.singleton
 
 
 -- | Builds a string representing the remote path to a framework zip archive.
-remoteFrameworkPath :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> Version -> String
+remoteFrameworkPath :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
 remoteFrameworkPath p r f v = remoteCacheDirectory p r f ++ frameworkArchiveName f v
 
 -- | Builds a `String` representing the remote path to a dSYM zip archive
-remoteDsymPath :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> Version -> String
+remoteDsymPath :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
 remoteDsymPath p r f v = remoteCacheDirectory p r f ++ dSYMArchiveName f v
 
 -- | Builds a `String` representing the remote path to a bcsymbolmap zip archive
-remoteBcsymbolmapPath :: DwarfUUID -> TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> Version -> String
+remoteBcsymbolmapPath :: DwarfUUID -> TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
 remoteBcsymbolmapPath d p r f v = remoteCacheDirectory p r f ++ bcsymbolmapArchiveName d v
 
 
 
 -- | Builds a `String` representing the name of the remote cache directory for a
--- | given conbination of `TargetPlatform` and `FrameworkName` based on an
+-- | given conbination of `TargetPlatform` and `Framework` based on an
 -- | `InvertedRepositoryMap`.
-remoteCacheDirectory :: TargetPlatform -> InvertedRepositoryMap -> FrameworkName -> String
+remoteCacheDirectory :: TargetPlatform -> InvertedRepositoryMap -> Framework -> String
 remoteCacheDirectory p r f = repoName </> show p ++ "/"
   where
     repoName = unGitRepoName $ repoNameForFrameworkName r f
@@ -225,10 +230,10 @@ remoteVersionFilePath (gitRepoName, version) = unGitRepoName gitRepoName </> ver
 
 
 -- | Builds a `String` representing the path to the Carthage build directory for
--- | a combination of `TargetPlatform` and `FrameworkName` representing
+-- | a combination of `TargetPlatform` and `Framework` representing
 -- | the path to the framework's bundle
-frameworkBuildBundleForPlatform :: TargetPlatform -> FrameworkName -> String
-frameworkBuildBundleForPlatform p f = carthageBuildDirectoryForPlatform p </> appendFrameworkExtensionTo f
+frameworkBuildBundleForPlatform :: TargetPlatform -> Framework -> String
+frameworkBuildBundleForPlatform p f = carthageArtifactsBuildDirectoryForPlatform p f </> appendFrameworkExtensionTo f
 
 
 
@@ -250,32 +255,32 @@ toInvertedRepositoryMap = M.fromList . concatMap romeFileEntryToListOfTuples
 
 
 -- | Creates a tuple out of a `RomefileEntry`.
-romeFileEntryToTuple :: RomefileEntry -> (GitRepoName, [FrameworkName])
+romeFileEntryToTuple :: RomefileEntry -> (GitRepoName, [Framework])
 romeFileEntryToTuple RomefileEntry {..} = (gitRepositoryName, frameworkCommonNames)
 
 
 
--- | Performs a lookup in an `InvertedRepositoryMap` for a certain `FrameworkName`.
+-- | Performs a lookup in an `InvertedRepositoryMap` for a certain `Framework`.
 -- | Creates a `GitRepoName` from just the `frameworkName` of a `FrameworkName`
 -- | in case the lookup fails.
-repoNameForFrameworkName :: InvertedRepositoryMap -> FrameworkName -> GitRepoName
-repoNameForFrameworkName reverseRomeMap frameworkName = fromMaybe (GitRepoName . unFrameworkName $ frameworkName) (M.lookup frameworkName reverseRomeMap)
+repoNameForFrameworkName :: InvertedRepositoryMap -> Framework -> GitRepoName
+repoNameForFrameworkName reverseRomeMap framework = fromMaybe (GitRepoName . _frameworkName $ framework) (M.lookup framework reverseRomeMap)
 
 
 
 -- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVersion` produces
 -- | a list of __unique__ `GitRepoName`s
 repoNamesForFrameworkVersion :: InvertedRepositoryMap -> [FrameworkVersion] -> [GitRepoName]
-repoNamesForFrameworkVersion reverseRomeMap = nub . map (repoNameForFrameworkName reverseRomeMap . _frameworkName)
+repoNamesForFrameworkVersion reverseRomeMap = nub . map (repoNameForFrameworkName reverseRomeMap . _framework)
 
 
 
 -- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVersion` produces
 -- | a list of __unique__ `GitRepoNameAndVersion`s
 repoNamesAndVersionForFrameworkVersions :: InvertedRepositoryMap -> [FrameworkVersion] -> [GitRepoNameAndVersion]
-repoNamesAndVersionForFrameworkVersions reverseRomeMap frameworkNames = nub $
-  zip (map (repoNameForFrameworkName reverseRomeMap . _frameworkName) frameworkNames)
-      (map _frameworkVersion frameworkNames)
+repoNamesAndVersionForFrameworkVersions reverseRomeMap versions = nub $
+  zip (map (repoNameForFrameworkName reverseRomeMap . _framework) versions)
+      (map _frameworkVersion versions)
 
 
 
@@ -322,7 +327,7 @@ deriveFrameworkNamesAndVersion romeMap = concatMap (deriveFrameworkNameAndVersio
 -- | `FrameworkName` in the `CartfileEntry`.
 deriveFrameworkNameAndVersion ::  RepositoryMap -> CartfileEntry -> [FrameworkVersion]
 deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry _ _ v) = map (`FrameworkVersion` v) $
-  fromMaybe [FrameworkName repositoryName] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
+  fromMaybe [Framework repositoryName Dynamic] (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
   where
     repositoryName = unGitRepoName $ gitRepoNameFromCartfileEntry cfe
 
@@ -416,13 +421,13 @@ createZipArchive filePath verbose = do
 -- | Adds executable permissions to a Framework. See https://github.com/blender/Rome/issues/57
 makeExecutable :: MonadIO m
                => TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
-               -> FrameworkName -- ^ The name of the Framework
+               -> Framework -- ^ The Framework
                -> m Turtle.Permissions
-makeExecutable p fname = Turtle.chmod Turtle.executable
+makeExecutable p f = Turtle.chmod Turtle.executable
                         (
                           Turtle.fromString $
-                            frameworkBuildBundleForPlatform p fname
-                            </> unFrameworkName fname
+                            frameworkBuildBundleForPlatform p f
+                            </> _frameworkName f
                         )
 
 
@@ -472,7 +477,7 @@ deleteFrameworkDirectory (FrameworkVersion f _)
   deleteDirectory frameworkDirectory
   where
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+    platformBuildDirectory = carthageArtifactsBuildDirectoryForPlatform platform f
     frameworkDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension
 
 
@@ -488,7 +493,7 @@ deleteDSYMDirectory (FrameworkVersion f _)
   deleteDirectory dSYMDirectory
   where
     frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-    platformBuildDirectory = carthageBuildDirectoryForPlatform platform
+    platformBuildDirectory = carthageArtifactsBuildDirectoryForPlatform platform f
     dSYMDirectory = platformBuildDirectory </> frameworkNameWithFrameworkExtension <> ".dSYM"
 
 

@@ -16,6 +16,7 @@ cabal.sandbox.config
 *.hp
 *.eventlog
 .stack-work/
+.vscode/
 cabal.project.local
 codex.tags
 _Dangerfile.tmp

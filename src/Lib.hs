@@ -109,13 +109,13 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
 
         if null gitRepoNames
           then
-              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
+              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                   cachePrefix = CachePrefix cachePrefixString in
               runReaderT
                 (uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
                 (cachePrefix, skipLocalCache, verbose)
           else
-              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
+              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                   cachePrefix = CachePrefix cachePrefixString in
               runReaderT
                 (uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
@@ -129,13 +129,13 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
 
         if null gitRepoNames
           then
-              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
+              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                   cachePrefix = CachePrefix cachePrefixString in
               runReaderT
                 (downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
                 (cachePrefix, skipLocalCache, verbose)
           else
-              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
+              let frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries) `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                   cachePrefix = CachePrefix cachePrefixString in
               runReaderT
                 (downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms)
@@ -143,7 +143,7 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
 
       List (RomeListPayload listMode platforms cachePrefixString printFormat noIgnoreFlag) ->
           let finalIgnoreNames = if _noIgnore noIgnoreFlag then [] else ignoreNames
-              frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworkNamesAndVersionsIfNotIn` finalIgnoreNames
+              frameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
               cachePrefix = CachePrefix cachePrefixString in
           runReaderT
             (listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVersions platforms printFormat)
@@ -402,7 +402,7 @@ uploadFrameworkAndArtifactsToCaches :: S3.BucketName -- ^ The chache definition.
 uploadFrameworkAndArtifactsToCaches s3BucketName
                                mlCacheDir
                                reverseRomeMap
-                               fVersion@(FrameworkVersion f@(FrameworkName fwn) _)
+                               fVersion@(FrameworkVersion f@(Framework fwn fwt) _)
                                platform = do
   (env,  cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
 
@@ -504,7 +504,7 @@ saveFrameworkAndArtifactsToLocalCache :: MonadIO m
                                       -> ReaderT (CachePrefix, Bool) m ()
 saveFrameworkAndArtifactsToLocalCache lCacheDir
                                       reverseRomeMap
-                                      fVersion@(FrameworkVersion f@(FrameworkName fwn) _)
+                                      fVersion@(FrameworkVersion f@(Framework fwn fwt) _)
                                       platform = do
   (cachePrefix, verbose) <- ask
   let readerEnv = (cachePrefix, SkipLocalCacheFlag False, verbose)
@@ -636,7 +636,7 @@ downloadFrameworkAndArtifactsFromCaches :: S3.BucketName -- ^ The chache definit
 downloadFrameworkAndArtifactsFromCaches s3BucketName
                                         (Just lCacheDir)
                                         reverseRomeMap
-                                        fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
+                                        fVersion@(FrameworkVersion f@(Framework fwn fwt) version)
                                         platform = do
   (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, verbose) <- ask
 
@@ -721,7 +721,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName
 downloadFrameworkAndArtifactsFromCaches s3BucketName
                                         Nothing
                                         reverseRomeMap
-                                        fVersion@(FrameworkVersion (FrameworkName fwn) _)
+                                        fVersion@(FrameworkVersion (Framework fwn fwt) _)
                                         platform = do
   (env, cachePrefix,  _, verbose) <- ask
 

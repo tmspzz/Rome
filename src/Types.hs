@@ -1,15 +1,15 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Types where
 
-import           Data.Aeson
 import           Control.Monad.Except         (ExceptT)
+import           Data.Aeson
 import           Data.Carthage.Cartfile       (Version)
 import           Data.Carthage.TargetPlatform
 import qualified Data.Map.Strict              as M
-import           Data.Romefile                (FrameworkName, GitRepoName)
+import           Data.Romefile                (Framework, GitRepoName)
+import           GHC.Generics
 import qualified Network.AWS.Env              as AWS (Env)
 import           Types.Commands
-import           GHC.Generics
 
 
 
@@ -17,8 +17,8 @@ import           GHC.Generics
 type UploadDownloadCmdEnv  = (AWS.Env, CachePrefix, SkipLocalCacheFlag, Bool)
 type UploadDownloadEnv     = (AWS.Env, CachePrefix, Bool)
 type RomeMonad             = ExceptT String IO
-type RepositoryMap         = M.Map GitRepoName [FrameworkName]
-type InvertedRepositoryMap = M.Map FrameworkName GitRepoName
+type RepositoryMap         = M.Map GitRepoName [Framework]
+type InvertedRepositoryMap = M.Map Framework GitRepoName
 
 type RomeVersion           = (Int, Int, Int, Int)
 
@@ -31,7 +31,7 @@ newtype CachePrefix = CachePrefix { _unCachePrefix :: String }
                                   deriving (Show, Eq)
 
 -- | Represents the name of a framework together with its version
-data FrameworkVersion = FrameworkVersion { _frameworkName    :: FrameworkName
+data FrameworkVersion = FrameworkVersion { _framework        :: Framework
                                          , _frameworkVersion :: Version
                                          }
                                          deriving (Show, Eq)

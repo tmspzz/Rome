@@ -10,7 +10,7 @@ import           Control.Monad.Reader         (ReaderT, ask)
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.TargetPlatform
 import           Data.Monoid                  ((<>))
-import           Data.Romefile                (FrameworkName (..))
+import           Data.Romefile                (Framework (..))
 import           System.Directory
 import           System.FilePath              ((</>))
 import           Types                        hiding (version)
@@ -30,7 +30,7 @@ saveFrameworkToLocalCache :: FilePath -- ^ The cache definition.
 saveFrameworkToLocalCache lCacheDir
                           frameworkArchive
                           reverseRomeMap
-                          (FrameworkVersion f@(FrameworkName _) version)
+                          (FrameworkVersion f@(Framework _ _) version)
                           platform = do
   (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   unless skipLocalCache $
@@ -56,7 +56,7 @@ saveDsymToLocalCache :: FilePath -- ^ The cache definition.
 saveDsymToLocalCache lCacheDir
                      dSYMArchive
                      reverseRomeMap
-                     (FrameworkVersion f@(FrameworkName fwn) version)
+                     (FrameworkVersion f@(Framework fwn fwt) version)
                      platform = do
   (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   unless skipLocalCache $
@@ -83,7 +83,7 @@ saveBcsymbolmapToLocalCache lCacheDir
                      dwarfUUID
                      dwarfArchive
                      reverseRomeMap
-                     (FrameworkVersion f@(FrameworkName _) version)
+                     (FrameworkVersion f@(Framework _ _) version)
                      platform = do
   (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
   unless skipLocalCache $

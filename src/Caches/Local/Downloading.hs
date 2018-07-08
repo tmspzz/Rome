@@ -33,7 +33,7 @@ getFrameworkFromLocalCache :: MonadIO m
 getFrameworkFromLocalCache lCacheDir
                            (CachePrefix prefix)
                            reverseRomeMap
-                           (FrameworkVersion f@(FrameworkName fwn) version)
+                           (FrameworkVersion f@(Framework fwn fwt) version)
                            platform = do
   frameworkExistsInLocalCache <- liftIO . doesFileExist $ frameworkLocalCachePath prefix
   if frameworkExistsInLocalCache
@@ -78,7 +78,7 @@ getBcsymbolmapFromLocalCache :: MonadIO m
 getBcsymbolmapFromLocalCache lCacheDir
                              (CachePrefix prefix)
                              reverseRomeMap
-                             (FrameworkVersion f@(FrameworkName fwn) version)
+                             (FrameworkVersion f@(Framework fwn fwt) version)
                              platform
                              dwarfUUID = do
   let finalBcsymbolmapLocalPath = bcsymbolmapLocalCachePath prefix
@@ -104,7 +104,7 @@ getDSYMFromLocalCache :: MonadIO m
 getDSYMFromLocalCache lCacheDir
                       (CachePrefix prefix)
                       reverseRomeMap
-                      (FrameworkVersion f@(FrameworkName fwn) version)
+                      (FrameworkVersion f@(Framework fwn fwt) version)
                       platform = do
   let finalDSYMLocalPath = dSYMLocalCachePath prefix
   dSYMExistsInLocalCache <- liftIO . doesFileExist $ finalDSYMLocalPath
@@ -128,7 +128,7 @@ getAndUnzipBcsymbolmapFromLocalCache :: MonadIO m
                                      -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
 getAndUnzipBcsymbolmapFromLocalCache lCacheDir
                                      reverseRomeMap
-                                     fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
+                                     fVersion@(FrameworkVersion f@(Framework fwn fwt) version)
                                      platform
                                      dwarfUUID = do
   (cachePrefix@(CachePrefix prefix), verbose) <- ask
@@ -156,7 +156,7 @@ getAndUnzipBcsymbolmapsFromLocalCache :: MonadIO m
                                       -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
 getAndUnzipBcsymbolmapsFromLocalCache lCacheDir
                                       reverseRomeMap
-                                      fVersion@(FrameworkVersion f@(FrameworkName fwn) _)
+                                      fVersion@(FrameworkVersion f@(Framework fwn fwt) _)
                                       platform = do
   (_, verbose) <- ask
   let sayFunc = if verbose then sayLnWithTime else sayLn
@@ -181,7 +181,7 @@ getAndUnzipBcsymbolmapsFromLocalCache' :: MonadIO m
                                        -> ExceptT DWARFOperationError (ReaderT (CachePrefix, Bool) m) ()
 getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir
                                        reverseRomeMap
-                                       fVersion@(FrameworkVersion f@(FrameworkName fwn) _)
+                                       fVersion@(FrameworkVersion f@(Framework fwn fwt) _)
                                        platform = do
 
   dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs) $ dwarfUUIDsFrom (frameworkDirectory </> fwn)
@@ -232,7 +232,7 @@ getAndUnzipFrameworkFromLocalCache :: MonadIO m
                                    -> ExceptT String (ReaderT (CachePrefix , Bool) m) ()
 getAndUnzipFrameworkFromLocalCache lCacheDir
                                    reverseRomeMap
-                                   fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
+                                   fVersion@(FrameworkVersion f@(Framework fwn fwt) version)
                                    platform = do
   (cachePrefix@(CachePrefix prefix), verbose) <- ask
   let sayFunc = if verbose then sayLnWithTime else sayLn
@@ -257,7 +257,7 @@ getAndUnzipDSYMFromLocalCache :: MonadIO m
                               -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
 getAndUnzipDSYMFromLocalCache lCacheDir
                               reverseRomeMap
-                              fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
+                              fVersion@(FrameworkVersion f@(Framework fwn fwt) version)
                               platform = do
   (cachePrefix@(CachePrefix prefix), verbose) <- ask
   let finalDSYMLocalPath = dSYMLocalCachePath prefix

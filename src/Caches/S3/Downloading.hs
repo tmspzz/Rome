@@ -6,7 +6,8 @@ import           Control.Exception            (try)
 import           Control.Lens                 (view)
 import           Control.Monad
 import           Control.Monad.Except
-import           Control.Monad.Reader         (runReaderT, ReaderT, ask, withReaderT)
+import           Control.Monad.Reader         (ReaderT, ask, runReaderT,
+                                               withReaderT)
 import qualified Data.ByteString              as BS
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.TargetPlatform
@@ -16,7 +17,7 @@ import qualified Data.Conduit.Binary          as C (sinkLbs)
 import           Data.Either                  (lefts)
 import           Data.Maybe                   (fromMaybe)
 import           Data.Monoid                  ((<>))
-import           Data.Romefile                (FrameworkName (..))
+import           Data.Romefile                (Framework (..))
 import qualified Data.Text                    as T
 import qualified Network.AWS                  as AWS
 import qualified Network.AWS.S3               as S3
@@ -35,7 +36,7 @@ getFrameworkFromS3 :: S3.BucketName -- ^ The cache definition
                    -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) LBS.ByteString
 getFrameworkFromS3 s3BucketName
                    reverseRomeMap
-                   (FrameworkVersion f@(FrameworkName fwn) version)
+                   (FrameworkVersion f@(Framework fwn fwt) version)
                    platform = do
   (env, CachePrefix prefix, verbose) <- ask
   mapExceptT (withReaderT (const (env, verbose)))
@@ -53,7 +54,7 @@ getDSYMFromS3 :: S3.BucketName -- ^ The cache definition
               -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) LBS.ByteString
 getDSYMFromS3 s3BucketName
               reverseRomeMap
-              (FrameworkVersion f@(FrameworkName fwn) version)
+              (FrameworkVersion f@(Framework fwn fwt) version)
               platform = do
   (env, CachePrefix prefix, verbose) <-  ask
   let finalRemoteDSYMUploadPath = prefix </> remoteDSYMUploadPath
@@ -90,7 +91,7 @@ getBcsymbolmapFromS3 :: S3.BucketName -- ^ The cache definition
                      -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) LBS.ByteString
 getBcsymbolmapFromS3 s3BucketName
                      reverseRomeMap
-                     (FrameworkVersion f@(FrameworkName fwn) version)
+                     (FrameworkVersion f@(Framework fwn fwt) version)
                      platform
                      dwarfUUID = do
   (env, CachePrefix prefix, verbose) <-  ask
@@ -111,7 +112,7 @@ getAndUnzipFrameworkFromS3 :: S3.BucketName -- ^ The cache definition
                            -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
 getAndUnzipFrameworkFromS3 s3BucketName
                            reverseRomeMap
-                           fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
+                           fVersion@(FrameworkVersion f@(Framework fwn fwt)  version)
                            platform = do
     (_, _, verbose) <- ask
     frameworkBinary <- getFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform
@@ -131,7 +132,7 @@ getAndUnzipDSYMFromS3 :: S3.BucketName -- ^ The cache definition
                       -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
 getAndUnzipDSYMFromS3 s3BucketName
                       reverseRomeMap
-                      fVersion@(FrameworkVersion f@(FrameworkName fwn) version)
+                      fVersion@(FrameworkVersion f@(Framework fwn fwt) version)
                       platform = do
     (_, _, verbose) <- ask
     dSYMBinary <- getDSYMFromS3 s3BucketName reverseRomeMap fVersion platform
@@ -151,7 +152,7 @@ getAndUnzipBcsymbolmapFromS3 :: S3.BucketName -- ^ The cache definition
                              -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
 getAndUnzipBcsymbolmapFromS3 s3BucketName
                              reverseRomeMap
-                             fVersion@(FrameworkVersion (FrameworkName fwn) version)
+                             fVersion@(FrameworkVersion (Framework fwn fwt) version)
                              platform
                              dwarfUUID = do
     (_, _, verbose) <- ask
@@ -174,7 +175,7 @@ getAndUnzipBcsymbolmapsFromS3' :: S3.BucketName -- ^ The cache definition
                                -> ExceptT DWARFOperationError (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
 getAndUnzipBcsymbolmapsFromS3' lCacheDir
                                reverseRomeMap
-                               fVersion@(FrameworkVersion f@(FrameworkName fwn) _)
+                               fVersion@(FrameworkVersion f@(Framework fwn fwt) _)
                                platform = do
 
   dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs) $ dwarfUUIDsFrom (frameworkDirectory </> fwn)

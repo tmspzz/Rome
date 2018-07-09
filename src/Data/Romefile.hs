@@ -121,7 +121,7 @@ ignoreMapSectionDelimiter = "IgnoreMap"
 
 -- | Parses a Romefile
 parseRomefile :: T.Text -> Either String RomeFileParseResult
-parseRomefile = (left T.unpack) . toRomefile <=<  INI.parseIni
+parseRomefile = left T.unpack . toRomefile <=<  INI.parseIni
 
 toRomefile :: INI.Ini -> Either T.Text RomeFileParseResult
 toRomefile ini = do

@@ -183,7 +183,7 @@ getAndUnzipBcsymbolmapsFromS3' lCacheDir
     (\dwarfUUID ->
       lift $ runExceptT (withExceptT
         (\e -> (dwarfUUID, e)) $
-          getBcsymbolmapFromS3 lCacheDir reverseRomeMap fVersion platform dwarfUUID))
+          getAndUnzipBcsymbolmapFromS3 lCacheDir reverseRomeMap fVersion platform dwarfUUID))
 
   let failedUUIDsAndErrors = lefts eitherDwarfUUIDsOrSucces
   unless (null failedUUIDsAndErrors) $

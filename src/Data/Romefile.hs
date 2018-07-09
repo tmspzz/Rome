@@ -157,7 +157,7 @@ getRomefileEntries sectionDelimiter (Ini ini) =
 toEntry :: (T.Text, T.Text) -> Either T.Text RomefileEntry
 toEntry (repoName, frameworksAsStrings) =
   let gitRepoName = GitRepoName $ T.unpack repoName
-      eitherFrameworks = (map (toFramework . T.strip) (T.splitOn "," frameworksAsStrings))
+      eitherFrameworks = map (toFramework . T.strip) (T.splitOn "," frameworksAsStrings)
       (ls, rs) = partitionEithers eitherFrameworks
       errors =  T.intercalate "\n" ls in
         case ls of
@@ -168,17 +168,23 @@ toFramework :: T.Text -> Either T.Text Framework
 toFramework t = case T.splitOn "/" t of
   [] -> Left "Framework type and name are unespectedly empty"
   [fName] -> Right $ Framework (T.unpack fName) Dynamic
-  [fType, fName] -> let upackedFtype = T.unpack fType in
-    -- trace (show (fType <> fName)) $
+  [fType, fName] -> let upackedFtype = T.unpack fType
+                        unpackedName = T.unpack fName
+                        in
     left T.pack $
       Framework
         <$> Right (T.unpack fName)
-        <*> (left (const (errorMessage upackedFtype)) . readEither $ upackedFtype)
-  (fType:fNameFragments) -> let upackedFtype = T.unpack fType in
-    -- trace (show fType) $
+        <*> (left (const (errorMessage unpackedName upackedFtype)) . readEither $ upackedFtype)
+  (fType:fNameFragments) -> let upackedFtype = T.unpack fType
+                                unpackedName = T.unpack $ T.intercalate "/" fNameFragments
+                                in
     left T.pack $
       Framework
-        <$> Right (T.unpack $ T.intercalate "/" fNameFragments)
-        <*> (left (const (errorMessage upackedFtype)) . readEither . T.unpack $ fType)
+        <$> Right unpackedName
+        <*> (left (const (errorMessage unpackedName upackedFtype)) . readEither . T.unpack $ fType)
   where
-    errorMessage name = "'" <> name <> "' is not a valid Framework type. Use one of 'dynamic', 'static' or leave empty."
+    errorMessage fType fName = "'"
+      <> fType <>
+      "' associated with '"
+      <> fName <>
+      "' is not a valid Framework type. Leave empty for 'dynamic' or use one of 'dynamic', 'static'."

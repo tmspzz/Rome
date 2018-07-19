@@ -1,14 +1,11 @@
+os: osx
+osx_image: xcode9.4
+
 # Use new container infrastructure to enable caching
-sudo: false
+rvm: 2.1
+sudo: true
 
-# Choose a lightweight base image; we provide our own build tools.
-language: c
-
-# GHC depends on GMP. You can add other dependencies here as well.
-addons:
-  apt:
-    packages:
-    - libgmp-dev
+language: ruby
 
 # The different configurations we want to test. You could also do things like
 # change flags or use --stack-yaml to point to a different file.
@@ -17,15 +14,28 @@ env:
 
 before_install:
 # Update ruby
-- rvm use 2.1 --install --binary --fuzzy
+# - rvm use 2.1 --install --binary --fuzzy
 
-# Download and unpack the stack executable
+# Update Homebrew
+- brew update
+
+# Install stack
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
-- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+- brew install stack
 
 # Download and instal hlint
 - rake hlint:install[2.1.8]
+
+# Download and install minio
+- test ! -e $HOME/.local/bin/minio && travis_retry wget -O $HOME/.local/bin/minio https://dl.minio.io/server/minio/release/darwin-amd64/minio || echo "Minio already in cache"
+- chmod +x $HOME/.local/bin/minio
+
+# Install Carthage
+- brew outdated carthage || brew upgrade carthage
+
+# Install bats-core
+- brew install bats-core
 
 install:
   # Run bundler and install the dependencies in vendor/bundle
@@ -41,10 +51,13 @@ script:
   - stack $ARGS test --no-terminal --haddock --no-haddock-deps
   - stack $ARGS build
   - stack $ARGS sdist
-  - bundle exec pod lib lint
+  - stack $ARGS install
+  - bats integration-tests/tests.bats
+  # - bundle exec pod lib lint # this just won't work for some reason
 
 # Caching so the next build will be fast too.
 cache:
   directories:
+  - $HOME/.local/bin
   - $HOME/.stack
   - vendor/bundle

@@ -1,50 +1,90 @@
+os: osx
+language: objective-c
+osx_image: xcode9.4
+
+git:
+  depth: 1
+
 # Use new container infrastructure to enable caching
-sudo: false
+rvm: 2.1
 
-# Choose a lightweight base image; we provide our own build tools.
-language: c
+jobs:
+  include:
+    - stage: "Build"
+      name: "Build Rome & Test Dymanic Frameworks"
+      env:
+        - ARGS="--resolver=lts-11.13"
+      before_install:
+        # Update Homebrew
+        - brew update
+        # Run bundler and install the dependencies in vendor/bundle
+        # so that it can be cached.
+        - bundle install --deployment 
+      install:
+        # Install stack
+        - mkdir -p ~/.local/bin
+        - export PATH=$HOME/.local/bin:$PATH
+        - brew install stack
 
-# GHC depends on GMP. You can add other dependencies here as well.
-addons:
-  apt:
-    packages:
-    - libgmp-dev
+        # Download and instal hlint
+        - rake hlint:install[2.1.8]
 
-# The different configurations we want to test. You could also do things like
-# change flags or use --stack-yaml to point to a different file.
-env:
-- ARGS="--resolver=lts-11.13"
+        # Download and install minio
+        - test ! -e $HOME/.local/bin/minio && travis_retry wget -O $HOME/.local/bin/minio https://dl.minio.io/server/minio/release/darwin-amd64/minio || echo "Minio already in cache"
+        - chmod +x $HOME/.local/bin/minio
 
-before_install:
-# Update ruby
-- rvm use 2.1 --install --binary --fuzzy
+        # Install Carthage
+        - brew outdated carthage || brew upgrade carthage
 
-# Download and unpack the stack executable
-- mkdir -p ~/.local/bin
-- export PATH=$HOME/.local/bin:$PATH
-- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+        # Install bats-core
+        - brew install bats-core
+      script:
+        - bundle exec danger
+        - stack $ARGS setup
+        - stack $ARGS test --no-terminal --haddock --no-haddock-deps
+        - stack $ARGS build
+        - stack $ARGS sdist
+        - stack $ARGS install
+        - travis_wait 30 bats integration-tests/dynamic-frameworks.bats
+    - stage: "Build"
+      name: "Build Rome & Test Static Frameworks"
+      env:
+        - ARGS="--resolver=lts-11.13"
+      before_install:
+        # Update Homebrew
+        - brew update
+        # Run bundler and install the dependencies in vendor/bundle
+        # so that it can be cached.
+        - bundle install --deployment 
+      install:
+        # Install stack
+        - mkdir -p ~/.local/bin
+        - export PATH=$HOME/.local/bin:$PATH
+        - brew install stack
 
-# Download and instal hlint
-- rake hlint:install[2.0.9]
+        # Download and instal hlint
+        - rake hlint:install[2.1.8]
 
-install:
-  # Run bundler and install the dependencies in vendor/bundle
-  # so that it can be cached.
-  - bundle install --deployment
+        # Download and install minio
+        - test ! -e $HOME/.local/bin/minio && travis_retry wget -O $HOME/.local/bin/minio https://dl.minio.io/server/minio/release/darwin-amd64/minio || echo "Minio already in cache"
+        - chmod +x $HOME/.local/bin/minio
 
-# This line does all of the work: installs GHC if necessary, build the library,
-# executables, and test suites, and runs the test suites. --no-terminal works
-# around some quirks in Travis's terminal implementation.
-script:
-  - bundle exec danger
-  - stack $ARGS setup
-  - stack $ARGS test --no-terminal --haddock --no-haddock-deps
-  - stack $ARGS build
-  - stack $ARGS sdist
-  - bundle exec pod lib lint
+        # Install Carthage
+        - brew outdated carthage || brew upgrade carthage
 
-# Caching so the next build will be fast too.
+        # Install bats-core
+        - brew install bats-core
+      script:
+        - bundle exec danger
+        - stack $ARGS setup
+        - stack $ARGS test --no-terminal --haddock --no-haddock-deps
+        - stack $ARGS build
+        - stack $ARGS sdist
+        - stack $ARGS install
+        - travis_wait 30 bats integration-tests/static-frameworks.bats
+
 cache:
   directories:
+  - $HOME/.local/bin
   - $HOME/.stack
   - vendor/bundle

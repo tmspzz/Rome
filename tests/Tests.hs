@@ -2,13 +2,13 @@ module Main where
 
 import           Control.Monad
 import           Data.Carthage.Cartfile
+import           Data.List              (intercalate)
 import           Data.Romefile
 import qualified Data.Text              as T
+import qualified Text.Parsec            as Parsec
 import           Types
 import           Utils
 import           Xcode.DWARF
-import qualified Text.Parsec            as Parsec
-import           Data.List              (intercalate)
 
 import           Test.Hspec
 import           Test.QuickCheck
@@ -19,29 +19,32 @@ nonEmptyString = listOf1 arbitrary
 instance Arbitrary FrameworkVersion where
   arbitrary = liftM2 FrameworkVersion arbitrary arbitrary
 
-instance Arbitrary FrameworkName where
-  arbitrary = FrameworkName <$> nonEmptyString
+instance Arbitrary FrameworkType where
+  arbitrary = oneof $ fmap return [Dynamic, Static]
+
+instance Arbitrary Framework where
+  arbitrary = Framework <$> nonEmptyString <*> arbitrary
 
 instance Arbitrary Version where
   arbitrary = Version <$> nonEmptyString
 
-prop_filterByNameEqualTo_idempotent :: [FrameworkVersion] -> FrameworkName -> Bool
-prop_filterByNameEqualTo_idempotent ls n = filterByNameEqualTo ls n == filterByNameEqualTo (filterByNameEqualTo ls n) n
+prop_filterByNameEqualTo_idempotent :: [FrameworkVersion] -> Framework -> Bool
+prop_filterByNameEqualTo_idempotent ls n = filterByFrameworkEqualTo ls n == filterByFrameworkEqualTo (filterByFrameworkEqualTo ls n) n
 
-prop_filterByNameEqualTo_smaller :: [FrameworkVersion] -> FrameworkName -> Bool
-prop_filterByNameEqualTo_smaller ls n = length (filterByNameEqualTo ls n) <= length ls
+prop_filterByNameEqualTo_smaller :: [FrameworkVersion] -> Framework -> Bool
+prop_filterByNameEqualTo_smaller ls n = length (filterByFrameworkEqualTo ls n) <= length ls
 
-prop_filterByNameEqualTo_model :: [FrameworkVersion] -> FrameworkName -> Bool
-prop_filterByNameEqualTo_model ls n = map _frameworkName (filterByNameEqualTo ls n) == filter (== n) (map _frameworkName ls)
+prop_filterByNameEqualTo_model :: [FrameworkVersion] -> Framework -> Bool
+prop_filterByNameEqualTo_model ls n = map _framework (filterByFrameworkEqualTo ls n) == filter (== n) (map _framework ls)
 
-prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent :: [FrameworkVersion] -> [FrameworkName] -> Bool
-prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent ls ns = filterOutFrameworkNamesAndVersionsIfNotIn ls ns == filterOutFrameworkNamesAndVersionsIfNotIn (filterOutFrameworkNamesAndVersionsIfNotIn ls ns) ns
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent :: [FrameworkVersion] -> [Framework] -> Bool
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent ls ns = filterOutFrameworksAndVersionsIfNotIn ls ns == filterOutFrameworksAndVersionsIfNotIn (filterOutFrameworksAndVersionsIfNotIn ls ns) ns
 
-prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller :: [FrameworkVersion] -> [FrameworkName] -> Bool
-prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller ls ns = length (filterOutFrameworkNamesAndVersionsIfNotIn ls ns) <= length ls
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller :: [FrameworkVersion] -> [Framework] -> Bool
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller ls ns = length (filterOutFrameworksAndVersionsIfNotIn ls ns) <= length ls
 
-prop_filterOutFrameworkNamesAndVersionsIfNotIn_model :: [FrameworkVersion] -> [FrameworkName] -> Bool
-prop_filterOutFrameworkNamesAndVersionsIfNotIn_model ls ns = map _frameworkName (filterOutFrameworkNamesAndVersionsIfNotIn ls ns) == filter (`notElem` ns) (map _frameworkName ls)
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_model :: [FrameworkVersion] -> [Framework] -> Bool
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_model ls ns = map _framework (filterOutFrameworksAndVersionsIfNotIn ls ns) == filter (`notElem` ns) (map _framework ls)
 
 prop_split_length :: Char -> String -> Property
 prop_split_length sep ls =

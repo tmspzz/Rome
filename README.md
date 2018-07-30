@@ -32,6 +32,7 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 		- [RepositoryMap](#repositorymap)
 		- [IgnoreMap](#ignoremap)
 			- [Multiple Aliases](#multiple-aliases)
+			- [Static Frameworks](#static-frameworks)
 	- [Cache Structure](#cache-structure)
 		- [Cache Prefix](#cache-prefix)
 - [Usage](#usage)
@@ -323,6 +324,18 @@ If __ANY__ of the aliases is missing on S3, the entire entry will be reported as
 when running `rome list [--missing]`
 
 Multiple aliases are supported in `[IgnoreMap]` too
+
+##### Static Frameworks
+
+Since version [0.30.1](https://github.com/Carthage/Carthage/releases/tag/0.30.1) Carthage has support for Static Frameworks. 
+To indicate that one of the aliases is a Static Framework, modify the RepositoryMap like so:
+
+```
+[RepositoryMap]
+  Framework = static/t1, t2
+```
+
+If left unspecified, an alias is a Dynamic Framework by default.
 
 ### Cache Structure
 

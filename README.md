@@ -345,8 +345,8 @@ By default frameworks, dSYMs and .bcsymbolmaps are placed in the cache (local an
 according to the following convention:
 
 ```
-<git-repository-name>/<platform>/<framework-name>.framework(.dSYM)-<version-hash>.zip
-<git-repository-name>/<platform>/<bcsymbolmap-hash>.bcsymbolmap-<version-hash>.zip
+<git-repository-name>/<platform>/<framework-name>.framework(.dSYM)-(static-)<version-hash>.zip
+<git-repository-name>/<platform>/<bcsymbolmap-hash>.bcsymbolmap-(static-)<version-hash>.zip
 
 ```
 
@@ -354,7 +354,7 @@ according to the following convention:
 are placed at:
 
 ```
-<git-repository-name>/.<framework-name>.version-<version-hash>
+<git-repository-name>/.<framework-name>.version-(static-)<version-hash>
 ```
 
 For example the cache for the `Cartfile.resolved` in [RepositoryMap](#repositorymap)

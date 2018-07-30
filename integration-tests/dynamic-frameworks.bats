@@ -49,13 +49,15 @@ setup() {
   export MINIO_ACCESS_KEY=Q3AM3UQ867SPQQA43P2F
   export MINIO_SECRET_KEY=zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
   export AWS_ENDPOINT=http://127.0.0.1:9000 
+  
+  echo "# BATS_TMPDIR: ${BATS_TMPDIR}" >&3
 
 }
 
 teardown() {
   
   if [ ! "$BATS_TEST_NUMBER" -eq 3 ]; then
-   killall minio
+    killall minio
   fi
   cd $BATS_TEST_DIRNAME
 }
@@ -66,6 +68,7 @@ teardown() {
   MINIO_HTTP_TRACE=output.log minio server minio-buckets &
   sleep 4 
 
+  rome upload --cache-prefix travis
   run rome upload --cache-prefix travis
 
   if [ -d "minio-buckets/rome" ]; then
@@ -127,6 +130,7 @@ teardown() {
   sleep 4 
 
   rm -rf Carthage/Build
+  rome download --cache-prefix travis --skip-local-cache
   run rome download --cache-prefix travis --skip-local-cache
 
   [ "$status" -eq 0 ]
@@ -163,6 +167,7 @@ teardown() {
   fi
   
   rm -rf Carthage/Build
+  rome download --cache-prefix travis
   run rome download --cache-prefix travis
 
   [ "$status" -eq 0 ]

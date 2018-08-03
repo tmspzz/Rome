@@ -54,31 +54,36 @@ data DwarfUUID = DwarfUUID { _uuid :: String
 
 -- | Attemps to get UUIDs of DWARFs form a .framework/<binary-name> or .dSYM
 -- | by running `xcrun dwarfdump --uuid <path>`
-dwarfUUIDsFrom :: MonadIO m
-               => FilePath -- ^ Path to dSYM or .framework/<binary-name>
-               -> ExceptT String m [DwarfUUID]
+dwarfUUIDsFrom
+  :: MonadIO m
+  => FilePath -- ^ Path to dSYM or .framework/<binary-name>
+  -> ExceptT String m [DwarfUUID]
 dwarfUUIDsFrom fPath = do
   (exitCode, stdOutText, stdErrText) <- Turtle.procStrictWithErr
-    "xcrun" ["dwarfdump", "--uuid", T.pack fPath]
+    "xcrun"
+    ["dwarfdump", "--uuid", T.pack fPath]
     (return $ Turtle.unsafeTextToLine "")
   case exitCode of
-    Turtle.ExitSuccess -> either (throwError . (\e -> errorMessageHeader ++ show e)) return $
-                            mapM (Parsec.parse parseDwarfdumpUUID "" . T.unpack) (T.lines stdOutText)
-    _                  -> throwError $ errorMessageHeader ++ T.unpack stdErrText
-  where
-    errorMessageHeader = "Failed parsing DWARF UUID: "
+    Turtle.ExitSuccess ->
+      either (throwError . (\e -> errorMessageHeader ++ show e)) return
+        $ mapM
+            (Parsec.parse parseDwarfdumpUUID "" . T.unpack)
+            (T.lines stdOutText)
+    _ -> throwError $ errorMessageHeader ++ T.unpack stdErrText
+  where errorMessageHeader = "Failed parsing DWARF UUID: "
 
 -- | Parses a DwarfUUID from a string like
 --   UUID: EDF2AE8A-2EB4-3CA0-986F-D3E49D8C675F (i386) Carthage/Build/iOS/Alamofire.framework/Alamofire
 parseDwarfdumpUUID :: Parsec.Parsec String () DwarfUUID
 parseDwarfdumpUUID = do
-  uuid <- Parsec.string "UUID:"
+  uuid <-
+    Parsec.string "UUID:"
     >> Parsec.spaces
     >> Parsec.manyTill (Parsec.hexDigit <|> Parsec.char '-') Parsec.space
-  archString <- paren $ Parsec.many1 (Parsec.noneOf [')', ' ', '\t', '\n', '\r'])
-  return DwarfUUID { _uuid = uuid , _arch = read archString }
-  where
-    paren = Parsec.between (Parsec.char '(') (Parsec.char ')')
+  archString <- paren
+    $ Parsec.many1 (Parsec.noneOf [')', ' ', '\t', '\n', '\r'])
+  return DwarfUUID {_uuid = uuid, _arch = read archString}
+  where paren = Parsec.between (Parsec.char '(') (Parsec.char ')')
 
 
 bcsymbolmapNameFrom :: DwarfUUID -> String

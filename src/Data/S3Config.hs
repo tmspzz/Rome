@@ -24,18 +24,22 @@ newtype S3Config = S3Config { _ini :: Ini }
 
 regionOf :: T.Text -> S3Config -> Either String AWS.Region
 regionOf profile = parseRegion <=< lookupValue profile "region" . _ini
-  where
-    parseRegion s = if T.null s
-      -- better error message
-      then Left "Failed reading: Failure parsing Region from empty string"
-      else AWS.fromText s
+ where
+  parseRegion s = if T.null s
+-- better error message
+    then Left "Failed reading: Failure parsing Region from empty string"
+    else AWS.fromText s
 
 endPointOf :: T.Text -> S3Config -> Either String URL
 endPointOf profile = parseURL <=< lookupValue profile "endpoint" . _ini
-  where
-    parseURL s = if T.null s
-      then Left "Failed reading: Failure parsing Endpoint from empty string"
-      else maybeToEither "Failed reading: Endpoint is not a valid URL" $ importURL . T.unpack $ s
+ where
+  parseURL s = if T.null s
+    then Left "Failed reading: Failure parsing Endpoint from empty string"
+    else
+      maybeToEither "Failed reading: Endpoint is not a valid URL"
+      $ importURL
+      . T.unpack
+      $ s
 
 parseS3Config :: T.Text -> Either String S3Config
 parseS3Config = fmap S3Config . parseIni

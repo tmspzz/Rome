@@ -20,14 +20,13 @@ getCartfileEntires = do
     Right cartfileEntries -> return cartfileEntries
 
 getRomefileEntries :: RomeMonad RomeFileParseResult
-getRomefileEntries = withExceptT toErr $ ExceptT $ parseRomefile <$> T.readFile romefile
-  where
-    toErr e = "Error while parsing " <> romefile <> ": " <> e
+getRomefileEntries =
+  withExceptT toErr $ ExceptT $ parseRomefile <$> T.readFile romefile
+  where toErr e = "Error while parsing " <> romefile <> ": " <> e
 
 getS3ConfigFile :: MonadIO m => m FilePath
 getS3ConfigFile = (</> awsConfigFilePath) `liftM` liftIO getHomeDirectory
-  where
-      awsConfigFilePath = ".aws/config"
+  where awsConfigFilePath = ".aws/config"
 
 -- carthageBuildDirectoryForPlatform :: TargetPlatform -> FilePath
 -- carthageBuildDirectoryForPlatform platform = carthageBuildDirectory </> show platform
@@ -35,6 +34,9 @@ getS3ConfigFile = (</> awsConfigFilePath) `liftM` liftIO getHomeDirectory
 carthageBuildDirectory :: FilePath
 carthageBuildDirectory = "Carthage" </> "Build"
 
-carthageArtifactsBuildDirectoryForPlatform :: TargetPlatform -> Framework -> FilePath
-carthageArtifactsBuildDirectoryForPlatform platform (Framework n Dynamic) = carthageBuildDirectory </> show platform
-carthageArtifactsBuildDirectoryForPlatform platform (Framework n Static) = carthageBuildDirectory </> show platform </> "Static"
+carthageArtifactsBuildDirectoryForPlatform
+  :: TargetPlatform -> Framework -> FilePath
+carthageArtifactsBuildDirectoryForPlatform platform (Framework n Dynamic) =
+  carthageBuildDirectory </> show platform
+carthageArtifactsBuildDirectoryForPlatform platform (Framework n Static) =
+  carthageBuildDirectory </> show platform </> "Static"

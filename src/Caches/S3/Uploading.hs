@@ -86,9 +86,9 @@ uploadBcsymbolmapToS3 dwarfUUID dwarfArchive s3BucketName reverseRomeMap (Framew
 uploadVersionFileToS3
   :: S3.BucketName -- ^ The cache definition.
   -> LBS.ByteString -- ^ The contents of the .version file.
-  -> GitRepoNameAndVersion -- ^ The information used to derive the name and path for the .version file.
+  -> ProjectNameAndVersion -- ^ The information used to derive the name and path for the .version file.
   -> ReaderT (AWS.Env, CachePrefix, Bool) IO ()
-uploadVersionFileToS3 s3BucketName versionFileContent gitRepoNameAndVersion =
+uploadVersionFileToS3 s3BucketName versionFileContent projectNameAndVersion =
   do
     (env, CachePrefix prefix, verbose) <- ask
     withReaderT (const (env, verbose)) $ uploadBinary
@@ -98,8 +98,8 @@ uploadVersionFileToS3 s3BucketName versionFileContent gitRepoNameAndVersion =
       versionFileName
  where
 
-  versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
-  versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion
+  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
+  versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
 
 
 

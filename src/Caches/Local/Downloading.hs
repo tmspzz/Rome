@@ -61,9 +61,9 @@ getVersionFileFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
-  -> GitRepoNameAndVersion -- ^ The `GitRepoNameAndVersion` used to indentify the .version file
+  -> ProjectNameAndVersion -- ^ The `ProjectNameAndVersion` used to indentify the .version file
   -> ExceptT String m LBS.ByteString
-getVersionFileFromLocalCache lCacheDir (CachePrefix prefix) gitRepoNameAndVersion
+getVersionFileFromLocalCache lCacheDir (CachePrefix prefix) projectNameAndVersion
   = do
     versionFileExistsInLocalCache <-
       liftIO . doesFileExist $ versionFileLocalCachePath
@@ -82,8 +82,8 @@ getVersionFileFromLocalCache lCacheDir (CachePrefix prefix) gitRepoNameAndVersio
         <> " in local cache at : "
         <> versionFileLocalCachePath
  where
-  versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
-  versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion
+  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
+  versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
   versionFileLocalCachePath = lCacheDir </> prefix </> versionFileRemotePath
 
 
@@ -364,7 +364,7 @@ getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersio
 getAndSaveVersionFilesFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition.
-  -> [GitRepoNameAndVersion] -- ^ A list of `GitRepoNameAndVersion` identifying the .version files
+  -> [ProjectNameAndVersion] -- ^ A list of `ProjectNameAndVersion` identifying the .version files
   -> [ExceptT String (ReaderT (CachePrefix, Bool) m) ()]
 getAndSaveVersionFilesFromLocalCache lCacheDir =
   map (getAndSaveVersionFileFromLocalCache lCacheDir)
@@ -375,15 +375,15 @@ getAndSaveVersionFilesFromLocalCache lCacheDir =
 getAndSaveVersionFileFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition.
-  -> GitRepoNameAndVersion -- ^ The `GitRepoNameAndVersion` identifying the .version file
+  -> ProjectNameAndVersion -- ^ The `ProjectNameAndVersion` identifying the .version file
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndSaveVersionFileFromLocalCache lCacheDir gitRepoNameAndVersion = do
+getAndSaveVersionFileFromLocalCache lCacheDir projectNameAndVersion = do
   (cachePrefix@(CachePrefix prefix), verbose) <- ask
   let finalVersionFileLocalCachePath = versionFileLocalCachePath prefix
   let sayFunc                        = if verbose then sayLnWithTime else sayLn
   versionFileBinary <- getVersionFileFromLocalCache lCacheDir
                                                     cachePrefix
-                                                    gitRepoNameAndVersion
+                                                    projectNameAndVersion
   sayFunc
     $  "Found "
     <> versionFileName
@@ -392,8 +392,8 @@ getAndSaveVersionFileFromLocalCache lCacheDir gitRepoNameAndVersion = do
   liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
   sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
  where
-  versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
-  versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion
+  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
+  versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
   versionFileLocalPath = carthageBuildDirectory </> versionFileName
   versionFileLocalCachePath cPrefix =
     lCacheDir </> cPrefix </> versionFileRemotePath

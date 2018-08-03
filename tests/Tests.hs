@@ -1,10 +1,14 @@
 module Main where
 
+import           Control.Arrow          (left, right)
 import           Control.Monad
 import           Data.Carthage.Cartfile
+import           Data.Either            (rights)
 import           Data.List              (intercalate)
+import           Data.Yaml              (decodeEither', encode)
 import           Data.Romefile
 import qualified Data.Text              as T
+import qualified Data.Text.Encoding     as T
 import qualified Text.Parsec            as Parsec
 import           Types
 import           Utils
@@ -71,6 +75,8 @@ prop_split_string ls =
   not (null ls) ==> splitWithSeparator '/' (T.pack ls) == T.split (== '/')
                                                                   (T.pack ls)
 
+data TestDwarfUUID = TDUUID String String Arch deriving Show
+
 instance Arbitrary TestDwarfUUID where
   arbitrary = do
     uuid <- arbitraryUUID
@@ -87,12 +93,55 @@ instance Arbitrary TestDwarfUUID where
 instance Arbitrary Arch where
   arbitrary = oneof $ fmap return [ARMV7, ARM64, I386, X86_64, Other "foobar"]
 
-data TestDwarfUUID = TDUUID String String Arch deriving Show
+instance Arbitrary ProjectName where
+  arbitrary = ProjectName <$> nonEmptyString
+
+instance Arbitrary RomefileEntry where
+  arbitrary = RomefileEntry <$> arbitrary <*> listOf1 arbitrary
+
+data TestRomefile = TestRomefile { hasLocalCache :: Bool
+                                 , hasS3Bucket :: Bool
+                                 , rMapEntries :: [RomefileEntry]
+                                 , iMapEntries :: [RomefileEntry]
+                                 } deriving Show
+
+instance Arbitrary TestRomefile where
+  arbitrary = do
+    (blCache, bS3Bucket) <- arbitrary `suchThat` (\(a, b) -> a || b == True) :: Gen (Bool, Bool)
+    TestRomefile blCache bS3Bucket <$> arbitrary <*> arbitrary
+
+
+toIniText :: TestRomefile -> T.Text
+toIniText r = T.pack $ "[Cache]\n" ++ if hasLocalCache r
+  then "  local = ~/some/path\n"
+  else "" ++ if hasS3Bucket r
+    then "  S3-Bucket = some-bucket\n"
+    else "" ++ if not . null $ rMapEntries r
+      then "[RepositoryMap]\n"
+        ++ intercalate "\n" (map toIniTextRE (rMapEntries r))
+      else "" ++ if not . null $ iMapEntries r
+        then "[IgnoreMap]\n"
+          ++ intercalate "\n" (map toIniTextRE (iMapEntries r))
+        else ""
+
+toIniTextRE :: RomefileEntry -> String
+toIniTextRE r = "  " ++ (unProjectName (_projectName r)) ++ " = " ++ f
+  where f = intercalate " ," $ (map show) (_frameworks r)
 
 prop_parse_dwarf_dumpUUID :: TestDwarfUUID -> Bool
 prop_parse_dwarf_dumpUUID (TDUUID inputLine uuid arch) =
   Right (DwarfUUID uuid arch)
     == Parsec.parse parseDwarfdumpUUID "test" inputLine
+
+prop_romefileINIToYamlToRomefile_idempotent_romefileINI :: TestRomefile -> Bool
+prop_romefileINIToYamlToRomefile_idempotent_romefileINI t =
+  rights [parseRomefile (toIniText t)] == rights
+    [ parseRomefile (toIniText t)
+      >>= Right
+      .   encode
+      >>= left show
+      .   decodeEither'
+    ]
 
 main :: IO ()
 main = do
@@ -122,3 +171,6 @@ main = do
 
   putStrLn "prop_parse_dwarf_dumpUUID"
   quickCheck prop_parse_dwarf_dumpUUID
+
+  putStrLn "prop_romefileINIToYamlToRomefile_idempotent_romefileINI"
+  quickCheck prop_romefileINIToYamlToRomefile_idempotent_romefileINI

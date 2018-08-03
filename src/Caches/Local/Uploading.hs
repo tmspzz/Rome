@@ -116,7 +116,7 @@ saveBinaryToLocalCache cachePath binaryZip destinationPath objectName verbose =
 -- | Saves a list of .version files to a local cache
 saveVersionFilesToLocalCache
   :: FilePath -- ^ The cache definition.
-  -> [GitRepoNameAndVersion] -- ^ The information used to derive the name and path for the .version file.
+  -> [ProjectNameAndVersion] -- ^ The information used to derive the name and path for the .version file.
   -> ReaderT (CachePrefix, Bool) IO ()
 saveVersionFilesToLocalCache lCacheDir =
   mapM_ (saveVersonFileToLocalCache lCacheDir)
@@ -126,9 +126,9 @@ saveVersionFilesToLocalCache lCacheDir =
 -- | Saves a .version file to a local Cache
 saveVersonFileToLocalCache
   :: FilePath -- ^ The cache definition.
-  -> GitRepoNameAndVersion -- ^ The information used to derive the name and path for the .version file.
+  -> ProjectNameAndVersion -- ^ The information used to derive the name and path for the .version file.
   -> ReaderT (CachePrefix, Bool) IO ()
-saveVersonFileToLocalCache lCacheDir gitRepoNameAndVersion = do
+saveVersonFileToLocalCache lCacheDir projectNameAndVersion = do
   (cachePrefix, verbose) <- ask
   versionFileExists      <- liftIO $ doesFileExist versionFileLocalPath
 
@@ -137,10 +137,10 @@ saveVersonFileToLocalCache lCacheDir gitRepoNameAndVersion = do
     saveVersionFileBinaryToLocalCache lCacheDir
                                       cachePrefix
                                       versionFileContent
-                                      gitRepoNameAndVersion
+                                      projectNameAndVersion
                                       verbose
  where
-  versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
+  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
   versionFileLocalPath = carthageBuildDirectory </> versionFileName
 
 
@@ -151,14 +151,14 @@ saveVersionFileBinaryToLocalCache
   => FilePath -- ^ The destinationf file.
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
   -> LBS.ByteString -- ^ The contents of the .version file
-  -> GitRepoNameAndVersion  -- ^ The information used to derive the name and path for the .version file.
+  -> ProjectNameAndVersion  -- ^ The information used to derive the name and path for the .version file.
   -> Bool -- ^ A flag controlling verbosity.
   -> m ()
-saveVersionFileBinaryToLocalCache lCacheDir (CachePrefix prefix) versionFileContent gitRepoNameAndVersion
+saveVersionFileBinaryToLocalCache lCacheDir (CachePrefix prefix) versionFileContent projectNameAndVersion
   = saveBinaryToLocalCache lCacheDir
                            versionFileContent
                            (prefix </> versionFileRemotePath)
                            versionFileName
  where
-  versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
-  versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion
+  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
+  versionFileRemotePath = remoteVersionFilePath projectNameAndVersion

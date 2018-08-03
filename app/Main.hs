@@ -28,7 +28,7 @@ main = do
         <|> Just
         <$> parseRomeOptions
         )
-        (header "S3 cache tool for Carthage")
+        (header "Cache tool for Carthage")
   cmd <- execParser opts
   case cmd of
     Nothing ->

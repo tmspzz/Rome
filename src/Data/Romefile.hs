@@ -1,16 +1,19 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE NamedFieldPuns    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 
 
 module Data.Romefile
     ( parseRomefile
-    , romefile
+    , romefileName
     , RomefileEntry (..)
     , Framework (..)
-    , GitRepoName (..)
-    , RomeFileParseResult (..)
+    , ProjectName (..)
+    , RomeFile (..)
     , RomeCacheInfo (..)
     , cacheInfo
     , repositoryMapEntries
@@ -25,8 +28,11 @@ module Data.Romefile
 where
 
 import           Control.Arrow        (left)
-import           Control.Lens
+import           Control.Lens         hiding ((.=))
 import           Control.Monad.Except
+import           Data.Yaml
+import           Data.Aeson
+import           Data.Aeson.Types    (typeMismatch)
 import           Data.Char
 import           Data.Either
 import qualified Data.HashMap.Strict  as M
@@ -34,13 +40,21 @@ import           Data.Ini             as INI
 import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Text            as T
+import           GHC.Generics
 import           Text.Read
 import qualified Text.Read.Lex        as L
+import           Safe
 
 
 
 data FrameworkType = Dynamic
-                   | Static deriving (Eq, Show, Ord)
+                   | Static deriving (Eq, Show, Ord, Generic)
+
+instance ToJSON FrameworkType where
+  toJSON = genericToJSON defaultOptions { constructorTagModifier = map toLower }
+
+instance FromJSON FrameworkType where
+  parseJSON = genericParseJSON defaultOptions { constructorTagModifier = map toLower }
 
 instance Read FrameworkType where
   readPrec = parens $ do
@@ -53,21 +67,63 @@ instance Read FrameworkType where
 data Framework = Framework { _frameworkName :: String
                            , _frameworkType :: FrameworkType
                            }
-                           deriving (Eq, Show, Ord)
+                           deriving (Eq, Show, Ord, Generic)
 
-newtype GitRepoName   = GitRepoName { unGitRepoName :: String }
-                                    deriving (Eq, Show, Ord)
+instance ToJSON Framework where
+  toJSON = genericToJSON
+    defaultOptions
+      { fieldLabelModifier = map toLower . drop (length ("_framework" :: String)) }
 
-data RomefileEntry    = RomefileEntry { gitRepositoryName    :: GitRepoName
-                                      , frameworkCommonNames :: [Framework]
-                                      }
-                                      deriving (Eq, Show)
+instance FromJSON Framework where
+  parseJSON = withObject "Framework" $ \v -> Framework
+    <$> v .: "name"
+    <*> v .:? "type" .!= Dynamic
 
-data RomeFileParseResult = RomeFileParseResult { _cacheInfo            :: RomeCacheInfo
-                                               , _repositoryMapEntries :: [RomefileEntry]
-                                               , _ignoreMapEntries     :: [RomefileEntry]
-                                               }
-                                               deriving (Eq, Show)
+
+newtype ProjectName = ProjectName { unProjectName :: String }
+                                  deriving (Eq, Show, Ord, Generic)
+
+instance FromJSON ProjectName where
+  parseJSON = genericParseJSON defaultOptions { unwrapUnaryRecords = True }
+
+instance ToJSON ProjectName where
+  toJSON = genericToJSON defaultOptions { unwrapUnaryRecords = True }
+
+data RomefileEntry = RomefileEntry { _projectName :: ProjectName
+                                   , _frameworks  :: [Framework]
+                                   }
+                                   deriving (Eq, Show, Generic)
+
+instance FromJSON RomefileEntry where
+  parseJSON o@(Object obj) = do
+    let firstKey = fst <$> (headMay . M.toList $ obj)
+    case firstKey of
+      Just key ->
+        RomefileEntry <$> parseJSON (Data.Aeson.String key) <*> (obj .: key)
+      Nothing -> typeMismatch "RomefileEntry" o
+  parseJSON invalid = typeMismatch "RomefileEntry" invalid
+
+instance ToJSON RomefileEntry where
+  toJSON (RomefileEntry (ProjectName prjname) fwrks) = object [T.pack prjname .= fwrks]
+
+data RomeFile = RomeFile { _cacheInfo            :: RomeCacheInfo
+                         , _repositoryMapEntries :: [RomefileEntry]
+                         , _ignoreMapEntries     :: [RomefileEntry]
+                         }
+                         deriving (Eq, Show, Generic)
+
+instance FromJSON RomeFile where
+  parseJSON = withObject "RomeFile" $ \v -> RomeFile
+    <$> v .: "cache"
+    <*> v .:? "respositoryMap" .!= []
+    <*> v .:? "ignoreMap" .!= []
+
+instance ToJSON RomeFile where
+  toJSON (RomeFile cInfo rMap iMap) = object fields
+    where
+      fields =  [T.pack "cache" .= cInfo]
+        ++ [T.pack "respositoryMap" .= rMap | not $ null rMap]
+        ++ [T.pack "ignoreMap" .= rMap | not $ null iMap]
 
 frameworkName :: Lens' Framework String
 frameworkName = lens
@@ -79,15 +135,15 @@ frameworkType = lens
   _frameworkType
   (\framework newType -> framework { _frameworkType = newType })
 
-cacheInfo :: Lens' RomeFileParseResult RomeCacheInfo
+cacheInfo :: Lens' RomeFile RomeCacheInfo
 cacheInfo = lens _cacheInfo (\parseResult n -> parseResult { _cacheInfo = n })
 
-repositoryMapEntries :: Lens' RomeFileParseResult [RomefileEntry]
+repositoryMapEntries :: Lens' RomeFile [RomefileEntry]
 repositoryMapEntries = lens
   _repositoryMapEntries
   (\parseResult n -> parseResult { _repositoryMapEntries = n })
 
-ignoreMapEntries :: Lens' RomeFileParseResult [RomefileEntry]
+ignoreMapEntries :: Lens' RomeFile [RomefileEntry]
 ignoreMapEntries = lens
   _ignoreMapEntries
   (\parseResult n -> parseResult { _ignoreMapEntries = n })
@@ -95,7 +151,17 @@ ignoreMapEntries = lens
 data RomeCacheInfo = RomeCacheInfo { _bucket        :: Maybe T.Text
                                    , _localCacheDir :: Maybe FilePath -- relative path
                                    }
-                                   deriving (Eq, Show)
+                                   deriving (Eq, Show, Generic)
+
+instance FromJSON RomeCacheInfo where
+  parseJSON = withObject "RomeCacheInfo" $ \v -> RomeCacheInfo
+    <$> v .:? "s3Bucket"
+    <*> v .:? "local"
+
+instance ToJSON RomeCacheInfo where
+  toJSON (RomeCacheInfo b l) = object fields
+    where
+      fields = [T.pack "s3Bucket" .= b | isJust b] ++ [T.pack "local" .= l | isJust l]
 
 bucket :: Lens' RomeCacheInfo (Maybe T.Text)
 bucket = lens _bucket (\cInfo n -> cInfo { _bucket = n })
@@ -104,8 +170,8 @@ localCacheDir :: Lens' RomeCacheInfo (Maybe FilePath)
 localCacheDir = lens _localCacheDir (\cInfo n -> cInfo { _localCacheDir = n })
 
 -- |The name of the Romefile
-romefile :: String
-romefile = "Romefile"
+romefileName :: String
+romefileName = "Romefile"
 
 -- |The delimiter of the CACHE section a Romefile
 cacheSectionDelimiter :: T.Text
@@ -128,20 +194,17 @@ ignoreMapSectionDelimiter :: T.Text
 ignoreMapSectionDelimiter = "IgnoreMap"
 
 -- | Parses a Romefile
-parseRomefile :: T.Text -> Either String RomeFileParseResult
+parseRomefile :: T.Text -> Either String RomeFile
 parseRomefile = left T.unpack . toRomefile <=< INI.parseIni
 
-toRomefile :: INI.Ini -> Either T.Text RomeFileParseResult
+toRomefile :: INI.Ini -> Either T.Text RomeFile
 toRomefile ini = do
   _bucket        <- getBucket ini
   _localCacheDir <- getLocalCacheDir ini
   let _repositoryMapEntries = getRepositoryMapEntries ini
       _ignoreMapEntries     = getIgnoreMapEntries ini
       _cacheInfo            = RomeCacheInfo {..}
-  RomeFileParseResult
-    <$> Right _cacheInfo
-    <*> _repositoryMapEntries
-    <*> _ignoreMapEntries
+  RomeFile <$> Right _cacheInfo <*> _repositoryMapEntries <*> _ignoreMapEntries
 
 getSection :: T.Text -> M.HashMap T.Text b -> Either T.Text b
 getSection key = maybe (Left err) Right . M.lookup key
@@ -173,13 +236,13 @@ getRomefileEntries sectionDelimiter (Ini ini) =
 
 toEntry :: (T.Text, T.Text) -> Either T.Text RomefileEntry
 toEntry (repoName, frameworksAsStrings) =
-  let gitRepoName = GitRepoName $ T.unpack repoName
+  let projectName = ProjectName $ T.unpack repoName
       eitherFrameworks =
         map (toFramework . T.strip) (T.splitOn "," frameworksAsStrings)
       (ls, rs) = partitionEithers eitherFrameworks
       errors   = T.intercalate "\n" ls
   in  case ls of
-        [] -> RomefileEntry <$> Right gitRepoName <*> Right rs
+        [] -> RomefileEntry <$> Right projectName <*> Right rs
         _  -> Left errors
 
 toFramework :: T.Text -> Either T.Text Framework

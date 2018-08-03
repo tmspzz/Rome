@@ -21,27 +21,65 @@ import           Types.Commands
 -- verifyParser = VerifyFlag <$> Opts.switch ( Opts.long "verify" <> Opts.help "Verify that the framework has the same hash as specified in the Cartfile.resolved.")
 
 cachePrefixParser :: Parser String
-cachePrefixParser = Opts.strOption (Opts.value "" <> Opts.metavar "PREFIX" <> Opts.long "cache-prefix" <> Opts.help "A prefix appended to the top level directories inside the caches. Usefull to separate artifacts between Swift versions.")
+cachePrefixParser = Opts.strOption
+  (  Opts.value ""
+  <> Opts.metavar "PREFIX"
+  <> Opts.long "cache-prefix"
+  <> Opts.help
+       "A prefix appended to the top level directories inside the caches. Usefull to separate artifacts between Swift versions."
+  )
 
 skipLocalCacheParser :: Parser SkipLocalCacheFlag
-skipLocalCacheParser = SkipLocalCacheFlag <$> Opts.switch (Opts.long "skip-local-cache" <> Opts.help "Ignore the local cache when performing the operation.")
+skipLocalCacheParser = SkipLocalCacheFlag <$> Opts.switch
+  (  Opts.long "skip-local-cache"
+  <> Opts.help "Ignore the local cache when performing the operation."
+  )
 
 noIgnoreParser :: Parser NoIgnoreFlag
-noIgnoreParser = NoIgnoreFlag <$> Opts.switch (Opts.long "no-ignore" <> Opts.help "Ignore the [IgnoreMap] section in the current Romefile when performing the operation.")
+noIgnoreParser = NoIgnoreFlag <$> Opts.switch
+  (  Opts.long "no-ignore"
+  <> Opts.help
+       "Ignore the [IgnoreMap] section in the current Romefile when performing the operation."
+  )
 
 reposParser :: Opts.Parser [GitRepoName]
-reposParser = Opts.many (Opts.argument (GitRepoName <$> str) (Opts.metavar "FRAMEWORKS..." <> Opts.help "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."))
+reposParser = Opts.many
+  (Opts.argument
+    (GitRepoName <$> str)
+    (  Opts.metavar "FRAMEWORKS..."
+    <> Opts.help
+         "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."
+    )
+  )
 
 platformsParser :: Opts.Parser [TargetPlatform]
-platformsParser = (nub . concat <$> Opts.some (Opts.option (eitherReader platformListOrError) (Opts.metavar "PLATFORMS" <> Opts.long "platform" <> Opts.help "Applicable platforms for the command. One of iOS, MacOS, tvOS, watchOS, or a comma-separated list of any of these values.")))
-  <|> pure allTargetPlatforms
-  where
-    platformOrError s = maybeToEither ("Unrecognized platform '" ++ s ++ "'") (readMaybe s)
-    splitPlatforms s = filter (not . null) $ filter isLetter <$> wordsBy (not . isLetter) s
-    platformListOrError s = mapM platformOrError $ splitPlatforms s
+platformsParser
+  = (nub . concat <$> Opts.some
+      (Opts.option
+        (eitherReader platformListOrError)
+        (  Opts.metavar "PLATFORMS"
+        <> Opts.long "platform"
+        <> Opts.help
+             "Applicable platforms for the command. One of iOS, MacOS, tvOS, watchOS, or a comma-separated list of any of these values."
+        )
+      )
+    )
+    <|> pure allTargetPlatforms
+ where
+  platformOrError s =
+    maybeToEither ("Unrecognized platform '" ++ s ++ "'") (readMaybe s)
+  splitPlatforms s =
+    filter (not . null) $ filter isLetter <$> wordsBy (not . isLetter) s
+  platformListOrError s = mapM platformOrError $ splitPlatforms s
 
 udcPayloadParser :: Opts.Parser RomeUDCPayload
-udcPayloadParser = RomeUDCPayload <$> reposParser <*> platformsParser <*> cachePrefixParser <*> skipLocalCacheParser <*> noIgnoreParser
+udcPayloadParser =
+  RomeUDCPayload
+    <$> reposParser
+    <*> platformsParser
+    <*> cachePrefixParser
+    <*> skipLocalCacheParser
+    <*> noIgnoreParser
 
 uploadParser :: Opts.Parser RomeCommand
 uploadParser = pure Upload <*> udcPayloadParser
@@ -50,29 +88,68 @@ downloadParser :: Opts.Parser RomeCommand
 downloadParser = pure Download <*> udcPayloadParser
 
 listModeParser :: Opts.Parser ListMode
-listModeParser = (
-                    Opts.flag' Missing (Opts.long "missing" <> Opts.help "List frameworks missing from the cache. Ignores dSYMs")
-                    <|> Opts.flag' Present (Opts.long "present" <> Opts.help "List frameworks present in the cache. Ignores dSYMs.")
-                 )
-                <|> Opts.flag All All (Opts.help "Reports missing or present status of frameworks in the cache. Ignores dSYMs.")
+listModeParser =
+  (   Opts.flag'
+        Missing
+        (  Opts.long "missing"
+        <> Opts.help "List frameworks missing from the cache. Ignores dSYMs"
+        )
+    <|> Opts.flag'
+          Present
+          (Opts.long "present" <> Opts.help
+            "List frameworks present in the cache. Ignores dSYMs."
+          )
+    )
+    <|> Opts.flag
+          All
+          All
+          (Opts.help
+            "Reports missing or present status of frameworks in the cache. Ignores dSYMs."
+          )
 
 printFormatParser :: Opts.Parser PrintFormat
-printFormatParser = Opts.option Opts.auto (Opts.value Text <> Opts.long "print-format" <> Opts.metavar "FORMATS" <> Opts.help "Avaiable print formats: JSON or if omitted, default to Text")
+printFormatParser = Opts.option
+  Opts.auto
+  (  Opts.value Text
+  <> Opts.long "print-format"
+  <> Opts.metavar "FORMATS"
+  <> Opts.help "Avaiable print formats: JSON or if omitted, default to Text"
+  )
 
 listPayloadParser :: Opts.Parser RomeListPayload
-listPayloadParser = RomeListPayload <$> listModeParser <*> platformsParser <*> cachePrefixParser <*> printFormatParser <*> noIgnoreParser
+listPayloadParser =
+  RomeListPayload
+    <$> listModeParser
+    <*> platformsParser
+    <*> cachePrefixParser
+    <*> printFormatParser
+    <*> noIgnoreParser
 
 listParser :: Opts.Parser RomeCommand
 listParser = List <$> listPayloadParser
 
 parseRomeCommand :: Opts.Parser RomeCommand
-parseRomeCommand = Opts.subparser $
-  Opts.command "upload" (uploadParser `withInfo` "Uploads frameworks and dSYMs contained in the local Carthage/Build/<platform> to S3, according to the local Cartfile.resolved")
-  <> Opts.command "download" (downloadParser `withInfo` "Downloads and unpacks in Carthage/Build/<platform> frameworks and dSYMs found in S3, according to the local Cartfile.resolved")
-  <> Opts.command "list" (listParser `withInfo` "Lists frameworks in the cache and reports cache misses/hits, according to the local Cartfile.resolved. Ignores dSYMs.")
+parseRomeCommand =
+  Opts.subparser
+    $  Opts.command
+         "upload"
+         (uploadParser
+         `withInfo` "Uploads frameworks and dSYMs contained in the local Carthage/Build/<platform> to S3, according to the local Cartfile.resolved"
+         )
+    <> Opts.command
+         "download"
+         (downloadParser
+         `withInfo` "Downloads and unpacks in Carthage/Build/<platform> frameworks and dSYMs found in S3, according to the local Cartfile.resolved"
+         )
+    <> Opts.command
+         "list"
+         (listParser
+         `withInfo` "Lists frameworks in the cache and reports cache misses/hits, according to the local Cartfile.resolved. Ignores dSYMs."
+         )
 
 parseRomeOptions :: Opts.Parser RomeOptions
-parseRomeOptions = RomeOptions <$> parseRomeCommand <*> Opts.switch ( Opts.short 'v' <> help "Show verbose output" )
+parseRomeOptions = RomeOptions <$> parseRomeCommand <*> Opts.switch
+  (Opts.short 'v' <> help "Show verbose output")
 
 withInfo :: Opts.Parser a -> String -> Opts.ParserInfo a
 withInfo opts desc = Opts.info (Opts.helper <*> opts) $ Opts.progDesc desc

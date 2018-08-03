@@ -38,31 +38,37 @@ cartfileResolved = "Cartfile.resolved"
 -- Cartfile.resolved parsing
 
 parseGitHub :: Parsec.Parsec String () RepoHosting
-parseGitHub = Parsec.string "github" >> Parsec.many1 Parsec.space >> pure GitHub
+parseGitHub =
+  Parsec.string "github" >> Parsec.many1 Parsec.space >> pure GitHub
 
 parseGit :: Parsec.Parsec String () RepoHosting
 parseGit = Parsec.string "git" >> Parsec.many1 Parsec.space >> pure Git
 
 parseBinary :: Parsec.Parsec String () RepoHosting
-parseBinary = Parsec.string "binary" >> Parsec.many1 Parsec.space >> pure Binary
+parseBinary =
+  Parsec.string "binary" >> Parsec.many1 Parsec.space >> pure Binary
 
 repoHosting :: Parsec.Parsec String () RepoHosting
 repoHosting = Parsec.try parseGit <|> parseGitHub <|> parseBinary
 
 quotedContent :: Parsec.Parsec String () String
-quotedContent = Parsec.char '"' *> Parsec.parseUnquotedString <* Parsec.char '"'
+quotedContent =
+  Parsec.char '"' *> Parsec.parseUnquotedString <* Parsec.char '"'
 
 parseCartfileResolvedLine :: Parsec.Parsec String () CartfileEntry
 parseCartfileResolvedLine = do
-  hosting <- repoHosting
+  hosting  <- repoHosting
   location <- Location <$> quotedContent
-  _ <- Parsec.many1 Parsec.space
-  version <- Version <$> quotedContent
+  _        <- Parsec.many1 Parsec.space
+  version  <- Version <$> quotedContent
   return CartfileEntry {..}
 
 parseMaybeCartfileEntry :: Parsec.Parsec String () (Maybe CartfileEntry)
-parseMaybeCartfileEntry = Parsec.optional Parsec.spaces
-                          *> (parseCartfileResolvedLine `Parsec.onceAndConsumeTill` Parsec.endOfLine)
+parseMaybeCartfileEntry =
+  Parsec.optional Parsec.spaces
+    *> (parseCartfileResolvedLine `Parsec.onceAndConsumeTill` Parsec.endOfLine)
 
-parseCartfileResolved :: MonadIO m => String -> m (Either Parsec.ParseError [CartfileEntry])
-parseCartfileResolved = liftIO . Parsec.parseFromFile (catMaybes <$> Parsec.many (Parsec.try parseMaybeCartfileEntry))
+parseCartfileResolved
+  :: MonadIO m => String -> m (Either Parsec.ParseError [CartfileEntry])
+parseCartfileResolved = liftIO . Parsec.parseFromFile
+  (catMaybes <$> Parsec.many (Parsec.try parseMaybeCartfileEntry))

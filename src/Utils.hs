@@ -180,27 +180,27 @@ bcsymbolmapArchiveName d (Version v) =
 
 
 
--- | Given a list of `CartfileEntry`s  and a list of `GitRepoName`s
--- | produces a list of `CartfileEntry`s filtered by `GitRepoName`s
+-- | Given a list of `CartfileEntry`s  and a list of `ProjectName`s
+-- | produces a list of `CartfileEntry`s filtered by `ProjectName`s
 filterCartfileEntriesByGitRepoNames
-  :: [GitRepoName] -> [CartfileEntry] -> [CartfileEntry]
+  :: [ProjectName] -> [CartfileEntry] -> [CartfileEntry]
 filterCartfileEntriesByGitRepoNames repoNames cartfileEntries =
   [ c | c <- cartfileEntries, gitRepoNameFromCartfileEntry c `elem` repoNames ]
 
 
 
--- | Given a `CartfileEntry` produces a `GitRepoName`.
+-- | Given a `CartfileEntry` produces a `ProjectName`.
 --
 -- >>> gitRepoNameFromCartfileEntry $ CartfileEntry Git (Location "https://repo.acme.inc/acmeFramework.git") (Version "1.2.3")
--- GitRepoName {unGitRepoName = "acmeFramework"}
+-- ProjectName {unProjectName = "acmeFramework"}
 --
 -- >>> gitRepoNameFromCartfileEntry $ CartfileEntry GitHub (Location "acme/acmeFramework") (Version "1.2.3")
--- GitRepoName {unGitRepoName = "acmeFramework"}
-gitRepoNameFromCartfileEntry :: CartfileEntry -> GitRepoName
+-- ProjectName {unProjectName = "acmeFramework"}
+gitRepoNameFromCartfileEntry :: CartfileEntry -> ProjectName
 gitRepoNameFromCartfileEntry (CartfileEntry GitHub (Location l) _) =
-  GitRepoName . T.unpack . last . splitWithSeparator '/' . T.pack $ l
+  ProjectName . T.unpack . last . splitWithSeparator '/' . T.pack $ l
 gitRepoNameFromCartfileEntry (CartfileEntry Git (Location l) _) =
-  GitRepoName
+  ProjectName
     . T.unpack
     . T.replace ".git" ""
     . last
@@ -208,7 +208,7 @@ gitRepoNameFromCartfileEntry (CartfileEntry Git (Location l) _) =
     . T.pack
     $ l
 gitRepoNameFromCartfileEntry (CartfileEntry Binary (Location l) _) =
-  GitRepoName
+  ProjectName
     . T.unpack
     . T.replace ".json" ""
     . last
@@ -237,10 +237,10 @@ filterOutFrameworksAndVersionsIfNotIn verions fs =
 
 
 
--- | Given a `RepositoryMap` and a `GitRepoName` returns a `RepositoryMap`
--- | with that one `GitRepoName` or an empty `RepositoryMap`.
+-- | Given a `RepositoryMap` and a `ProjectName` returns a `RepositoryMap`
+-- | with that one `ProjectName` or an empty `RepositoryMap`.
 restrictRepositoryMapToGitRepoName
-  :: RepositoryMap -> GitRepoName -> RepositoryMap
+  :: RepositoryMap -> ProjectName -> RepositoryMap
 restrictRepositoryMapToGitRepoName repoMap repoName =
   maybe M.empty (M.singleton repoName) $ repoName `M.lookup` repoMap
 
@@ -276,16 +276,16 @@ remoteBcsymbolmapPath d p r f v =
 remoteCacheDirectory
   :: TargetPlatform -> InvertedRepositoryMap -> Framework -> String
 remoteCacheDirectory p r f = repoName </> show p ++ "/"
-  where repoName = unGitRepoName $ repoNameForFrameworkName r f
+  where repoName = unProjectName $ repoNameForFrameworkName r f
 
 
 
 -- | Builds a `String` representing the name of the VersionFile for a given
--- | `GitRepoNameAndVersion`
-remoteVersionFilePath :: GitRepoNameAndVersion -> String
-remoteVersionFilePath (gitRepoName, version) =
-  unGitRepoName gitRepoName
-    </> versionFileNameForGitRepoNameVersioned gitRepoName version
+-- | `ProjectNameAndVersion`
+remoteVersionFilePath :: ProjectNameAndVersion -> String
+remoteVersionFilePath (projectName, version) =
+  unProjectName projectName
+    </> versionFileNameForProjectNameVersioned projectName version
 
 
 
@@ -300,7 +300,7 @@ frameworkBuildBundleForPlatform p f =
 
 
 -- | Constructs a `RepositoryMap` from a list of `RomefileEntry`s.
--- | The keys are `GitRepoName`s.
+-- | The keys are `ProjectName`s.
 toRepositoryMap :: [RomefileEntry] -> RepositoryMap
 toRepositoryMap = M.fromList . map romeFileEntryToTuple
 
@@ -318,53 +318,52 @@ toInvertedRepositoryMap = M.fromList . concatMap romeFileEntryToListOfTuples
 
 
 -- | Creates a tuple out of a `RomefileEntry`.
-romeFileEntryToTuple :: RomefileEntry -> (GitRepoName, [Framework])
-romeFileEntryToTuple RomefileEntry {..} =
-  (gitRepositoryName, frameworkCommonNames)
+romeFileEntryToTuple :: RomefileEntry -> (ProjectName, [Framework])
+romeFileEntryToTuple RomefileEntry {..} = (_projectName, _frameworks)
 
 
 
 -- | Performs a lookup in an `InvertedRepositoryMap` for a certain `Framework`.
--- | Creates a `GitRepoName` from just the `frameworkName` of a `FrameworkName`
+-- | Creates a `ProjectName` from just the `frameworkName` of a `FrameworkName`
 -- | in case the lookup fails.
-repoNameForFrameworkName :: InvertedRepositoryMap -> Framework -> GitRepoName
+repoNameForFrameworkName :: InvertedRepositoryMap -> Framework -> ProjectName
 repoNameForFrameworkName reverseRomeMap framework = fromMaybe
-  (GitRepoName . _frameworkName $ framework)
+  (ProjectName . _frameworkName $ framework)
   (M.lookup framework reverseRomeMap)
 
 
 
 -- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVersion` produces
--- | a list of __unique__ `GitRepoName`s
+-- | a list of __unique__ `ProjectName`s
 repoNamesForFrameworkVersion
-  :: InvertedRepositoryMap -> [FrameworkVersion] -> [GitRepoName]
+  :: InvertedRepositoryMap -> [FrameworkVersion] -> [ProjectName]
 repoNamesForFrameworkVersion reverseRomeMap =
   nub . map (repoNameForFrameworkName reverseRomeMap . _framework)
 
 
 
 -- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVersion` produces
--- | a list of __unique__ `GitRepoNameAndVersion`s
+-- | a list of __unique__ `ProjectNameAndVersion`s
 repoNamesAndVersionForFrameworkVersions
-  :: InvertedRepositoryMap -> [FrameworkVersion] -> [GitRepoNameAndVersion]
+  :: InvertedRepositoryMap -> [FrameworkVersion] -> [ProjectNameAndVersion]
 repoNamesAndVersionForFrameworkVersions reverseRomeMap versions = nub $ zip
   (map (repoNameForFrameworkName reverseRomeMap . _framework) versions)
   (map _frameworkVersion versions)
 
 
 
--- | Given a `GitRepoName` produces the appropriate file name for the corresponding
+-- | Given a `ProjectName` produces the appropriate file name for the corresponding
 -- | Carthage VersionFile
-versionFileNameForGitRepoName :: GitRepoName -> String
-versionFileNameForGitRepoName grn = "." <> unGitRepoName grn <> ".version"
+versionFileNameForProjectName :: ProjectName -> String
+versionFileNameForProjectName prjn = "." <> unProjectName prjn <> ".version"
 
 
 
--- | Given a `GitRepoName` produces the appropriate file name for the corresponding
+-- | Given a `ProjectName` produces the appropriate file name for the corresponding
 -- | Carthage VersionFile with appenended `Version` information
-versionFileNameForGitRepoNameVersioned :: GitRepoName -> Version -> String
-versionFileNameForGitRepoNameVersioned grn version =
-  versionFileNameForGitRepoName grn <> "-" <> unVersion version
+versionFileNameForProjectNameVersioned :: ProjectName -> Version -> String
+versionFileNameForProjectNameVersioned prjn version =
+  versionFileNameForProjectName prjn <> "-" <> unVersion version
 
 
 
@@ -403,58 +402,58 @@ deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry _ _ v) =
   map (`FrameworkVersion` v) $ fromMaybe
     [Framework repositoryName Dynamic]
     (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
-  where repositoryName = unGitRepoName $ gitRepoNameFromCartfileEntry cfe
+  where repositoryName = unProjectName $ gitRepoNameFromCartfileEntry cfe
 
 
 
--- | Given a `RepositoryMap` and a list of `GitRepoName`s produces another
--- | `RepositoryMap` containing only those `GitRepoName`s.
-filterRepoMapByGitRepoNames :: RepositoryMap -> [GitRepoName] -> RepositoryMap
+-- | Given a `RepositoryMap` and a list of `ProjectName`s produces another
+-- | `RepositoryMap` containing only those `ProjectName`s.
+filterRepoMapByGitRepoNames :: RepositoryMap -> [ProjectName] -> RepositoryMap
 filterRepoMapByGitRepoNames repoMap gitRepoNames =
   M.unions $ map (restrictRepositoryMapToGitRepoName repoMap) gitRepoNames
 
 
 
 -- | Given an `InvertedRepositoryMap` and a list of `FrameworkAvailability`s
--- | produces the corresponding list of `GitRepoAvailability`s.
+-- | produces the corresponding list of `ProjectAvailability`s.
 getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities
-  :: InvertedRepositoryMap -> [FrameworkAvailability] -> [GitRepoAvailability]
+  :: InvertedRepositoryMap -> [FrameworkAvailability] -> [ProjectAvailability]
 getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap =
   concatMap mergeRepoAvailabilities
     . groupAvailabilities
     . getGitRepoAvalabilities
  where
-  getGitRepoAvalabilities :: [FrameworkAvailability] -> [GitRepoAvailability]
+  getGitRepoAvalabilities :: [FrameworkAvailability] -> [ProjectAvailability]
   getGitRepoAvalabilities =
     fmap getGitRepoAvailabilityFromFrameworkAvailability
 
   getGitRepoAvailabilityFromFrameworkAvailability
-    :: FrameworkAvailability -> GitRepoAvailability
+    :: FrameworkAvailability -> ProjectAvailability
   getGitRepoAvailabilityFromFrameworkAvailability (FrameworkAvailability (FrameworkVersion fwn v) availabilities)
-    = GitRepoAvailability (repoNameForFrameworkName reverseRomeMap fwn)
+    = ProjectAvailability (repoNameForFrameworkName reverseRomeMap fwn)
                           v
                           availabilities
 
-  groupAvailabilities :: [GitRepoAvailability] -> [[GitRepoAvailability]]
-  groupAvailabilities = groupBy ((==) `on` _availabilityRepo)
-    . sortBy (compare `on` _availabilityRepo)
+  groupAvailabilities :: [ProjectAvailability] -> [[ProjectAvailability]]
+  groupAvailabilities = groupBy ((==) `on` _availabilityProject)
+    . sortBy (compare `on` _availabilityProject)
 
-  -- | Given a list of `GitRepoAvailability`s produces a singleton list of
-  -- | `GitRepoAvailability`s containing all `PlatformAvailability`s of the
+  -- | Given a list of `ProjectAvailability`s produces a singleton list of
+  -- | `ProjectAvailability`s containing all `PlatformAvailability`s of the
   -- | original list.
   --
-  -- >>> let g1 = GitRepoAvailability (GitRepoName "Alamofire") (Version "1") [PlatformAvailability IOS True]
-  -- >>> let g2 = GitRepoAvailability (GitRepoName "Alamofire") (Version "2") [PlatformAvailability MacOS True]
-  -- >>> let g3 = GitRepoAvailability (GitRepoName "CoreStore") (Version "3") [PlatformAvailability TVOS True]
+  -- >>> let g1 = ProjectAvailability (ProjectName "Alamofire") (Version "1") [PlatformAvailability IOS True]
+  -- >>> let g2 = ProjectAvailability (ProjectName "Alamofire") (Version "2") [PlatformAvailability MacOS True]
+  -- >>> let g3 = ProjectAvailability (ProjectName "CoreStore") (Version "3") [PlatformAvailability TVOS True]
   -- >>> mergeRepoAvailabilities [g1, g2, g3]
-  -- [GitRepoAvailability {_availabilityRepo = GitRepoName {unGitRepoName = "Alamofire"}
+  -- [ProjectAvailability {_availabilityRepo = ProjectName {unProjectName = "Alamofire"}
   --                      , _availabilityVersion = Version {unVersion = "1"}
   --                      , _repoPlatformAvailabilities = [PlatformAvailability {_availabilityPlatform = iOS, _isAvailable = True}
   --                                                      ,PlatformAvailability {_availabilityPlatform = macOS, _isAvailable = True}
   --                                                      ,PlatformAvailability {_availabilityPlatform = tvOS, _isAvailable = True}]
   --                      }
   -- ]
-  mergeRepoAvailabilities :: [GitRepoAvailability] -> [GitRepoAvailability]
+  mergeRepoAvailabilities :: [ProjectAvailability] -> [ProjectAvailability]
   mergeRepoAvailabilities [] = []
   mergeRepoAvailabilities repoAvailabilities@(x : _) =
     [x { _repoPlatformAvailabilities = platformAvailabilities }]

@@ -42,10 +42,10 @@ noIgnoreParser = NoIgnoreFlag <$> Opts.switch
        "Ignore the [IgnoreMap] section in the current Romefile when performing the operation."
   )
 
-reposParser :: Opts.Parser [GitRepoName]
+reposParser :: Opts.Parser [ProjectName]
 reposParser = Opts.many
   (Opts.argument
-    (GitRepoName <$> str)
+    (ProjectName <$> str)
     (  Opts.metavar "FRAMEWORKS..."
     <> Opts.help
          "Zero or more framework names. If zero, all frameworks and dSYMs are uploaded."
@@ -128,6 +128,21 @@ listPayloadParser =
 listParser :: Opts.Parser RomeCommand
 listParser = List <$> listPayloadParser
 
+utilsPayloadParser :: Opts.Parser RomeUtilsPayload
+utilsPayloadParser =  RomeUtilsPayload <$> romeUtilsSubcommandParser
+
+romeUtilsSubcommandParser :: Opts.Parser RomeUtilsSubcommand
+romeUtilsSubcommandParser =  Opts.subparser 
+  $ Opts.command
+      "migrate-romefile" 
+      (pure MigrateRomefile
+      `withInfo` "Migrates a Romefile from INI to YAML."
+      )
+
+
+utilsParser :: Opts.Parser RomeCommand
+utilsParser = Utils <$> utilsPayloadParser
+
 parseRomeCommand :: Opts.Parser RomeCommand
 parseRomeCommand =
   Opts.subparser
@@ -145,6 +160,11 @@ parseRomeCommand =
          "list"
          (listParser
          `withInfo` "Lists frameworks in the cache and reports cache misses/hits, according to the local Cartfile.resolved. Ignores dSYMs."
+         )
+    <> Opts.command
+         "utils"
+         (utilsParser
+         `withInfo` "A series of utilities to make life easier. `rome utils --help` to know more"
          )
 
 parseRomeOptions :: Opts.Parser RomeOptions

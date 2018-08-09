@@ -6,9 +6,10 @@ import           Data.Carthage.TargetPlatform
 data RomeCommand = Upload RomeUDCPayload
                   | Download RomeUDCPayload
                   | List RomeListPayload
+                  | Utils RomeUtilsPayload
                   deriving (Show, Eq)
 
-data RomeUDCPayload = RomeUDCPayload { _payload            :: [GitRepoName]
+data RomeUDCPayload = RomeUDCPayload { _payload            :: [ProjectName]
                                      , _udcPlatforms       :: [TargetPlatform]
                                      , _cachePrefix        :: String
                                     --  , _verifyFlag         :: VerifyFlag
@@ -16,6 +17,11 @@ data RomeUDCPayload = RomeUDCPayload { _payload            :: [GitRepoName]
                                      , _noIgnoreFlag       :: NoIgnoreFlag
                                      }
                                      deriving (Show, Eq)
+
+data RomeUtilsPayload = RomeUtilsPayload { _subcommand :: RomeUtilsSubcommand }
+                                         deriving (Show, Eq)
+
+data RomeUtilsSubcommand = MigrateRomefile deriving (Show, Eq)
 
 -- newtype VerifyFlag = VerifyFlag { _verify :: Bool } deriving (Show, Eq)
 

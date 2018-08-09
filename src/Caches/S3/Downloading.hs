@@ -76,12 +76,12 @@ getDSYMFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt
 -- | Retrieves a .version file from S3
 getVersionFileFromS3
   :: S3.BucketName
-  -> GitRepoNameAndVersion
+  -> ProjectNameAndVersion
   -> ExceptT
        String
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
        LBS.ByteString
-getVersionFileFromS3 s3BucketName gitRepoNameAndVersion = do
+getVersionFileFromS3 s3BucketName projectNameAndVersion = do
   (env, CachePrefix prefix, verbose) <- ask
   let finalVersionFileRemotePath = prefix </> versionFileRemotePath
   mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3
@@ -89,8 +89,8 @@ getVersionFileFromS3 s3BucketName gitRepoNameAndVersion = do
     finalVersionFileRemotePath
     versionFileName
  where
-  versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
-  versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion
+  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
+  versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
 
 
 

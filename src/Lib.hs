@@ -28,6 +28,7 @@ import           Control.Monad.Reader         (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans.Maybe    (exceptToMaybeT, runMaybeT)
 import qualified Data.ByteString.Char8        as BS (pack)
 import qualified Data.ByteString.Lazy         as LBS
+import           Data.Yaml                    (encodeFile)
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
 import           Data.Either.Extra            (maybeToEither)
@@ -94,23 +95,37 @@ runRomeWithOptions
   :: RomeOptions -- ^ The `RomeOptions` to run Rome with.
   -> RomeVersion
   -> RomeMonad ()
-runRomeWithOptions (RomeOptions options verbose) romeVersion = do
-  cartfileEntries     <- getCartfileEntires
-  romeFileParseResult <- getRomefileEntries
+runRomeWithOptions (RomeOptions options verbose) romeVersion = 
+  case options of
+    Utils utilsPayload ->
+      runUtilsCommand options verbose romeVersion
+    otherCommad ->
+      runUDCCommand options verbose romeVersion
+      
+runUtilsCommand :: RomeCommand -> Bool -> RomeVersion -> RomeMonad ()
+runUtilsCommand command verbose romeVersion = do
+  romeFileEntries <- getRomefileEntries
+  lift $ encodeFile romefileName romeFileEntries
+
+
+runUDCCommand :: RomeCommand -> Bool -> RomeVersion -> RomeMonad ()
+runUDCCommand command verbose romeVersion = do
+  cartfileEntries <- getCartfileEntires
+  romeFile <- getRomefileEntries
 
   let respositoryMap =
-        toRepositoryMap $ romeFileParseResult ^. repositoryMapEntries
+        toRepositoryMap $ romeFile ^. repositoryMapEntries
   let reverseRepositoryMap =
-        toInvertedRepositoryMap $ romeFileParseResult ^. repositoryMapEntries
+        toInvertedRepositoryMap $ romeFile ^. repositoryMapEntries
   let ignoreNames =
-        concatMap frameworkCommonNames $ romeFileParseResult ^. ignoreMapEntries
+        concatMap _frameworks $ romeFile ^. ignoreMapEntries
 
-  let cInfo         = romeFileParseResult ^. cacheInfo
+  let cInfo         = romeFile ^. cacheInfo
   let mS3BucketName = S3.BucketName <$> cInfo ^. bucket
 
   mlCacheDir <- liftIO $ traverse absolutizePath $ cInfo ^. localCacheDir
 
-  case options of
+  case command of
 
     Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag)
       -> do
@@ -209,6 +224,8 @@ runRomeWithOptions (RomeOptions options verbose) romeVersion = do
                               printFormat
                )
                (cachePrefix, SkipLocalCacheFlag False, verbose)
+
+    _ -> throwError "Error: Programming Error. Only List, Download, Upload commands are supported."
  where
   sayVersionWarning vers verb = runMaybeT $ exceptToMaybeT $ do
     let sayFunc = if verb then sayLnWithTime else sayLn
@@ -230,7 +247,7 @@ listArtifacts
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> ListMode -- ^ A list mode to execute this operation in.
-  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to limit the operation to.
   -> PrintFormat -- ^ A format of the string result: text or JSON.
@@ -257,17 +274,17 @@ listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVe
 
 
 
--- | Produces a list of `GitRepoAvailability`s for Frameworks
+-- | Produces a list of `ProjectAvailability`s for Frameworks
 getRepoAvailabilityFromCaches
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
-  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .verison files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to.
   -> ReaderT
        (CachePrefix, SkipLocalCacheFlag, Bool)
        RomeMonad
-       [GitRepoAvailability]
+       [ProjectAvailability]
 getRepoAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap frameworkVersions platforms
   = do
     env                       <- lift getAWSRegion
@@ -307,7 +324,7 @@ getRepoAvailabilityFromCaches Nothing Nothing _ _ _ =
 downloadArtifacts
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
-  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .verison files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
@@ -368,7 +385,7 @@ downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersion
       (Nothing, Nothing) -> throwError bothCacheKeysMissingMessage
  where
 
-  gitRepoNamesAndVersions :: [GitRepoNameAndVersion]
+  gitRepoNamesAndVersions :: [ProjectNameAndVersion]
   gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVersions
     reverseRepositoryMap
     frameworkVersions
@@ -379,7 +396,7 @@ downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersion
 uploadArtifacts
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
-  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .verison files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
@@ -424,7 +441,7 @@ uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions 
       (Nothing, Nothing) -> throwError bothCacheKeysMissingMessage
  where
 
-  gitRepoNamesAndVersions :: [GitRepoNameAndVersion]
+  gitRepoNamesAndVersions :: [ProjectNameAndVersion]
   gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVersions
     reverseRepositoryMap
     frameworkVersions
@@ -435,7 +452,7 @@ uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions 
 uploadVersionFilesToCaches
   :: S3.BucketName -- ^ The chache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
-  -> [GitRepoNameAndVersion] -- ^ A list of `GitRepoName` and `Version` information.
+  -> [ProjectNameAndVersion] -- ^ A list of `ProjectName` and `Version` information.
   -> ReaderT UploadDownloadCmdEnv IO ()
 uploadVersionFilesToCaches s3Bucket mlCacheDir =
   mapM_ (uploadVersionFileToCaches s3Bucket mlCacheDir)
@@ -446,9 +463,9 @@ uploadVersionFilesToCaches s3Bucket mlCacheDir =
 uploadVersionFileToCaches
   :: S3.BucketName -- ^ The chache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
-  -> GitRepoNameAndVersion -- ^ The information used to derive the name and path for the .version file.
+  -> ProjectNameAndVersion -- ^ The information used to derive the name and path for the .version file.
   -> ReaderT UploadDownloadCmdEnv IO ()
-uploadVersionFileToCaches s3BucketName mlCacheDir gitRepoNameAndVersion = do
+uploadVersionFileToCaches s3BucketName mlCacheDir projectNameAndVersion = do
   (env, cachePrefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
 
   versionFileExists <- liftIO $ doesFileExist versionFileLocalPath
@@ -461,17 +478,17 @@ uploadVersionFileToCaches s3BucketName mlCacheDir gitRepoNameAndVersion = do
       <$> mlCacheDir
       <*> Just cachePrefix
       <*> Just versionFileContent
-      <*> Just gitRepoNameAndVersion
+      <*> Just projectNameAndVersion
       <*> Just verbose
     liftIO $ runReaderT
       (uploadVersionFileToS3 s3BucketName
                              versionFileContent
-                             gitRepoNameAndVersion
+                             projectNameAndVersion
       )
       (env, cachePrefix, verbose)
  where
 
-  versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
+  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
   versionFileLocalPath = carthageBuildDirectory </> versionFileName
 
 
@@ -480,7 +497,7 @@ uploadVersionFileToCaches s3BucketName mlCacheDir gitRepoNameAndVersion = do
 uploadFrameworksAndArtifactsToCaches
   :: S3.BucketName -- ^ The chache definition.
   -> Maybe FilePath -- ^ Just the path to a local cache or Nothing
-  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` idenfitying the Frameworks and dSYMs.
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
@@ -497,7 +514,7 @@ uploadFrameworksAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fvs
 uploadFrameworkAndArtifactsToCaches
   :: S3.BucketName -- ^ The chache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
-  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
@@ -602,7 +619,7 @@ uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVers
 saveFrameworksAndArtifactsToLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition.
-  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` idenfitying Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` restricting the scope of this action.
   -> ReaderT (CachePrefix, Bool) m ()
@@ -618,7 +635,7 @@ saveFrameworksAndArtifactsToLocalCache lCacheDir reverseRomeMap fvs = mapM_
 saveFrameworkAndArtifactsToLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition
-  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVersion -- ^ A `FrameworkVersion` idenfitying Framework and dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT (CachePrefix, Bool) m ()
@@ -682,7 +699,7 @@ saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(Framewo
 downloadVersionFilesFromCaches
   :: S3.BucketName -- ^ The chache definition.
   -> Maybe FilePath  -- ^ Just the local cache path or Nothing
-  -> [GitRepoNameAndVersion] -- ^ A list of `GitRepoName`s and `Version`s information.
+  -> [ProjectNameAndVersion] -- ^ A list of `ProjectName`s and `Version`s information.
   -> ReaderT UploadDownloadCmdEnv IO ()
 downloadVersionFilesFromCaches s3BucketName lDir =
   mapM_ (downloadVersionFileFromCaches s3BucketName lDir)
@@ -695,22 +712,22 @@ downloadVersionFilesFromCaches s3BucketName lDir =
 downloadVersionFileFromCaches
   :: S3.BucketName -- ^ The chache definition.
   -> Maybe FilePath -- ^ Just the local cache path or Nothing
-  -> GitRepoNameAndVersion -- ^ The `GitRepoName` and `Version` information.
+  -> ProjectNameAndVersion -- ^ The `ProjectName` and `Version` information.
   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadVersionFileFromCaches s3BucketName (Just lCacheDir) gitRepoNameAndVersion
+downloadVersionFileFromCaches s3BucketName (Just lCacheDir) projectNameAndVersion
   = do
     (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, verbose) <-
       ask
 
     when skipLocalCache $ downloadVersionFileFromCaches s3BucketName
                                                         Nothing
-                                                        gitRepoNameAndVersion
+                                                        projectNameAndVersion
 
     unless skipLocalCache $ do
       eitherSuccess <- runReaderT
         (runExceptT $ getAndSaveVersionFileFromLocalCache
           lCacheDir
-          gitRepoNameAndVersion
+          projectNameAndVersion
         )
         (cachePrefix, verbose)
       case eitherSuccess of
@@ -724,7 +741,7 @@ downloadVersionFileFromCaches s3BucketName (Just lCacheDir) gitRepoNameAndVersio
               e2 <- runExceptT $ do
                 versionFileBinary <- getVersionFileFromS3
                   s3BucketName
-                  gitRepoNameAndVersion
+                  projectNameAndVersion
                 saveBinaryToLocalCache lCacheDir
                                        versionFileBinary
                                        (prefix </> versionFileRemotePath)
@@ -740,25 +757,25 @@ downloadVersionFileFromCaches s3BucketName (Just lCacheDir) gitRepoNameAndVersio
             )
             (env, cachePrefix, verbose)
  where
-  versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
+  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
   versionFileLocalPath = carthageBuildDirectory </> versionFileName
-  versionFileRemotePath = remoteVersionFilePath gitRepoNameAndVersion
+  versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
 
-downloadVersionFileFromCaches s3BucketName Nothing gitRepoNameAndVersion = do
+downloadVersionFileFromCaches s3BucketName Nothing projectNameAndVersion = do
   (env, cachePrefix, _, verbose) <- ask
   let sayFunc :: MonadIO m => String -> m ()
       sayFunc = if verbose then sayLnWithTime else sayLn
   eitherError <- liftIO $ runReaderT
     (runExceptT $ do
       versionFileBinary <- getVersionFileFromS3 s3BucketName
-                                                gitRepoNameAndVersion
+                                                projectNameAndVersion
       liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
       sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
     )
     (env, cachePrefix, verbose)
   whenLeft sayFunc eitherError
  where
-  versionFileName = versionFileNameForGitRepoName $ fst gitRepoNameAndVersion
+  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
   versionFileLocalPath = carthageBuildDirectory </> versionFileName
 
 
@@ -767,7 +784,7 @@ downloadVersionFileFromCaches s3BucketName Nothing gitRepoNameAndVersion = do
 downloadFrameworksAndArtifactsFromCaches
   :: S3.BucketName -- ^ The chache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
-  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` indentifying the Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
@@ -789,7 +806,7 @@ downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap 
 downloadFrameworkAndArtifactsFromCaches
   :: S3.BucketName -- ^ The chache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
-  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and dSYM
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
@@ -966,17 +983,17 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVer
 
 
 
--- | Given a `ListMode` and a `GitRepoAvailability` produces a `String`
--- describing the `GitRepoAvailability` for a given `ListMode`.
+-- | Given a `ListMode` and a `ProjectAvailability` produces a `String`
+-- describing the `ProjectAvailability` for a given `ListMode`.
 formattedRepoAvailability
   :: ListMode -- ^ A given `ListMode`.
-  -> GitRepoAvailability -- ^ A given `GitRepoAvailability`.
+  -> ProjectAvailability -- ^ A given `ProjectAvailability`.
   -> String
-formattedRepoAvailability listMode (GitRepoAvailability (GitRepoName rn) (Version v) pas)
+formattedRepoAvailability listMode (ProjectAvailability (ProjectName pn) (Version v) pas)
   | null filteredAvailabilities
   = ""
   | otherwise
-  = unwords [rn, v, ":", formattedAvailabilities]
+  = unwords [pn, v, ":", formattedAvailabilities]
  where
   filteredAvailabilities = filterAccordingToListMode listMode pas
   formattedAvailabilities =
@@ -984,8 +1001,8 @@ formattedRepoAvailability listMode (GitRepoAvailability (GitRepoName rn) (Versio
 
 
 
-formattedRepoAvailabilityJSON :: GitRepoAvailability -> RepoJSON
-formattedRepoAvailabilityJSON (GitRepoAvailability (GitRepoName name) (Version version) ps)
+formattedRepoAvailabilityJSON :: ProjectAvailability -> RepoJSON
+formattedRepoAvailabilityJSON (ProjectAvailability (ProjectName name) (Version version) ps)
   = RepoJSON
     { name          = name
     , Types.version = version

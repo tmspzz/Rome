@@ -145,32 +145,34 @@ prop_romefileINIToYamlToRomefile_idempotent_romefileINI t =
 
 main :: IO ()
 main = do
+
+  
   putStrLn "prop_filterByNameEqualTo_idempotent"
-  quickCheck prop_filterByNameEqualTo_idempotent
+  quickCheck (withMaxSuccess 1000 prop_filterByNameEqualTo_idempotent)
 
   putStrLn "prop_filterByNameEqualTo_smaller"
-  quickCheck prop_filterByNameEqualTo_smaller
+  quickCheck (withMaxSuccess 1000 prop_filterByNameEqualTo_smaller)
 
   putStrLn "prop_filterByNameEqualTo_model"
-  quickCheck prop_filterByNameEqualTo_model
+  quickCheck (withMaxSuccess 1000 prop_filterByNameEqualTo_model)
 
   putStrLn "prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent"
-  quickCheck prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent
+  quickCheck (withMaxSuccess 1000 prop_filterOutFrameworkNamesAndVersionsIfNotIn_idempotent)
 
   putStrLn "prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller"
-  quickCheck prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller
+  quickCheck (withMaxSuccess 1000 prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller)
 
   putStrLn "prop_filterOutFrameworkNamesAndVersionsIfNotIn_model"
-  quickCheck prop_filterOutFrameworkNamesAndVersionsIfNotIn_model
+  quickCheck (withMaxSuccess 1000 prop_filterOutFrameworkNamesAndVersionsIfNotIn_model)
 
   putStrLn "prop_split_length"
-  quickCheck prop_split_length
+  quickCheck (withMaxSuccess 1000 prop_split_length)
 
   putStrLn "prop_split_string"
-  quickCheck prop_split_string
+  quickCheck (withMaxSuccess 1000 prop_split_string)
 
   putStrLn "prop_parse_dwarf_dumpUUID"
-  quickCheck prop_parse_dwarf_dumpUUID
+  quickCheck (withMaxSuccess 1000 prop_parse_dwarf_dumpUUID)
 
   putStrLn "prop_romefileINIToYamlToRomefile_idempotent_romefileINI"
-  quickCheck prop_romefileINIToYamlToRomefile_idempotent_romefileINI
+  quickCheck (withMaxSuccess 1000 prop_romefileINIToYamlToRomefile_idempotent_romefileINI)

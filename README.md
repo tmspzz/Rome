@@ -28,7 +28,7 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 	- [Selecting the AWS Region](#selecting-the-aws-region)
 	- [Setting up endpoint override for Minio, Ceph, or other S3 compatible stores](#setting-up-endpoint-override)
 	- [Romefile](#romefile)
-		- [Cache section](#cache-section)
+		- [Cache](#cache)
 		- [RepositoryMap](#repositorymap)
 		- [IgnoreMap](#ignoremap)
 			- [Multiple Aliases](#multiple-aliases)
@@ -39,6 +39,7 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 	- [Uploading](#uploading)
 	- [Downloading](#downloading)
 	- [Listing](#listing)
+  - [Utils](#utils)
 - [Troubleshooting & FAQ](#troubleshooting--faq)
 	- [Getting "Image not found" when running an application using binaries](#getting-image-not-found-when-running-an-application-using-binaries)
 	- [Supporting multiple Swift Versions](#supporting-multiple-swift-versions)
@@ -61,6 +62,8 @@ pod 'Rome'
 This will download Rome to the `Pods/` folder during your next `pod install`
 execution and will allow you to invoke it via `${PODS_ROOT}/Rome/rome` in your
 Script Build Phases.
+
+### Manual
 
 The Rome binary is also attached as a zip to each release on the [releases page](https://github.com/blender/Rome/releases) here on GitHub.
 
@@ -216,38 +219,69 @@ Alternatively the endpoint can also be specified by setting an `AWS_ENDPOINT` en
 
 ### Romefile
 
+#### About the format
+Since version `0.17.0.47` the Romefile is in [YAML](https://learnxinyminutes.com/docs/yaml/) format.
+Rome can still read the [INI](https://en.wikipedia.org/wiki/INI_file) Romefile, for now.
+
+__Sucessive release might abandon compatibility__.
+
+Feature support that require additions or changes to the Romefile __won't be supported in INI__.
+
+You can migrate your Romefile to YAML by running `rome utils migrate-romefile`.
+
+If you are looking for the documention prior to `0.17.0.47`, check the [wiki](https://github.com/blender/Rome/wiki/Romefile-prior-0.17.x.x)
+
+#### Purpose
+
 The Romefile has three purposes:
 
-1. Specifies what caches to use - `[Cache]` section. This section is __required__.
-1. Allows to use custom name mappings between repository names and framework names - `[RepositoryMap]` section. This section is __optional__ and can be omitted.
-1. Allows to ignore certain framework names - `[IgnoreMap]` section. This section is __optional__ and can be omitted.
+1. Specifies what caches to use - `cache` key. This key is __required__.
+1. Allows to use custom name mappings between repository names and framework names - `repositoryMap` key. This key is __optional__ and can be omitted.
+1. Allows to ignore certain framework names - `ignoreMap` key. This key is __optional__ and can be omitted.
 
 A Romefile looks like this:
 
+```yaml
+cache: # required
+  local: ~/Library/Caches/Rome # optional
+                               # at least one between `local` and `s3Bucket` is required
+  s3Bucket: ios-dev-bucket # optional
+                           # at least one between `local` and `s3Bucket` is required 
+respositoryMap: # optional
+- better-dog-names: # entry that does not follow
+                    # the "Organization/FrameworkName" convention.
+  - name: DogFramework # required
+    type: static # optional, defaults to dynamic
+- HockeySDK-iOS:
+  - name: HockeySDK
+- awesome-framework-for-cat-names:
+  - name: CatFramework
+  - type: dynamic
+ignoreMap:
+- GDCWebServer:
+  - name: GDCWebServer
+- xcconfigs:
+  - name: xcconfigs
 ```
-[Cache]
-  S3-Bucket = ios-dev-bucket
-  local = ~/Library/Caches/Rome/
 
-[RepositoryMap]
-  HockeySDK-iOS = HockeySDK
-  awesome-framework-for-cat-names = CatFramework
-  better-dog-names = DogFramework
-
-[IgnoreMap]
-  xcconfigs = xcconfigs
-```  
-
-The Romefile is in the [INI format](https://en.wikipedia.org/wiki/INI_file)
-
-#### Cache section
-This section must contain __at least one__ between:
-- the name of the S3 Bucket to upload/download to/from. The key `S3-Bucket` is __optional__ since Rome `0.11.0.x`.
+#### Cache
+The cache __must__ contain __at least one__ between:
+- the name of the S3 Bucket to upload/download to/from. The key `s3Bucket` is __optional__.
 - the path to local directory to use as an additional cache. The key `local` is __optional__.
 
+```yaml
+cache: # required
+  local: ~/Library/Caches/Rome # optional
+                               # at least one between `local` and `s3Bucket` is required
+  s3Bucket: ios-dev-bucket # optional
+                           # at least one between `local` and `s3Bucket` is required 
+```
+
+This is already a viable Romefile.
+
 #### RepositoryMap
-This contains the mappings of git repository names with framework names.
-This is particularly useful in case you are not using github and the "Organization/FrameworkName" convention.
+This contains the mappings of repository and framework names.
+This is particularly useful in case you are not using GitHub and the "Organization/FrameworkName" convention.
 
 Example:
 
@@ -272,20 +306,28 @@ git "http://stash.myAnimalStartup.com/scm/iossdk/better-dog-names.git" "0.4.4"
 but your framework names are actually `HockeySDK`, `CatFramework` and `DogFramework`
 as opposed to `HockeySDK-iOS`, `awesome-framework-for-cat-names` and `better-dog-names`.
 
-simply add a `[RepositoryMap]` section to your `Romefile` and specify the following mapping:
+simply add a `repositoryMap` key to your `Romefile` and specify the following mapping:
 
+```yaml
+cache:
+  local: ~/Library/Caches/Rome 
+respositoryMap:
+- better-dog-names: # this is the Romefile Entry for  `better-dog-names`
+  - name: DogFramework
+    type: static
+- HockeySDK-iOS: # this is the Romefile Entry for  `HockeySDK-iOS`
+  - name: HockeySDK
+- awesome-framework-for-cat-names:  # this is the Romefile Entry for  `awesome-framework-for-cat-names`
+  - name: CatFramework
+  - type: dynamic
 ```
-[Cache]
-  S3-Bucket = ios-dev-bucket
 
-[RepositoryMap]
-  HockeySDK-iOS = HockeySDK
-  awesome-framework-for-cat-names = CatFramework
-  better-dog-names = DogFramework
-```
+Each entry in the `ReporistoryMap` is reffert to as a `Romefile Entry`
+
+Note that __it was not necessary to add Alamofire__ as it respects the "Organization/FrameworkName" convention.
 
 #### IgnoreMap
-This contains the mappings of git repository names and framework names should be ignored.
+This contains the mappings of repository and framework names that should be ignored.
 This is particularly useful in case not all your `Cartfile.resolved` entries produce a framework.
 
 Some repositories use Carthage as a simple mechanism to include other git repositories that do not produce frameworks.
@@ -301,41 +343,48 @@ github "Quick/Nimble"
 github "jspahrsummers/xcconfigs"
 ```
 
-`xcconfigs` can be ignored by Rome by adding an `IgnoreMap` section in the Romefile
+`xcconfigs` can be ignored by Rome by adding an `ignoreMap` key in the Romefile
 
 
+```yaml
+ignoreMap:
+- xcconfigs:
+  - name: xcconfigs
 ```
-[IgnoreMap]
-  xcconfigs = xcconfigs
-```
+
+Each entry in the `IgnoreMap` is also a `Romefile Entry`
 
 ##### Multiple Aliases
 
-Since version `0.6.0.10` Rome supports multiple aliases for one map entry.
 Suppose you have a framework `Framework` that builds two targets, `t1` and `t2`,
 Rome can handle both targets by specifying
 
-```
-[RepositoryMap]
-  Framework = t1, t2
+```yaml
+repositoryMap:
+- Framework: 
+  - name: t1
+  - name: t2
 ```
 
-If __ANY__ of the aliases is missing on S3, the entire entry will be reported as missing
+__Note__: if __ANY__ of the aliases is missing on S3, the entire entry will be reported as missing
 when running `rome list [--missing]`
 
-Multiple aliases are supported in `[IgnoreMap]` too
+Multiple aliases are supported in `ignoreMap` too
 
 ##### Static Frameworks
 
 Since version [0.30.1](https://github.com/Carthage/Carthage/releases/tag/0.30.1) Carthage has support for Static Frameworks. 
-To indicate that one of the aliases is a Static Framework, modify the RepositoryMap like so:
+To indicate that one of the aliases is a Static Framework, modify the `repositoryMap` like so:
 
-```
-[RepositoryMap]
-  Framework = static/t1, t2
+```yaml
+repositoryMap:
+- Framework: 
+  - name: t1
+    type: static
+  - name: t2
 ```
 
-If left unspecified, an alias is a Dynamic Framework by default.
+If left unspecified, an alias is a __Dynamic Framework by default__.
 
 ### Cache Structure
 
@@ -445,7 +494,7 @@ Getting help:
 
 ```bash
 $ rome --help
-S3 cache tool for Carthage
+Cache tool for Carthage
 
 Usage: rome COMMAND [-v]
 
@@ -460,10 +509,12 @@ Available commands:
                            local Cartfile.resolved
   download                 Downloads and unpacks in Carthage/Build/<platform>
                            frameworks and dSYMs found in S3, according to the
-                           local Carftfile.resolved
+                           local Cartfile.resolved
   list                     Lists frameworks in the cache and reports cache
                            misses/hits, according to the local
-                           Carftfile.resolved. Ignores dSYMs.
+                           Cartfile.resolved. Ignores dSYMs.
+  utils                    A series of utilities to make life easier. `rome
+                           utils --help` to know more
 ```
 
 ### Uploading
@@ -572,6 +623,17 @@ Note: `list` __completely ignores dSYMs, bcsymbolmap and Carthage version files_
 or a [Carthage version file](https://github.com/Carthage/Carthage/blob/master/Documentation/VersionFile.md)
 is missing, __the corresponding framework is still reported as present__.
 
+### Utils
+
+A collection of utilities to make life easier.
+
+### migrate-romefile
+
+Migrate the Romefile from INI to YAML __in place__, by running:
+
+`rome ultils migrate-romefile`
+
+
 ## Troubleshooting & FAQ
 
 ### Getting "Image not found" when running an application using binaries
@@ -619,7 +681,13 @@ for an in depth explanation.
 1. Install [Stack](https://github.com/commercialhaskell/stack) via homebrew `brew install stack`
 1. Clone the repo `git clone https://github.com/blender/Rome.git`
 1. `cd Rome && stack build`
+1. Optional: Install brittany via `stack install brittany`
+1. Optional: Install hlint via `stack install hlint`
+
+### IDE
+
 1. Optional: If you use VIM install [haskell-vim-how](https://github.com/begriffs/haskell-vim-now)
+1. Optional: If you are using [Visual Studio Code](https://code.visualstudio.com/) install [Haskero](https://marketplace.visualstudio.com/items?itemName=Vans.haskero)
 
 ## Releasing
 

@@ -70,9 +70,8 @@ data Framework = Framework { _frameworkName :: String
                            deriving (Eq, Show, Ord, Generic)
 
 instance ToJSON Framework where
-  toJSON = genericToJSON
-    defaultOptions
-      { fieldLabelModifier = map toLower . drop (length ("_framework" :: String)) }
+  toJSON (Framework fName fType) = object fields
+    where fields = (T.pack "name" .= fName) : [T.pack "type" .= fType | fType /= Dynamic]
 
 instance FromJSON Framework where
   parseJSON = withObject "Framework" $ \v -> Framework
@@ -121,9 +120,9 @@ instance FromJSON RomeFile where
 instance ToJSON RomeFile where
   toJSON (RomeFile cInfo rMap iMap) = object fields
     where
-      fields =  [T.pack "cache" .= cInfo]
-        ++ [T.pack "respositoryMap" .= rMap | not $ null rMap]
-        ++ [T.pack "ignoreMap" .= rMap | not $ null iMap]
+      fields = (T.pack "cache" .= cInfo) 
+        : [T.pack "respositoryMap" .= rMap | not $ null rMap]
+        ++ [T.pack "ignoreMap" .= iMap | not $ null iMap]
 
 frameworkName :: Lens' Framework String
 frameworkName = lens

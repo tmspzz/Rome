@@ -2,7 +2,6 @@
 
 # Rome [![Build Status](https://travis-ci.org/blender/Rome.svg?branch=master)](https://travis-ci.org/blender/Rome) [![rome-latest](https://img.shields.io/badge/release-v0.16.0.46-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.16.0.46) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
 
-
 Rome is a tool that allows developers on Apple platforms to use:
 
 - Amazon's S3
@@ -12,6 +11,12 @@ Rome is a tool that allows developers on Apple platforms to use:
 - or/and a local folder
 
 as a shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
+
+Trusted by: [Search Github](https://github.com/search?utf8=%E2%9C%93&q=filename%3ARomefile&type=Code)
+
+<a href="https://www.sharecare.com"><img src="https://www.hmnads.com/wp-content/uploads/2015/06/Sharecare-logo.png" alt="sharecare" height="90px"/></a>
+<a href="https://line.me"><img src="https://vignette.wikia.nocookie.net/starwars/images/b/b1/LINE_Corp_logo.png/revision/latest?cb=20170923181031" alt="linecorp" height="90px"/></a>
+<a href="https://www.daimler-tss.com"><img src="https://www.hdm-stuttgart.de/unternehmen/karrieremarktplatz/anmeldung/aussteller_uploads/99/dLlVePMVtu191516349018.png" alt="DaimlerTSS" height="90px"/></a><a href="https://www.mozilla.com"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Mozilla_logo.svg/2000px-Mozilla_logo.svg.png" alt="Mozilla" height="90px"/></a><a href="https://www.brave.com"><img src="https://brave.com/brave-branding-assets/images/brave_logo_2color_fulltrim_screen.png" alt="Brave" height="90px"/></a>
 
 **Table of Contents**
 
@@ -46,7 +51,6 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 - [Developing](#developing)
 - [Releasing](#releasing)
 - [Presentations and Tutorials](#presentations-and-tutorials)
-- [Who uses Rome?](#who-uses-rome)
 - [License](#license)
 
 ## Get Rome
@@ -239,6 +243,19 @@ The Romefile has three purposes:
 1. Allows to use custom name mappings between repository names and framework names - `repositoryMap` key. This key is __optional__ and can be omitted.
 1. Allows to ignore certain framework names - `ignoreMap` key. This key is __optional__ and can be omitted.
 
+#### Structure
+
+A Romefile is made of 3 objects, of which only one, the `cache`, is mandatory.
+
+- A `cache` definition object
+- A `repositoryMap` made of a list of `Romefile Entry`
+- An `ignoreMap` made of a  list of `Romefile Entry`
+
+Each `Romefile Entry` is made of:
+
+- A `name`
+- A `type` which can be `static` or `dynamic`
+
 A Romefile looks like this:
 
 ```yaml
@@ -256,12 +273,10 @@ respositoryMap: # optional
   - name: HockeySDK
 - awesome-framework-for-cat-names:
   - name: CatFramework
-  - type: dynamic
+    type: dynamic
 ignoreMap:
 - GDCWebServer:
   - name: GDCWebServer
-- xcconfigs:
-  - name: xcconfigs
 ```
 
 #### Cache
@@ -281,7 +296,7 @@ This is already a viable Romefile.
 
 #### RepositoryMap
 This contains the mappings of repository and framework names.
-This is particularly useful in case you are not using GitHub and the "Organization/FrameworkName" convention.
+This is particularly useful if dependecies are not on GitHub or don't respect the "Organization/FrameworkName" convention.
 
 Example:
 
@@ -321,8 +336,6 @@ respositoryMap:
   - name: CatFramework
   - type: dynamic
 ```
-
-Each entry in the `ReporistoryMap` is reffert to as a `Romefile Entry`
 
 Note that __it was not necessary to add Alamofire__ as it respects the "Organization/FrameworkName" convention.
 
@@ -687,7 +700,7 @@ for an in depth explanation.
 ### IDE
 
 1. Optional: If you use VIM install [haskell-vim-how](https://github.com/begriffs/haskell-vim-now)
-1. Optional: If you are using [Visual Studio Code](https://code.visualstudio.com/) install [Haskero](https://marketplace.visualstudio.com/items?itemName=Vans.haskero)
+1. Optional: If you use [Visual Studio Code](https://code.visualstudio.com/) install [Haskero](https://marketplace.visualstudio.com/items?itemName=Vans.haskero)
 
 ## Releasing
 
@@ -711,13 +724,6 @@ Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org
 
 [![cocoaheads-berlin-video-presentation](http://i.imgur.com/1vC8jYq.png)](https://www.youtube.com/watch?v=2cCIuidT9VA)
 
-## Who uses Rome?
-
-[Search Github](https://github.com/search?utf8=%E2%9C%93&q=filename%3ARomefile&type=Code)
-
-<a href="https://www.sharecare.com"><img src="https://www.hmnads.com/wp-content/uploads/2015/06/Sharecare-logo.png" alt="sharecare" height="90px"/></a>
-<a href="https://line.me"><img src="https://vignette.wikia.nocookie.net/starwars/images/b/b1/LINE_Corp_logo.png/revision/latest?cb=20170923181031" alt="linecorp" height="90px"/></a>
-<a href="https://www.daimler-tss.com"><img src="https://www.hdm-stuttgart.de/unternehmen/karrieremarktplatz/anmeldung/aussteller_uploads/99/dLlVePMVtu191516349018.png" alt="DaimlerTSS" height="90px"/></a><a href="https://www.mozilla.com"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Mozilla_logo.svg/2000px-Mozilla_logo.svg.png" alt="Mozilla" height="90px"/></a><a href="https://www.brave.com"><img src="https://brave.com/brave-branding-assets/images/brave_logo_2color_fulltrim_screen.png" alt="Brave" height="90px"/></a>
 ## License
 Rome is released under MIT License
 

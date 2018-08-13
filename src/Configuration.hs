@@ -22,7 +22,7 @@ getCartfileEntires = do
     Left e -> throwError $ "Carfile.resolved parse error: " ++ show e
     Right cartfileEntries -> return cartfileEntries
 
-getRomefileEntries :: RomeMonad RomeFile
+getRomefileEntries :: RomeMonad Romefile
 getRomefileEntries = 
   let fromYaml = ExceptT $ left prettyPrintParseException <$> decodeFileEither romefileName
       fromIni = ExceptT $ parseRomefile <$> T.readFile romefileName 
@@ -34,15 +34,15 @@ getS3ConfigFile :: MonadIO m => m FilePath
 getS3ConfigFile = (</> awsConfigFilePath) `liftM` liftIO getHomeDirectory
   where awsConfigFilePath = ".aws/config"
 
--- carthageBuildDirectoryForPlatform :: TargetPlatform -> FilePath
--- carthageBuildDirectoryForPlatform platform = carthageBuildDirectory </> show platform
-
 carthageBuildDirectory :: FilePath
 carthageBuildDirectory = "Carthage" </> "Build"
 
+
+-- | The Carthage build directory based on the `TargetPlatform` and the `FrameworkType`
+--   from `Framework`. Ignores the `TargetPlatform` list in `Framework`
 carthageArtifactsBuildDirectoryForPlatform
   :: TargetPlatform -> Framework -> FilePath
-carthageArtifactsBuildDirectoryForPlatform platform (Framework n Dynamic) =
+carthageArtifactsBuildDirectoryForPlatform platform (Framework n Dynamic _) =
   carthageBuildDirectory </> show platform
-carthageArtifactsBuildDirectoryForPlatform platform (Framework n Static) =
+carthageArtifactsBuildDirectoryForPlatform platform (Framework n Static _) =
   carthageBuildDirectory </> show platform </> "Static"

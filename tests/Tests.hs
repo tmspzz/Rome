@@ -3,6 +3,7 @@ module Main where
 import           Control.Arrow          (left, right)
 import           Control.Monad
 import           Data.Carthage.Cartfile
+import           Data.Carthage.TargetPlatform
 import           Data.Either            (rights)
 import           Data.List              (intercalate)
 import           Data.Yaml              (decodeEither', encode)
@@ -27,7 +28,10 @@ instance Arbitrary FrameworkType where
   arbitrary = oneof $ fmap return [Dynamic, Static]
 
 instance Arbitrary Framework where
-  arbitrary = Framework <$> nonEmptyString <*> arbitrary
+  arbitrary = Framework <$> nonEmptyString <*> arbitrary <*> (listOf1 $ arbitrary)
+
+instance Arbitrary TargetPlatform where
+  arbitrary = oneof $ fmap return [IOS, MacOS, WatchOS, TVOS]
 
 instance Arbitrary Version where
   arbitrary = Version <$> nonEmptyString
@@ -107,7 +111,7 @@ data TestRomefile = TestRomefile { hasLocalCache :: Bool
 
 instance Arbitrary TestRomefile where
   arbitrary = do
-    (blCache, bS3Bucket) <- arbitrary `suchThat` (\(a, b) -> a || b == True) :: Gen (Bool, Bool)
+    (blCache, bS3Bucket) <- arbitrary `suchThat` (\(a, b) -> a || b ) :: Gen (Bool, Bool)
     TestRomefile blCache bS3Bucket <$> arbitrary <*> arbitrary
 
 

@@ -25,7 +25,7 @@ uploadFrameworkToS3
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework.
   -> TargetPlatform -- ^ A `TargetPlatform`s restricting the scope of this action.
   -> ReaderT UploadDownloadEnv IO ()
-uploadFrameworkToS3 frameworkArchive s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt) version) platform
+uploadFrameworkToS3 frameworkArchive s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
   = do
     (env, CachePrefix prefix, verbose) <- ask
     withReaderT (const (env, verbose)) $ uploadBinary
@@ -47,7 +47,7 @@ uploadDsymToS3
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT UploadDownloadEnv IO ()
-uploadDsymToS3 dSYMArchive s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt) version) platform
+uploadDsymToS3 dSYMArchive s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
   = do
     (env, CachePrefix prefix, verbose) <- ask
     withReaderT (const (env, verbose)) $ uploadBinary
@@ -68,7 +68,7 @@ uploadBcsymbolmapToS3
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT UploadDownloadEnv IO ()
-uploadBcsymbolmapToS3 dwarfUUID dwarfArchive s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt) version) platform
+uploadBcsymbolmapToS3 dwarfUUID dwarfArchive s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
   = do
     (env, CachePrefix prefix, verbose) <- ask
     withReaderT (const (env, verbose)) $ uploadBinary

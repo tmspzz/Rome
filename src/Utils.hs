@@ -143,15 +143,15 @@ splitWithSeparator a = T.split (== a)
 
 -- | Appends the string ".framework" to a `Framework`'s name.
 appendFrameworkExtensionTo :: Framework -> String
-appendFrameworkExtensionTo (Framework a _) = a ++ ".framework"
+appendFrameworkExtensionTo (Framework a _ _) = a ++ ".framework"
 
 
 
 -- | Given a `Framework` and a `Version` produces a name for a Zip archive.
 frameworkArchiveName :: Framework -> Version -> String
-frameworkArchiveName f@(Framework _ Dynamic) (Version v) =
+frameworkArchiveName f@(Framework _ Dynamic _) (Version v) =
   appendFrameworkExtensionTo f ++ "-" ++ v ++ ".zip"
-frameworkArchiveName f@(Framework _ Static) (Version v) =
+frameworkArchiveName f@(Framework _ Static _) (Version v) =
   appendFrameworkExtensionTo f ++ "-" ++ "static" ++ "-" ++ v ++ ".zip"
 
 
@@ -159,9 +159,9 @@ frameworkArchiveName f@(Framework _ Static) (Version v) =
 -- | Given a `Framework` and a `Version` produces a name
 -- | for a dSYM Zip archive.
 dSYMArchiveName :: Framework -> Version -> String
-dSYMArchiveName f@(Framework _ Dynamic) (Version v) =
+dSYMArchiveName f@(Framework _ Dynamic _) (Version v) =
   appendFrameworkExtensionTo f ++ ".dSYM" ++ "-" ++ v ++ ".zip"
-dSYMArchiveName f@(Framework _ Static) (Version v) =
+dSYMArchiveName f@(Framework _ Static _) (Version v) =
   appendFrameworkExtensionTo f
     ++ ".dSYM"
     ++ "-"
@@ -400,10 +400,9 @@ deriveFrameworkNameAndVersion
   :: RepositoryMap -> CartfileEntry -> [FrameworkVersion]
 deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry _ _ v) =
   map (`FrameworkVersion` v) $ fromMaybe
-    [Framework repositoryName Dynamic]
+    [Framework repositoryName Dynamic allTargetPlatforms]
     (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
   where repositoryName = unProjectName $ gitRepoNameFromCartfileEntry cfe
-
 
 
 -- | Given a `RepositoryMap` and a list of `ProjectName`s produces another

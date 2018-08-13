@@ -143,15 +143,15 @@ splitWithSeparator a = T.split (== a)
 
 -- | Appends the string ".framework" to a `Framework`'s name.
 appendFrameworkExtensionTo :: Framework -> String
-appendFrameworkExtensionTo (Framework a _) = a ++ ".framework"
+appendFrameworkExtensionTo (Framework a _ _) = a ++ ".framework"
 
 
 
 -- | Given a `Framework` and a `Version` produces a name for a Zip archive.
 frameworkArchiveName :: Framework -> Version -> String
-frameworkArchiveName f@(Framework _ Dynamic) (Version v) =
+frameworkArchiveName f@(Framework _ Dynamic _) (Version v) =
   appendFrameworkExtensionTo f ++ "-" ++ v ++ ".zip"
-frameworkArchiveName f@(Framework _ Static) (Version v) =
+frameworkArchiveName f@(Framework _ Static _) (Version v) =
   appendFrameworkExtensionTo f ++ "-" ++ "static" ++ "-" ++ v ++ ".zip"
 
 
@@ -159,9 +159,9 @@ frameworkArchiveName f@(Framework _ Static) (Version v) =
 -- | Given a `Framework` and a `Version` produces a name
 -- | for a dSYM Zip archive.
 dSYMArchiveName :: Framework -> Version -> String
-dSYMArchiveName f@(Framework _ Dynamic) (Version v) =
+dSYMArchiveName f@(Framework _ Dynamic _) (Version v) =
   appendFrameworkExtensionTo f ++ ".dSYM" ++ "-" ++ v ++ ".zip"
-dSYMArchiveName f@(Framework _ Static) (Version v) =
+dSYMArchiveName f@(Framework _ Static _) (Version v) =
   appendFrameworkExtensionTo f
     ++ ".dSYM"
     ++ "-"
@@ -232,8 +232,19 @@ filterByFrameworkEqualTo versions f =
 -- | in the list of `Framework`.
 filterOutFrameworksAndVersionsIfNotIn
   :: [FrameworkVersion] -> [Framework] -> [FrameworkVersion]
-filterOutFrameworksAndVersionsIfNotIn verions fs =
-  [ v | v <- verions, _framework v `notElem` fs ]
+filterOutFrameworksAndVersionsIfNotIn versions frameworks = do
+  ver@(FrameworkVersion f@(Framework n t ps) v) <- versions -- For each version
+  let filtered = (\(Framework nF tF psF) -> nF == n && tF == t) `filter` frameworks -- filter the frameworks to exclude based on name and type, not on the platforms
+  if null filtered -- If none match
+    then return ver -- don't filter this FrameworkVersion out
+    else do  -- if there there are matches
+        (Framework n2 t2 ps2) <- filtered -- for each entry that matches
+        if not . null . _frameworkPlatforms $ (f `removePlatformsIn` ps2) -- check if the the entry completely filters out the FrameworkVersion
+          then return $ FrameworkVersion (f `removePlatformsIn` ps2) v -- if it doesn't, then remove from f the platforms that appear in the filter above.
+          else [] -- if it does, remove it
+  where
+    removePlatformsIn :: Framework -> [TargetPlatform] -> Framework
+    removePlatformsIn (Framework n t ps) rPs = Framework n t [ p | p <- ps, p `notElem` rPs ]
 
 
 
@@ -400,10 +411,9 @@ deriveFrameworkNameAndVersion
   :: RepositoryMap -> CartfileEntry -> [FrameworkVersion]
 deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry _ _ v) =
   map (`FrameworkVersion` v) $ fromMaybe
-    [Framework repositoryName Dynamic]
+    [Framework repositoryName Dynamic allTargetPlatforms]
     (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
   where repositoryName = unProjectName $ gitRepoNameFromCartfileEntry cfe
-
 
 
 -- | Given a `RepositoryMap` and a list of `ProjectName`s produces another

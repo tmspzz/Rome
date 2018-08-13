@@ -14,9 +14,6 @@ instance Show TargetPlatform where
  show TVOS     = "tvOS"
  show WatchOS  = "watchOS"
 
-allTargetPlatforms :: [TargetPlatform]
-allTargetPlatforms = [IOS, MacOS, TVOS, WatchOS]
-
 instance Read TargetPlatform where
  readPrec = parens $ do
    L.Ident s <- lexP
@@ -27,3 +24,7 @@ instance Read TargetPlatform where
       "tvos"    -> return TVOS
       "watchos" -> return WatchOS
       a         -> error $ "Unrecognized platform " ++ a
+
+
+allTargetPlatforms :: [TargetPlatform]
+allTargetPlatforms = [IOS, MacOS, WatchOS, TVOS]

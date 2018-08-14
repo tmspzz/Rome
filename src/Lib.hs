@@ -209,12 +209,12 @@ runUDCCommand command verbose romeVersion = do
 
     List (RomeListPayload listMode platforms cachePrefixString printFormat noIgnoreFlag)
       -> let finalIgnoreNames =
-               if _noIgnore noIgnoreFlag then [] else ignoreNames
-             frameworkVersions =
-               deriveFrameworkNamesAndVersion respositoryMap cartfileEntries
-                 `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
+              if _noIgnore noIgnoreFlag then [] else ignoreNames
+             derivedFrameworkVersions = deriveFrameworkNamesAndVersion respositoryMap cartfileEntries
+             frameworkVersions = derivedFrameworkVersions `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
              cachePrefix = CachePrefix cachePrefixString
-         in  runReaderT
+         in 
+          runReaderT
                (listArtifacts mS3BucketName
                               mlCacheDir
                               listMode
@@ -259,7 +259,7 @@ listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVe
   = do
     (_, _, verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
-    repoAvailabilities <- getRepoAvailabilityFromCaches mS3BucketName
+    repoAvailabilities <- getProjectAvailabilityFromCaches mS3BucketName
                                                         mlCacheDir
                                                         reverseRepositoryMap
                                                         frameworkVersions
@@ -275,7 +275,7 @@ listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVe
 
 
 -- | Produces a list of `ProjectAvailability`s for Frameworks
-getRepoAvailabilityFromCaches
+getProjectAvailabilityFromCaches
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
@@ -285,7 +285,7 @@ getRepoAvailabilityFromCaches
        (CachePrefix, SkipLocalCacheFlag, Bool)
        RomeMonad
        [ProjectAvailability]
-getRepoAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap frameworkVersions platforms
+getProjectAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap frameworkVersions platforms
   = do
     env                       <- lift getAWSRegion
     (cachePrefix, _, verbose) <- ask
@@ -301,7 +301,7 @@ getRepoAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap framewo
       reverseRepositoryMap
       availabilities
 
-getRepoAvailabilityFromCaches Nothing (Just lCacheDir) reverseRepositoryMap frameworkVersions platforms
+getProjectAvailabilityFromCaches Nothing (Just lCacheDir) reverseRepositoryMap frameworkVersions platforms
   = do
     (cachePrefix, SkipLocalCacheFlag skipLocalCache, _) <- ask
     when skipLocalCache $ throwError conflictingSkipLocalCacheOptionMessage
@@ -315,7 +315,7 @@ getRepoAvailabilityFromCaches Nothing (Just lCacheDir) reverseRepositoryMap fram
       reverseRepositoryMap
       availabilities
 
-getRepoAvailabilityFromCaches Nothing Nothing _ _ _ =
+getProjectAvailabilityFromCaches Nothing Nothing _ _ _ =
   throwError bothCacheKeysMissingMessage
 
 

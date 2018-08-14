@@ -28,8 +28,8 @@ saveFrameworkToLocalCache
   -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
-saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap (FrameworkVersion f@(Framework _ _ _) version) platform
-  = do
+saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap (FrameworkVersion f@(Framework _ _ fwps) version) platform
+  = when (platform `elem` fwps) $ do
     (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
@@ -53,7 +53,7 @@ saveDsymToLocalCache
   -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
 saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
-  = do
+  = when (platform `elem` fwps) $ do
     (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir
@@ -74,8 +74,8 @@ saveBcsymbolmapToLocalCache
   -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
-saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap (FrameworkVersion f@(Framework _ _ _) version) platform
-  = do
+saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap (FrameworkVersion f@(Framework _ _ fwps) version) platform
+  = when (platform `elem` fwps) $ do
     (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
     unless skipLocalCache $ saveBinaryToLocalCache
       lCacheDir

@@ -232,8 +232,19 @@ filterByFrameworkEqualTo versions f =
 -- | in the list of `Framework`.
 filterOutFrameworksAndVersionsIfNotIn
   :: [FrameworkVersion] -> [Framework] -> [FrameworkVersion]
-filterOutFrameworksAndVersionsIfNotIn verions fs =
-  [ v | v <- verions, _framework v `notElem` fs ]
+filterOutFrameworksAndVersionsIfNotIn versions frameworks = do
+  ver@(FrameworkVersion f@(Framework n t ps) v) <- versions -- For each version
+  let filtered = (\(Framework nF tF psF) -> nF == n && tF == t) `filter` frameworks -- filter the frameworks to exclude based on name and type, not on the platforms
+  if null filtered -- If none match
+    then return ver -- don't filter this FrameworkVersion out
+    else do  -- if there there are matches
+        (Framework n2 t2 ps2) <- filtered -- for each entry that matches
+        if not . null . _frameworkPlatforms $ (f `removePlatformsIn` ps2) -- check if the the entry completely filters out the FrameworkVersion
+          then return $ FrameworkVersion (f `removePlatformsIn` ps2) v -- if it doesn't, then remove from f the platforms that appear in the filter above.
+          else [] -- if it does, remove it
+  where
+    removePlatformsIn :: Framework -> [TargetPlatform] -> Framework
+    removePlatformsIn (Framework n t ps) rPs = Framework n t [ p | p <- ps, p `notElem` rPs ]
 
 
 

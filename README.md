@@ -1,6 +1,7 @@
 ![](logo/colosseum.jpg)
 
 # Rome [![Build Status](https://travis-ci.org/blender/Rome.svg?branch=master)](https://travis-ci.org/blender/Rome) [![rome-latest](https://img.shields.io/badge/release-v0.16.0.46-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.16.0.46) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fblender%2FRome.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fblender%2FRome?ref=badge_shield)
 
 Rome is a tool that allows developers on Apple platforms to use:
 
@@ -728,3 +729,6 @@ Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org
 Rome is released under MIT License
 
 Logo courtesy of [TeddyBear[Picnic]](http://www.freedigitalphotos.net/images/view_photog.php?photogid=3407) at FreeDigitalPhotos.net
+
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fblender%2FRome.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fblender%2FRome?ref=badge_large)

@@ -9,7 +9,7 @@
 
 module Data.Romefile
     ( parseRomefile
-    , romefileName
+    , canonicalRomefileName
     , RomefileEntry (..)
     , Framework (..)
     , ProjectName (..)
@@ -188,9 +188,9 @@ bucket = lens _bucket (\cInfo n -> cInfo { _bucket = n })
 localCacheDir :: Lens' RomeCacheInfo (Maybe FilePath)
 localCacheDir = lens _localCacheDir (\cInfo n -> cInfo { _localCacheDir = n })
 
--- |The name of the Romefile
-romefileName :: String
-romefileName = "Romefile"
+-- |The canonical name of the Romefile
+canonicalRomefileName :: String
+canonicalRomefileName = "Romefile"
 
 -- |The delimiter of the CACHE section a Romefile
 cacheSectionDelimiter :: T.Text

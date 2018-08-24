@@ -148,7 +148,7 @@ parseRomefilePath = Opts.strOption
   <> Opts.metavar "PATH"
   <> Opts.long "romefile"
   <> Opts.help
-       "The path to the Romemefile to use. Defaults the Romefile in then current directory."
+       "The path to the Romemefile to use. Defaults to the \"Romefile\" in the current directory."
   )
 
 parseRomeCommand :: Opts.Parser RomeCommand

@@ -5,7 +5,7 @@ import           Control.Monad
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
 import           Data.Either            (rights)
-import           Data.List              (intercalate, nub)
+import           Data.List              (intercalate, nub, intersect)
 import           Data.Yaml              (decodeEither', encode)
 import           Data.Romefile
 import qualified Data.Text              as T
@@ -113,7 +113,6 @@ instance Arbitrary TestRomefile where
     (blCache, bS3Bucket) <- arbitrary `suchThat` (\(a, b) -> a || b ) :: Gen (Bool, Bool)
     TestRomefile blCache bS3Bucket <$> arbitrary <*> arbitrary
 
-
 toIniText :: TestRomefile -> T.Text
 toIniText r = T.pack $ "[Cache]\n" ++ if hasLocalCache r
   then "  local = ~/some/path\n"
@@ -146,10 +145,21 @@ prop_romefileINIToYamlToRomefile_idempotent_romefileINI t =
       .   decodeEither'
     ]
 
+prop_filterRomeFileEntriesByPlatforms_idempotent :: [RomefileEntry] -> [RomefileEntry] -> Bool
+prop_filterRomeFileEntriesByPlatforms_idempotent base filteringValues = 
+  base `filterRomeFileEntriesByPlatforms` filteringValues 
+    == (base `filterRomeFileEntriesByPlatforms` filteringValues) `filterRomeFileEntriesByPlatforms` filteringValues
+
+prop_filterRomeFileEntriesByPlatforms_filters :: [RomefileEntry] -> [RomefileEntry] -> Bool 
+prop_filterRomeFileEntriesByPlatforms_filters base filteringValues = null $ (base `filterRomeFileEntriesByPlatforms` filteringValues) `intersect` filteringValues 
+
+
+prop_filterRomeFileEntriesByPlatforms_min :: [RomefileEntry] -> [RomefileEntry] -> Bool
+prop_filterRomeFileEntriesByPlatforms_min base filteringValues = (length $ base `filterRomeFileEntriesByPlatforms` filteringValues) <= length base
+
 main :: IO ()
 main = do
 
-  
   putStrLn "prop_filterByNameEqualTo_idempotent"
   quickCheck (withMaxSuccess 1000 prop_filterByNameEqualTo_idempotent)
 
@@ -179,3 +189,12 @@ main = do
 
   putStrLn "prop_romefileINIToYamlToRomefile_idempotent_romefileINI"
   quickCheck (withMaxSuccess 1000 prop_romefileINIToYamlToRomefile_idempotent_romefileINI)
+
+  putStrLn "prop_filterRomeFileEntriesByPlatforms_idempotent"
+  quickCheck (withMaxSuccess 1000 prop_filterRomeFileEntriesByPlatforms_idempotent)
+  
+  putStrLn "prop_filterRomeFileEntriesByPlatforms_min"
+  quickCheck (withMaxSuccess 1000 prop_filterRomeFileEntriesByPlatforms_min)
+
+  putStrLn "prop_filterRomeFileEntriesByPlatforms_filters"
+  quickCheck (withMaxSuccess 1000 prop_filterRomeFileEntriesByPlatforms_filters)

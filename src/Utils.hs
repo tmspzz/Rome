@@ -31,6 +31,7 @@ import qualified Data.Text                    as T
 import           Data.Text.Encoding
 import qualified Data.Text.IO                 as T
 import           Data.Time
+import           Debug.Trace
 import qualified Network.AWS                  as AWS (Error)
 import           Network.HTTP.Conduit         as HTTP
 import           Network.HTTP.Types.Header    as HTTP (hUserAgent)
@@ -234,17 +235,36 @@ filterOutFrameworksAndVersionsIfNotIn
   :: [FrameworkVersion] -> [Framework] -> [FrameworkVersion]
 filterOutFrameworksAndVersionsIfNotIn versions frameworks = do
   ver@(FrameworkVersion f@(Framework n t ps) v) <- versions -- For each version
-  let filtered = (\(Framework nF tF psF) -> nF == n && tF == t) `filter` frameworks -- filter the frameworks to exclude based on name and type, not on the platforms
+  let filtered =
+        (\(Framework nF tF psF) -> nF == n && tF == t) `filter` frameworks -- filter the frameworks to exclude based on name and type, not on the platforms
   if null filtered -- If none match
     then return ver -- don't filter this FrameworkVersion out
     else do  -- if there there are matches
-        (Framework n2 t2 ps2) <- filtered -- for each entry that matches
-        if not . null . _frameworkPlatforms $ (f `removePlatformsIn` ps2) -- check if the the entry completely filters out the FrameworkVersion
-          then return $ FrameworkVersion (f `removePlatformsIn` ps2) v -- if it doesn't, then remove from f the platforms that appear in the filter above.
-          else [] -- if it does, remove it
-  where
-    removePlatformsIn :: Framework -> [TargetPlatform] -> Framework
-    removePlatformsIn (Framework n t ps) rPs = Framework n t [ p | p <- ps, p `notElem` rPs ]
+      let op =
+            f `removePlatformsIn` nub (concatMap _frameworkPlatforms filtered)
+      guard (not . null $ _frameworkPlatforms op) -- if the entry completely filters out the FrameworkVersion then remove it
+      return $ FrameworkVersion op v -- if it doesn't, then remove from f the platforms that appear in the filter above.
+ where
+  removePlatformsIn :: Framework -> [TargetPlatform] -> Framework
+  removePlatformsIn (Framework n t ps) rPs =
+    Framework n t [ p | p <- ps, p `notElem` rPs ]
+
+
+
+removeIntersectingPlatforms :: [Framework] -> [Framework] -> [Framework]
+removeIntersectingPlatforms lhs rhs = do
+  f <- lhs
+  return $ foldl removeIntersectingPlatforms' f rhs
+ where
+  -- | Given a `Framework` and a list of `TargetPlatform`
+  -- | remove the overlapping platforms
+  removeIntersectingPlatforms' :: Framework -> Framework -> Framework
+  removeIntersectingPlatforms' f1@(Framework n t ps) f2@(Framework n2 t2 ps2)
+    | n == n2 && t == t2 && (not . null) (ps `intersect` ps2) = Framework
+      n
+      t
+      [ p | p <- ps, p `notElem` ps2 ]
+    | otherwise = f1
 
 
 
@@ -257,16 +277,39 @@ restrictRepositoryMapToGitRepoName repoMap repoName =
 
 
 
+-- | Given two lists of `RomefileEntry`, adjust the entries in one list
+-- | according to entries in the other list. Specifically remove the platforms that
+-- | are common in both entries. If the resulting platforms are empty, remove the entry.
+filterRomeFileEntriesByPlatforms
+  :: [RomefileEntry] -> [RomefileEntry] -> [RomefileEntry]
+filterRomeFileEntriesByPlatforms lhs rhs =
+  (uncurry RomefileEntry <$>) . M.toList $ lhsMap `purgingPlatformsIn` rhsMap
+ where
+  purgingPlatformsIn = M.differenceWith purge
+  purge a b =
+    let op =
+          (\(Framework nt t ps) -> not . null $ ps)
+            `filter` (a `removeIntersectingPlatforms` b)
+    in  Just op
+  lhsMap = toRepositoryMap lhs
+  rhsMap = toRepositoryMap rhs
+
+
+
 -- | Builds a string representing the remote path to a framework zip archive.
 remoteFrameworkPath
   :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
 remoteFrameworkPath p r f v =
   remoteCacheDirectory p r f ++ frameworkArchiveName f v
 
+
+
 -- | Builds a `String` representing the remote path to a dSYM zip archive
 remoteDsymPath
   :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
 remoteDsymPath p r f v = remoteCacheDirectory p r f ++ dSYMArchiveName f v
+
+
 
 -- | Builds a `String` representing the remote path to a bcsymbolmap zip archive
 remoteBcsymbolmapPath
@@ -341,15 +384,6 @@ repoNameForFrameworkName :: InvertedRepositoryMap -> Framework -> ProjectName
 repoNameForFrameworkName reverseRomeMap framework = fromMaybe
   (ProjectName . _frameworkName $ framework)
   (M.lookup framework reverseRomeMap)
-
-
-
--- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVersion` produces
--- | a list of __unique__ `ProjectName`s
-repoNamesForFrameworkVersion
-  :: InvertedRepositoryMap -> [FrameworkVersion] -> [ProjectName]
-repoNamesForFrameworkVersion reverseRomeMap =
-  nub . map (repoNameForFrameworkName reverseRomeMap . _framework)
 
 
 
@@ -495,9 +529,7 @@ absolutizePath aPath
   | "~" `T.isPrefixOf` T.pack aPath = do
     homePath <- getHomeDirectory
     return $ normalise $ addTrailingPathSeparator homePath ++ Prelude.tail aPath
-  | otherwise = do
-    pathMaybeWithDots <- absolute_path aPath
-    return $ fromJust $ guess_dotdot pathMaybeWithDots
+  | otherwise = fromJust . guess_dotdot <$> absolute_path aPath
 
 
 

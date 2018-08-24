@@ -16,8 +16,6 @@ module Data.Romefile
     , Romefile (..)
     , RomeCacheInfo (..)
     , cacheInfo
-    , repositoryMapEntries
-    , ignoreMapEntries
     , bucket
     , localCacheDir
     , frameworkName
@@ -56,7 +54,8 @@ instance ToJSON FrameworkType where
   toJSON = genericToJSON defaultOptions { constructorTagModifier = map toLower }
 
 instance FromJSON FrameworkType where
-  parseJSON = genericParseJSON defaultOptions { constructorTagModifier = map toLower }
+  parseJSON = withText "FrameworkType" $ \v ->
+    return (read $ T.unpack v)
 
 instance Read FrameworkType where
   readPrec = parens $ do
@@ -125,6 +124,17 @@ instance FromJSON RomefileEntry where
 instance ToJSON RomefileEntry where
   toJSON (RomefileEntry (ProjectName prjname) fwrks) = object [T.pack prjname .= fwrks]
 
+
+cacheJSONKey :: T.Text
+cacheJSONKey = "cache"
+
+repositoryMapJSONKey :: T.Text
+repositoryMapJSONKey = "repositoryMap"
+
+ignoreMapJSONKey :: T.Text
+ignoreMapJSONKey = "ignoreMap"
+
+
 data Romefile = Romefile { _cacheInfo            :: RomeCacheInfo
                          , _repositoryMapEntries :: [RomefileEntry]
                          , _ignoreMapEntries     :: [RomefileEntry]
@@ -133,16 +143,16 @@ data Romefile = Romefile { _cacheInfo            :: RomeCacheInfo
 
 instance FromJSON Romefile where
   parseJSON = withObject "Romefile" $ \v -> Romefile
-    <$> v .: "cache"
-    <*> v .:? "respositoryMap" .!= []
-    <*> v .:? "ignoreMap" .!= []
+    <$> v .: cacheJSONKey
+    <*> v .:? repositoryMapJSONKey .!= []
+    <*> v .:? ignoreMapJSONKey .!= []
 
 instance ToJSON Romefile where
   toJSON (Romefile cInfo rMap iMap) = object fields
     where
-      fields = (T.pack "cache" .= cInfo)
-        : [T.pack "respositoryMap" .= rMap | not $ null rMap]
-        ++ [T.pack "ignoreMap" .= iMap | not $ null iMap]
+      fields = (cacheJSONKey .= cInfo)
+        : [ repositoryMapJSONKey .= rMap | not $ null rMap]
+        ++ [ ignoreMapJSONKey .= iMap | not $ null iMap]
 
 frameworkName :: Lens' Framework String
 frameworkName = lens
@@ -156,16 +166,6 @@ frameworkType = lens
 
 cacheInfo :: Lens' Romefile RomeCacheInfo
 cacheInfo = lens _cacheInfo (\parseResult n -> parseResult { _cacheInfo = n })
-
-repositoryMapEntries :: Lens' Romefile [RomefileEntry]
-repositoryMapEntries = lens
-  _repositoryMapEntries
-  (\parseResult n -> parseResult { _repositoryMapEntries = n })
-
-ignoreMapEntries :: Lens' Romefile [RomefileEntry]
-ignoreMapEntries = lens
-  _ignoreMapEntries
-  (\parseResult n -> parseResult { _ignoreMapEntries = n })
 
 data RomeCacheInfo = RomeCacheInfo { _bucket        :: Maybe T.Text
                                    , _localCacheDir :: Maybe FilePath -- relative path

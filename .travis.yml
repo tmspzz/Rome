@@ -30,7 +30,7 @@ jobs:
         - rake hlint:install[2.1.8]
 
         # Download and install minio
-        - test ! -e $HOME/.local/bin/minio && travis_retry wget -O $HOME/.local/bin/minio https://dl.minio.io/server/minio/release/darwin-amd64/minio || echo "Minio already in cache"
+        - travis_retry wget -O $HOME/.local/bin/minio https://dl.minio.io/server/minio/release/darwin-amd64/minio || echo "Minio already in cache"
         - chmod +x $HOME/.local/bin/minio
 
         # Install Carthage
@@ -45,7 +45,8 @@ jobs:
         - stack $ARGS build
         - stack $ARGS sdist
         - stack $ARGS install
-        - travis_wait 30 bats integration-tests/dynamic-frameworks.bats
+        - travis_wait 30 bats integration-tests/dynamic-frameworks-ini.bats
+        - travis_wait 30 bats integration-tests/dynamic-frameworks-yml.bats
     - stage: "Build"
       name: "Build Rome & Test Static Frameworks"
       env:
@@ -81,7 +82,8 @@ jobs:
         - stack $ARGS build
         - stack $ARGS sdist
         - stack $ARGS install
-        - travis_wait 30 bats integration-tests/static-frameworks.bats
+        - travis_wait 30 bats integration-tests/static-frameworks-ini.bats
+        - travis_wait 30 bats integration-tests/static-frameworks-yml.bats
 
 cache:
   directories:

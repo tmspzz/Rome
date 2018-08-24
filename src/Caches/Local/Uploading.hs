@@ -7,6 +7,7 @@ import           Configuration
 import           Control.Monad                (unless, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader         (ReaderT, ask)
+import           Debug.Trace
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.TargetPlatform
 import           Data.Monoid                  ((<>))

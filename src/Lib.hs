@@ -26,6 +26,7 @@ import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Reader         (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans.Maybe    (exceptToMaybeT, runMaybeT)
+import           Debug.Trace
 import qualified Data.ByteString.Char8        as BS (pack)
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Yaml                    (encodeFile)
@@ -95,33 +96,28 @@ runRomeWithOptions
   :: RomeOptions -- ^ The `RomeOptions` to run Rome with.
   -> RomeVersion
   -> RomeMonad ()
-runRomeWithOptions (RomeOptions options verbose) romeVersion = 
-  case options of
-    Utils utilsPayload ->
-      runUtilsCommand options verbose romeVersion
-    otherCommad ->
-      runUDCCommand options verbose romeVersion
-      
+runRomeWithOptions (RomeOptions options verbose) romeVersion = case options of
+  Utils utilsPayload -> runUtilsCommand options verbose romeVersion
+  otherCommad        -> runUDCCommand options verbose romeVersion
+
 runUtilsCommand :: RomeCommand -> Bool -> RomeVersion -> RomeMonad ()
 runUtilsCommand command verbose romeVersion = do
-  romeFileEntries <- getRomefileEntries
-  lift $ encodeFile romefileName romeFileEntries
-
+  case command of
+    Utils _ -> do
+      romeFileEntries <- getRomefileEntries
+      lift $ encodeFile romefileName romeFileEntries
+    _ -> throwError "Error: Programming Error. Only Utils command supported."
 
 runUDCCommand :: RomeCommand -> Bool -> RomeVersion -> RomeMonad ()
 runUDCCommand command verbose romeVersion = do
   cartfileEntries <- getCartfileEntires
-  romeFile <- getRomefileEntries
+  romeFile        <- getRomefileEntries
 
-  let respositoryMap =
-        toRepositoryMap $ romeFile ^. repositoryMapEntries
-  let reverseRepositoryMap =
-        toInvertedRepositoryMap $ romeFile ^. repositoryMapEntries
-  let ignoreNames =
-        concatMap _frameworks $ romeFile ^. ignoreMapEntries
-
-  let cInfo         = romeFile ^. cacheInfo
-  let mS3BucketName = S3.BucketName <$> cInfo ^. bucket
+  let ignoreMapEntries     = _ignoreMapEntries romeFile
+  let repositoryMapEntries = _repositoryMapEntries romeFile
+  let ignoreFrameworks     = concatMap _frameworks ignoreMapEntries
+  let cInfo                = romeFile ^. cacheInfo
+  let mS3BucketName        = S3.BucketName <$> cInfo ^. bucket
 
   mlCacheDir <- liftIO $ traverse absolutizePath $ cInfo ^. localCacheDir
 
@@ -132,13 +128,26 @@ runUDCCommand command verbose romeVersion = do
 
         sayVersionWarning romeVersion verbose
 
+        let
+          finalRepositoryMapEntries =
+            if _noIgnore noIgnoreFlag
+            then
+              repositoryMapEntries
+            else
+              repositoryMapEntries
+                `filterRomeFileEntriesByPlatforms` ignoreMapEntries
+        let repositoryMap = toRepositoryMap finalRepositoryMapEntries
+        let reverseRepositoryMap =
+              toInvertedRepositoryMap finalRepositoryMapEntries
         let finalIgnoreNames =
-              if _noIgnore noIgnoreFlag then [] else ignoreNames
+              if _noIgnore noIgnoreFlag then [] else ignoreFrameworks
 
         if null gitRepoNames
           then
-            let frameworkVersions =
-                  deriveFrameworkNamesAndVersion respositoryMap cartfileEntries
+            let derivedFrameworkVersions =
+                  deriveFrameworkNamesAndVersion repositoryMap cartfileEntries
+                frameworkVersions =
+                  derivedFrameworkVersions
                     `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                 cachePrefix = CachePrefix cachePrefixString
             in  runReaderT
@@ -150,12 +159,13 @@ runUDCCommand command verbose romeVersion = do
                   )
                   (cachePrefix, skipLocalCache, verbose)
           else
-            let frameworkVersions =
-                  deriveFrameworkNamesAndVersion
-                      respositoryMap
-                      (filterCartfileEntriesByGitRepoNames gitRepoNames
-                                                           cartfileEntries
-                      )
+            let derivedFrameworkVersions = deriveFrameworkNamesAndVersion
+                  repositoryMap
+                  (filterCartfileEntriesByGitRepoNames gitRepoNames
+                                                       cartfileEntries
+                  )
+                frameworkVersions =
+                  derivedFrameworkVersions
                     `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                 cachePrefix = CachePrefix cachePrefixString
             in  runReaderT
@@ -172,13 +182,26 @@ runUDCCommand command verbose romeVersion = do
 
         sayVersionWarning romeVersion verbose
 
+        let
+          finalRepositoryMapEntries =
+            if _noIgnore noIgnoreFlag
+            then
+              repositoryMapEntries
+            else
+              repositoryMapEntries
+                `filterRomeFileEntriesByPlatforms` ignoreMapEntries
+        let repositoryMap = toRepositoryMap finalRepositoryMapEntries
+        let reverseRepositoryMap =
+              toInvertedRepositoryMap finalRepositoryMapEntries
         let finalIgnoreNames =
-              if _noIgnore noIgnoreFlag then [] else ignoreNames
+              if _noIgnore noIgnoreFlag then [] else ignoreFrameworks
 
         if null gitRepoNames
           then
-            let frameworkVersions =
-                  deriveFrameworkNamesAndVersion respositoryMap cartfileEntries
+            let derivedFrameworkVersions =
+                  deriveFrameworkNamesAndVersion repositoryMap cartfileEntries
+                frameworkVersions =
+                  derivedFrameworkVersions
                     `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                 cachePrefix = CachePrefix cachePrefixString
             in  runReaderT
@@ -190,12 +213,13 @@ runUDCCommand command verbose romeVersion = do
                   )
                   (cachePrefix, skipLocalCache, verbose)
           else
-            let frameworkVersions =
-                  deriveFrameworkNamesAndVersion
-                      respositoryMap
-                      (filterCartfileEntriesByGitRepoNames gitRepoNames
-                                                           cartfileEntries
-                      )
+            let derivedFrameworkVersions = deriveFrameworkNamesAndVersion
+                  repositoryMap
+                  (filterCartfileEntriesByGitRepoNames gitRepoNames
+                                                       cartfileEntries
+                  )
+                frameworkVersions =
+                  derivedFrameworkVersions
                     `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                 cachePrefix = CachePrefix cachePrefixString
             in  runReaderT
@@ -208,24 +232,42 @@ runUDCCommand command verbose romeVersion = do
                   (cachePrefix, skipLocalCache, verbose)
 
     List (RomeListPayload listMode platforms cachePrefixString printFormat noIgnoreFlag)
-      -> let finalIgnoreNames =
-               if _noIgnore noIgnoreFlag then [] else ignoreNames
-             frameworkVersions =
-               deriveFrameworkNamesAndVersion respositoryMap cartfileEntries
-                 `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
-             cachePrefix = CachePrefix cachePrefixString
-         in  runReaderT
-               (listArtifacts mS3BucketName
-                              mlCacheDir
-                              listMode
-                              reverseRepositoryMap
-                              frameworkVersions
-                              platforms
-                              printFormat
-               )
-               (cachePrefix, SkipLocalCacheFlag False, verbose)
+      -> do
 
-    _ -> throwError "Error: Programming Error. Only List, Download, Upload commands are supported."
+        let
+          finalRepositoryMapEntries =
+            if _noIgnore noIgnoreFlag
+            then
+              repositoryMapEntries
+            else
+              repositoryMapEntries
+                `filterRomeFileEntriesByPlatforms` ignoreMapEntries
+        let repositoryMap = toRepositoryMap finalRepositoryMapEntries
+        let reverseRepositoryMap =
+              toInvertedRepositoryMap finalRepositoryMapEntries
+        let finalIgnoreNames =
+              if _noIgnore noIgnoreFlag then [] else ignoreFrameworks
+        let derivedFrameworkVersions =
+              deriveFrameworkNamesAndVersion repositoryMap cartfileEntries
+        let frameworkVersions =
+              derivedFrameworkVersions
+                `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
+        let cachePrefix = CachePrefix cachePrefixString
+
+        runReaderT
+          (listArtifacts mS3BucketName
+                         mlCacheDir
+                         listMode
+                         reverseRepositoryMap
+                         frameworkVersions
+                         platforms
+                         printFormat
+          )
+          (cachePrefix, SkipLocalCacheFlag False, verbose)
+
+    _ ->
+      throwError
+        "Error: Programming Error. Only List, Download, Upload commands are supported."
  where
   sayVersionWarning vers verb = runMaybeT $ exceptToMaybeT $ do
     let sayFunc = if verb then sayLnWithTime else sayLn
@@ -259,11 +301,12 @@ listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVe
   = do
     (_, _, verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
-    repoAvailabilities <- getRepoAvailabilityFromCaches mS3BucketName
-                                                        mlCacheDir
-                                                        reverseRepositoryMap
-                                                        frameworkVersions
-                                                        platforms
+    repoAvailabilities <- getProjectAvailabilityFromCaches
+      mS3BucketName
+      mlCacheDir
+      reverseRepositoryMap
+      frameworkVersions
+      platforms
     if format == Text
       then mapM_ sayFunc $ repoLines repoAvailabilities
       else sayFunc $ toJSONStr $ ReposJSON
@@ -275,7 +318,7 @@ listArtifacts mS3BucketName mlCacheDir listMode reverseRepositoryMap frameworkVe
 
 
 -- | Produces a list of `ProjectAvailability`s for Frameworks
-getRepoAvailabilityFromCaches
+getProjectAvailabilityFromCaches
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
@@ -285,7 +328,7 @@ getRepoAvailabilityFromCaches
        (CachePrefix, SkipLocalCacheFlag, Bool)
        RomeMonad
        [ProjectAvailability]
-getRepoAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap frameworkVersions platforms
+getProjectAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap frameworkVersions platforms
   = do
     env                       <- lift getAWSRegion
     (cachePrefix, _, verbose) <- ask
@@ -301,7 +344,7 @@ getRepoAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap framewo
       reverseRepositoryMap
       availabilities
 
-getRepoAvailabilityFromCaches Nothing (Just lCacheDir) reverseRepositoryMap frameworkVersions platforms
+getProjectAvailabilityFromCaches Nothing (Just lCacheDir) reverseRepositoryMap frameworkVersions platforms
   = do
     (cachePrefix, SkipLocalCacheFlag skipLocalCache, _) <- ask
     when skipLocalCache $ throwError conflictingSkipLocalCacheOptionMessage
@@ -315,7 +358,7 @@ getRepoAvailabilityFromCaches Nothing (Just lCacheDir) reverseRepositoryMap fram
       reverseRepositoryMap
       availabilities
 
-getRepoAvailabilityFromCaches Nothing Nothing _ _ _ =
+getProjectAvailabilityFromCaches Nothing Nothing _ _ _ =
   throwError bothCacheKeysMissingMessage
 
 
@@ -518,7 +561,7 @@ uploadFrameworkAndArtifactsToCaches
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt) _) platform
+uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
   = do
     (env, cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
 
@@ -639,7 +682,7 @@ saveFrameworkAndArtifactsToLocalCache
   -> FrameworkVersion -- ^ A `FrameworkVersion` idenfitying Framework and dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT (CachePrefix, Bool) m ()
-saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt) _) platform
+saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
   = do
     (cachePrefix, verbose) <- ask
     let readerEnv = (cachePrefix, SkipLocalCacheFlag False, verbose)
@@ -810,7 +853,7 @@ downloadFrameworkAndArtifactsFromCaches
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and dSYM
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt) version) platform
+downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
   = do
     (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, verbose) <-
       ask
@@ -945,7 +988,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRom
   dSYMName = fwn <> ".dSYM"
 
 
-downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVersion@(FrameworkVersion (Framework fwn fwt) _) platform
+downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVersion@(FrameworkVersion (Framework fwn fwt fwps) _) platform
   = do
     (env, cachePrefix, _, verbose) <- ask
 

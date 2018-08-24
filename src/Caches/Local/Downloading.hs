@@ -31,7 +31,7 @@ getFrameworkFromLocalCache
   -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String m LBS.ByteString
-getFrameworkFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion f@(Framework fwn fwt) version) platform
+getFrameworkFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
   = do
     frameworkExistsInLocalCache <-
       liftIO . doesFileExist $ frameworkLocalCachePath prefix
@@ -98,7 +98,7 @@ getBcsymbolmapFromLocalCache
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> DwarfUUID -- ^ The UUID of the bcsymbolmap
   -> ExceptT String m LBS.ByteString
-getBcsymbolmapFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion f@(Framework fwn fwt) version) platform dwarfUUID
+getBcsymbolmapFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform dwarfUUID
   = do
     let finalBcsymbolmapLocalPath = bcsymbolmapLocalCachePath prefix
     bcSymbolmapExistsInLocalCache <-
@@ -134,7 +134,7 @@ getDSYMFromLocalCache
   -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String m LBS.ByteString
-getDSYMFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion f@(Framework fwn fwt) version) platform
+getDSYMFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
   = do
     let finalDSYMLocalPath = dSYMLocalCachePath prefix
     dSYMExistsInLocalCache <- liftIO . doesFileExist $ finalDSYMLocalPath
@@ -167,8 +167,13 @@ getAndUnzipBcsymbolmapFromLocalCache
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> DwarfUUID
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndUnzipBcsymbolmapFromLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt) version) platform dwarfUUID
-  = do
+getAndUnzipBcsymbolmapFromLocalCache 
+  lCacheDir 
+  reverseRomeMap 
+  fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) 
+  platform 
+  dwarfUUID
+  = when (platform `elem` fwps) $ do
     (cachePrefix@(CachePrefix prefix), verbose) <- ask
     let sayFunc       = if verbose then sayLnWithTime else sayLn
     let symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
@@ -205,8 +210,8 @@ getAndUnzipBcsymbolmapsFromLocalCache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndUnzipBcsymbolmapsFromLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt) _) platform
-  = do
+getAndUnzipBcsymbolmapsFromLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
+  = when (platform `elem` fwps) $ do
     (_, verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
 
@@ -241,9 +246,8 @@ getAndUnzipBcsymbolmapsFromLocalCache'
        DWARFOperationError
        (ReaderT (CachePrefix, Bool) m)
        ()
-getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt) _) platform
-  = do
-
+getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
+  = when (platform `elem` fwps) $ do
     dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs)
       $ dwarfUUIDsFrom (frameworkDirectory </> fwn)
     eitherDwarfUUIDsOrSucces <- forM
@@ -301,15 +305,15 @@ getAndUnzipFrameworkFromLocalCache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt) version) platform
-  = do
+getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
+  = when (platform `elem` fwps) $ do
     (cachePrefix@(CachePrefix prefix), verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
     binary <- getFrameworkFromLocalCache lCacheDir
-                                         cachePrefix
-                                         reverseRomeMap
-                                         fVersion
-                                         platform
+                                        cachePrefix
+                                        reverseRomeMap
+                                        fVersion
+                                        platform
     sayFunc
       $  "Found "
       <> fwn
@@ -335,8 +339,8 @@ getAndUnzipDSYMFromLocalCache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (CachePrefix, Bool) m) ()
-getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt) version) platform
-  = do
+getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
+  = when (platform `elem` fwps) $ do
     (cachePrefix@(CachePrefix prefix), verbose) <- ask
     let finalDSYMLocalPath = dSYMLocalCachePath prefix
     let sayFunc            = if verbose then sayLnWithTime else sayLn

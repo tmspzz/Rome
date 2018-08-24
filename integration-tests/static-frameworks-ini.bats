@@ -72,24 +72,24 @@ teardown() {
   [ "$status" -eq 0 ]
 
   # Version file
-  [ -e "minio-buckets/rome/travis/Staticfire/.Staticfire.version-${COMMIT}" ]
-  [ -e "rome-local-cache/travis/Staticfire/.Staticfire.version-${COMMIT}" ]
+  [ -f "minio-buckets/rome/travis/Staticfire/.Staticfire.version-${COMMIT}" ]
+  [ -f "rome-local-cache/travis/Staticfire/.Staticfire.version-${COMMIT}" ]
   
   # macOS
-  [ -e "minio-buckets/rome/travis/Staticfire/Mac/Alamofire.framework-static-${COMMIT}.zip" ]
-  [ -e "rome-local-cache/travis/Staticfire/Mac/Alamofire.framework-static-${COMMIT}.zip" ]
+  [ -f "minio-buckets/rome/travis/Staticfire/Mac/Alamofire.framework-static-${COMMIT}.zip" ]
+  [ -f "rome-local-cache/travis/Staticfire/Mac/Alamofire.framework-static-${COMMIT}.zip" ]
 
   # iOS
-  [ -e "minio-buckets/rome/travis/Staticfire/iOS/Alamofire.framework-static-${COMMIT}.zip" ]
-  [ -e "rome-local-cache/travis/Staticfire/iOS/Alamofire.framework-static-${COMMIT}.zip" ]
+  [ -f "minio-buckets/rome/travis/Staticfire/iOS/Alamofire.framework-static-${COMMIT}.zip" ]
+  [ -f "rome-local-cache/travis/Staticfire/iOS/Alamofire.framework-static-${COMMIT}.zip" ]
 
   # tvOS
-  [ -e "minio-buckets/rome/travis/Staticfire/tvOS/Alamofire.framework-static-${COMMIT}.zip" ]
-  [ -e "rome-local-cache/travis/Staticfire/tvOS/Alamofire.framework-static-${COMMIT}.zip" ]
+  [ -f "minio-buckets/rome/travis/Staticfire/tvOS/Alamofire.framework-static-${COMMIT}.zip" ]
+  [ -f "rome-local-cache/travis/Staticfire/tvOS/Alamofire.framework-static-${COMMIT}.zip" ]
 
   # watchOS
-  [ -e "minio-buckets/rome/travis/Staticfire/watchOS/Alamofire.framework-static-${COMMIT}.zip" ]
-  [ -e "rome-local-cache/travis/Staticfire/watchOS/Alamofire.framework-static-${COMMIT}.zip" ]
+  [ -f "minio-buckets/rome/travis/Staticfire/watchOS/Alamofire.framework-static-${COMMIT}.zip" ]
+  [ -f "rome-local-cache/travis/Staticfire/watchOS/Alamofire.framework-static-${COMMIT}.zip" ]
   
   #save the local cache for later
 
@@ -116,7 +116,7 @@ teardown() {
   [ "$status" -eq 0 ]
 
   # Version file
-  [ -e "Carthage/Build/.Staticfire.version" ]
+  [ -f "Carthage/Build/.Staticfire.version" ]
 
   # macOS
   [ -d "Carthage/Build/Mac/Static/Alamofire.framework" ]
@@ -146,7 +146,7 @@ teardown() {
   [ "$status" -eq 0 ]
 
   # Version file
-  [ -e "Carthage/Build/.Staticfire.version" ]
+  [ -f "Carthage/Build/.Staticfire.version" ]
 
   # macOS - No bitecode, No bcsymbolmap
   [ -d "Carthage/Build/Mac/Static/Alamofire.framework" ]

@@ -3,8 +3,9 @@ module Main where
 import           Control.Arrow          (left, right)
 import           Control.Monad
 import           Data.Carthage.Cartfile
+import           Data.Carthage.TargetPlatform
 import           Data.Either            (rights)
-import           Data.List              (intercalate)
+import           Data.List              (intercalate, nub, intersect)
 import           Data.Yaml              (decodeEither', encode)
 import           Data.Romefile
 import qualified Data.Text              as T
@@ -27,7 +28,10 @@ instance Arbitrary FrameworkType where
   arbitrary = oneof $ fmap return [Dynamic, Static]
 
 instance Arbitrary Framework where
-  arbitrary = Framework <$> nonEmptyString <*> arbitrary
+  arbitrary = Framework <$> nonEmptyString <*> arbitrary <*> (nub <$> listOf1 arbitrary)
+
+instance Arbitrary TargetPlatform where
+  arbitrary = oneof $ fmap return [IOS, MacOS, WatchOS, TVOS]
 
 instance Arbitrary Version where
   arbitrary = Version <$> nonEmptyString
@@ -59,11 +63,10 @@ prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller
 prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller ls ns =
   length (filterOutFrameworksAndVersionsIfNotIn ls ns) <= length ls
 
-prop_filterOutFrameworkNamesAndVersionsIfNotIn_model
-  :: [FrameworkVersion] -> [Framework] -> Bool
-prop_filterOutFrameworkNamesAndVersionsIfNotIn_model ls ns =
-  map _framework (filterOutFrameworksAndVersionsIfNotIn ls ns)
-    == filter (`notElem` ns) (map _framework ls)
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_filterAllOut
+  :: [Version] -> [Framework] -> Bool
+prop_filterOutFrameworkNamesAndVersionsIfNotIn_filterAllOut vs fws = 
+  null $ (FrameworkVersion <$> fws <*> vs) `filterOutFrameworksAndVersionsIfNotIn` fws
 
 prop_split_length :: Char -> String -> Property
 prop_split_length sep ls =
@@ -107,9 +110,8 @@ data TestRomefile = TestRomefile { hasLocalCache :: Bool
 
 instance Arbitrary TestRomefile where
   arbitrary = do
-    (blCache, bS3Bucket) <- arbitrary `suchThat` (\(a, b) -> a || b == True) :: Gen (Bool, Bool)
+    (blCache, bS3Bucket) <- arbitrary `suchThat` (\(a, b) -> a || b ) :: Gen (Bool, Bool)
     TestRomefile blCache bS3Bucket <$> arbitrary <*> arbitrary
-
 
 toIniText :: TestRomefile -> T.Text
 toIniText r = T.pack $ "[Cache]\n" ++ if hasLocalCache r
@@ -143,10 +145,21 @@ prop_romefileINIToYamlToRomefile_idempotent_romefileINI t =
       .   decodeEither'
     ]
 
+prop_filterRomeFileEntriesByPlatforms_idempotent :: [RomefileEntry] -> [RomefileEntry] -> Bool
+prop_filterRomeFileEntriesByPlatforms_idempotent base filteringValues = 
+  base `filterRomeFileEntriesByPlatforms` filteringValues 
+    == (base `filterRomeFileEntriesByPlatforms` filteringValues) `filterRomeFileEntriesByPlatforms` filteringValues
+
+prop_filterRomeFileEntriesByPlatforms_filters :: [RomefileEntry] -> [RomefileEntry] -> Bool 
+prop_filterRomeFileEntriesByPlatforms_filters base filteringValues = null $ (base `filterRomeFileEntriesByPlatforms` filteringValues) `intersect` filteringValues 
+
+
+prop_filterRomeFileEntriesByPlatforms_min :: [RomefileEntry] -> [RomefileEntry] -> Bool
+prop_filterRomeFileEntriesByPlatforms_min base filteringValues = (length $ base `filterRomeFileEntriesByPlatforms` filteringValues) <= length base
+
 main :: IO ()
 main = do
 
-  
   putStrLn "prop_filterByNameEqualTo_idempotent"
   quickCheck (withMaxSuccess 1000 prop_filterByNameEqualTo_idempotent)
 
@@ -162,8 +175,8 @@ main = do
   putStrLn "prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller"
   quickCheck (withMaxSuccess 1000 prop_filterOutFrameworkNamesAndVersionsIfNotIn_smaller)
 
-  putStrLn "prop_filterOutFrameworkNamesAndVersionsIfNotIn_model"
-  quickCheck (withMaxSuccess 1000 prop_filterOutFrameworkNamesAndVersionsIfNotIn_model)
+  putStrLn "prop_filterOutFrameworkNamesAndVersionsIfNotIn_filterAllOut"
+  quickCheck (withMaxSuccess 1000 prop_filterOutFrameworkNamesAndVersionsIfNotIn_filterAllOut)
 
   putStrLn "prop_split_length"
   quickCheck (withMaxSuccess 1000 prop_split_length)
@@ -176,3 +189,12 @@ main = do
 
   putStrLn "prop_romefileINIToYamlToRomefile_idempotent_romefileINI"
   quickCheck (withMaxSuccess 1000 prop_romefileINIToYamlToRomefile_idempotent_romefileINI)
+
+  putStrLn "prop_filterRomeFileEntriesByPlatforms_idempotent"
+  quickCheck (withMaxSuccess 1000 prop_filterRomeFileEntriesByPlatforms_idempotent)
+  
+  putStrLn "prop_filterRomeFileEntriesByPlatforms_min"
+  quickCheck (withMaxSuccess 1000 prop_filterRomeFileEntriesByPlatforms_min)
+
+  putStrLn "prop_filterRomeFileEntriesByPlatforms_filters"
+  quickCheck (withMaxSuccess 1000 prop_filterRomeFileEntriesByPlatforms_filters)

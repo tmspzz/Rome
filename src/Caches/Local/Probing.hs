@@ -4,6 +4,8 @@ module Caches.Local.Probing where
 
 import           Control.Monad.IO.Class
 import           Data.Carthage.TargetPlatform
+import           Data.List                    (intersect)
+import           Data.Romefile                (_frameworkPlatforms)
 import           System.Directory
 import           System.FilePath              ((</>))
 import           Types                        hiding (version)
@@ -45,7 +47,7 @@ probeLocalCacheForFramework lCacheDir cachePrefix reverseRomeMap frameworkVersio
                                            reverseRomeMap
                                            frameworkVersion
     )
-    platforms
+    (platforms `intersect` (_frameworkPlatforms . _framework $ frameworkVersion))
 
 
 

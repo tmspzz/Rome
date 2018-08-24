@@ -13,11 +13,9 @@ module Data.Romefile
     , RomefileEntry (..)
     , Framework (..)
     , ProjectName (..)
-    , RomeFile (..)
+    , Romefile (..)
     , RomeCacheInfo (..)
     , cacheInfo
-    , repositoryMapEntries
-    , ignoreMapEntries
     , bucket
     , localCacheDir
     , frameworkName
@@ -27,23 +25,25 @@ module Data.Romefile
     )
 where
 
-import           Control.Arrow        (left)
-import           Control.Lens         hiding ((.=))
+import           Control.Arrow                (left)
+import           Control.Lens                 hiding ((.=))
 import           Control.Monad.Except
-import           Data.Yaml
 import           Data.Aeson
-import           Data.Aeson.Types    (typeMismatch)
+import           Data.Aeson.Types             (typeMismatch)
+import           Data.Carthage.TargetPlatform
 import           Data.Char
 import           Data.Either
-import qualified Data.HashMap.Strict  as M
-import           Data.Ini             as INI
+import qualified Data.HashMap.Strict          as M
+import           Data.Ini                     as INI
+import           Data.List                    (nub)
 import           Data.Maybe
 import           Data.Monoid
-import qualified Data.Text            as T
+import qualified Data.Text                    as T
+import           Data.Yaml
 import           GHC.Generics
-import           Text.Read
-import qualified Text.Read.Lex        as L
 import           Safe
+import           Text.Read
+import qualified Text.Read.Lex                as L
 
 
 
@@ -54,7 +54,8 @@ instance ToJSON FrameworkType where
   toJSON = genericToJSON defaultOptions { constructorTagModifier = map toLower }
 
 instance FromJSON FrameworkType where
-  parseJSON = genericParseJSON defaultOptions { constructorTagModifier = map toLower }
+  parseJSON = withText "FrameworkType" $ \v ->
+    return (read $ T.unpack v)
 
 instance Read FrameworkType where
   readPrec = parens $ do
@@ -64,19 +65,35 @@ instance Read FrameworkType where
       "static" -> return Static
       o -> fail $ "Could not parse '" ++ o ++ "' into a FrameworkType"
 
-data Framework = Framework { _frameworkName :: String
-                           , _frameworkType :: FrameworkType
+instance ToJSON TargetPlatform where
+  toJSON t = case t of
+    IOS -> Data.Yaml.String "iOS"
+    MacOS -> Data.Yaml.String "macOS"
+    WatchOS -> Data.Yaml.String "watchOS"
+    TVOS -> Data.Yaml.String "tvOS"
+
+instance FromJSON TargetPlatform where
+  parseJSON = withText "TargetPlatform" $ \v ->
+    return (read $ T.unpack v)
+
+
+data Framework = Framework { _frameworkName      :: String
+                           , _frameworkType      :: FrameworkType
+                           , _frameworkPlatforms :: [TargetPlatform]
                            }
                            deriving (Eq, Show, Ord, Generic)
 
 instance ToJSON Framework where
-  toJSON (Framework fName fType) = object fields
-    where fields = (T.pack "name" .= fName) : [T.pack "type" .= fType | fType /= Dynamic]
+  toJSON (Framework fName fType fPlatforms) = object fields
+    where fields = (T.pack "name" .= fName) : [T.pack "type" .= fType | fType /= Dynamic] ++ platforms
+          platforms = [ T.pack "platforms" .= fPlatforms |  length (nub fPlatforms) /= 4 ]
 
 instance FromJSON Framework where
   parseJSON = withObject "Framework" $ \v -> Framework
     <$> v .: "name"
     <*> v .:? "type" .!= Dynamic
+    <*> fmap nub (v .:? "platforms" .!= [IOS, MacOS, WatchOS, TVOS])
+
 
 
 newtype ProjectName = ProjectName { unProjectName :: String }
@@ -87,6 +104,8 @@ instance FromJSON ProjectName where
 
 instance ToJSON ProjectName where
   toJSON = genericToJSON defaultOptions { unwrapUnaryRecords = True }
+
+
 
 data RomefileEntry = RomefileEntry { _projectName :: ProjectName
                                    , _frameworks  :: [Framework]
@@ -105,24 +124,35 @@ instance FromJSON RomefileEntry where
 instance ToJSON RomefileEntry where
   toJSON (RomefileEntry (ProjectName prjname) fwrks) = object [T.pack prjname .= fwrks]
 
-data RomeFile = RomeFile { _cacheInfo            :: RomeCacheInfo
+
+cacheJSONKey :: T.Text
+cacheJSONKey = "cache"
+
+repositoryMapJSONKey :: T.Text
+repositoryMapJSONKey = "repositoryMap"
+
+ignoreMapJSONKey :: T.Text
+ignoreMapJSONKey = "ignoreMap"
+
+
+data Romefile = Romefile { _cacheInfo            :: RomeCacheInfo
                          , _repositoryMapEntries :: [RomefileEntry]
                          , _ignoreMapEntries     :: [RomefileEntry]
                          }
                          deriving (Eq, Show, Generic)
 
-instance FromJSON RomeFile where
-  parseJSON = withObject "RomeFile" $ \v -> RomeFile
-    <$> v .: "cache"
-    <*> v .:? "respositoryMap" .!= []
-    <*> v .:? "ignoreMap" .!= []
+instance FromJSON Romefile where
+  parseJSON = withObject "Romefile" $ \v -> Romefile
+    <$> v .: cacheJSONKey
+    <*> v .:? repositoryMapJSONKey .!= []
+    <*> v .:? ignoreMapJSONKey .!= []
 
-instance ToJSON RomeFile where
-  toJSON (RomeFile cInfo rMap iMap) = object fields
+instance ToJSON Romefile where
+  toJSON (Romefile cInfo rMap iMap) = object fields
     where
-      fields = (T.pack "cache" .= cInfo) 
-        : [T.pack "respositoryMap" .= rMap | not $ null rMap]
-        ++ [T.pack "ignoreMap" .= iMap | not $ null iMap]
+      fields = (cacheJSONKey .= cInfo)
+        : [ repositoryMapJSONKey .= rMap | not $ null rMap]
+        ++ [ ignoreMapJSONKey .= iMap | not $ null iMap]
 
 frameworkName :: Lens' Framework String
 frameworkName = lens
@@ -134,18 +164,8 @@ frameworkType = lens
   _frameworkType
   (\framework newType -> framework { _frameworkType = newType })
 
-cacheInfo :: Lens' RomeFile RomeCacheInfo
+cacheInfo :: Lens' Romefile RomeCacheInfo
 cacheInfo = lens _cacheInfo (\parseResult n -> parseResult { _cacheInfo = n })
-
-repositoryMapEntries :: Lens' RomeFile [RomefileEntry]
-repositoryMapEntries = lens
-  _repositoryMapEntries
-  (\parseResult n -> parseResult { _repositoryMapEntries = n })
-
-ignoreMapEntries :: Lens' RomeFile [RomefileEntry]
-ignoreMapEntries = lens
-  _ignoreMapEntries
-  (\parseResult n -> parseResult { _ignoreMapEntries = n })
 
 data RomeCacheInfo = RomeCacheInfo { _bucket        :: Maybe T.Text
                                    , _localCacheDir :: Maybe FilePath -- relative path
@@ -193,17 +213,17 @@ ignoreMapSectionDelimiter :: T.Text
 ignoreMapSectionDelimiter = "IgnoreMap"
 
 -- | Parses a Romefile
-parseRomefile :: T.Text -> Either String RomeFile
+parseRomefile :: T.Text -> Either String Romefile
 parseRomefile = left T.unpack . toRomefile <=< INI.parseIni
 
-toRomefile :: INI.Ini -> Either T.Text RomeFile
+toRomefile :: INI.Ini -> Either T.Text Romefile
 toRomefile ini = do
   _bucket        <- getBucket ini
   _localCacheDir <- getLocalCacheDir ini
   let _repositoryMapEntries = getRepositoryMapEntries ini
       _ignoreMapEntries     = getIgnoreMapEntries ini
       _cacheInfo            = RomeCacheInfo {..}
-  RomeFile <$> Right _cacheInfo <*> _repositoryMapEntries <*> _ignoreMapEntries
+  Romefile <$> Right _cacheInfo <*> _repositoryMapEntries <*> _ignoreMapEntries
 
 getSection :: T.Text -> M.HashMap T.Text b -> Either T.Text b
 getSection key = maybe (Left err) Right . M.lookup key
@@ -247,7 +267,7 @@ toEntry (repoName, frameworksAsStrings) =
 toFramework :: T.Text -> Either T.Text Framework
 toFramework t = case T.splitOn "/" t of
   []      -> Left "Framework type and name are unespectedly empty"
-  [fName] -> Right $ Framework (T.unpack fName) Dynamic
+  [fName] -> Right $ Framework (T.unpack fName) Dynamic allPlatforms
   [fType, fName] ->
     let upackedFtype = T.unpack fType
         unpackedName = T.unpack fName
@@ -258,6 +278,7 @@ toFramework t = case T.splitOn "/" t of
             . readEither
             $ upackedFtype
             )
+        <*> Right allPlatforms
   (fType : fNameFragments) ->
     let upackedFtype = T.unpack fType
         unpackedName = T.unpack $ T.intercalate "/" fNameFragments
@@ -269,7 +290,9 @@ toFramework t = case T.splitOn "/" t of
             . T.unpack
             $ fType
             )
+        <*> Right allPlatforms
  where
+  allPlatforms = [IOS, MacOS, WatchOS, TVOS]
   errorMessage fType fName =
     "'"
       <> fType

@@ -3,6 +3,8 @@ module Caches.S3.Probing where
 import           Control.Concurrent.Async.Lifted.Safe (mapConcurrently)
 import           Control.Monad.Reader                 (ReaderT, ask)
 import           Data.Carthage.TargetPlatform
+import           Data.List                            (intersect)
+import           Data.Romefile                        (_frameworkPlatforms)
 import qualified Data.Text                            as T
 import qualified Network.AWS                          as AWS
 import qualified Network.AWS.S3                       as S3
@@ -23,8 +25,8 @@ probeS3ForFrameworks
 probeS3ForFrameworks s3BucketName reverseRomeMap frameworkVersions platforms =
   mapConcurrently probe frameworkVersions
  where
-  probe framework =
-    probeS3ForFramework s3BucketName reverseRomeMap framework platforms
+  probe fVersions =
+    probeS3ForFramework s3BucketName reverseRomeMap fVersions platforms
 
 
 
@@ -40,7 +42,7 @@ probeS3ForFramework s3BucketName reverseRomeMap frameworkVersion platforms =
  where
   probeForEachPlatform = mapConcurrently
     (probeS3ForFrameworkOnPlatform s3BucketName reverseRomeMap frameworkVersion)
-    platforms
+    (platforms `intersect` (_frameworkPlatforms . _framework $ frameworkVersion))
 
 
 

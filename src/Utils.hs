@@ -31,6 +31,7 @@ import qualified Data.Text                    as T
 import           Data.Text.Encoding
 import qualified Data.Text.IO                 as T
 import           Data.Time
+import           Debug.Trace
 import qualified Network.AWS                  as AWS (Error)
 import           Network.HTTP.Conduit         as HTTP
 import           Network.HTTP.Types.Header    as HTTP (hUserAgent)
@@ -143,15 +144,15 @@ splitWithSeparator a = T.split (== a)
 
 -- | Appends the string ".framework" to a `Framework`'s name.
 appendFrameworkExtensionTo :: Framework -> String
-appendFrameworkExtensionTo (Framework a _) = a ++ ".framework"
+appendFrameworkExtensionTo (Framework a _ _) = a ++ ".framework"
 
 
 
 -- | Given a `Framework` and a `Version` produces a name for a Zip archive.
 frameworkArchiveName :: Framework -> Version -> String
-frameworkArchiveName f@(Framework _ Dynamic) (Version v) =
+frameworkArchiveName f@(Framework _ Dynamic _) (Version v) =
   appendFrameworkExtensionTo f ++ "-" ++ v ++ ".zip"
-frameworkArchiveName f@(Framework _ Static) (Version v) =
+frameworkArchiveName f@(Framework _ Static _) (Version v) =
   appendFrameworkExtensionTo f ++ "-" ++ "static" ++ "-" ++ v ++ ".zip"
 
 
@@ -159,9 +160,9 @@ frameworkArchiveName f@(Framework _ Static) (Version v) =
 -- | Given a `Framework` and a `Version` produces a name
 -- | for a dSYM Zip archive.
 dSYMArchiveName :: Framework -> Version -> String
-dSYMArchiveName f@(Framework _ Dynamic) (Version v) =
+dSYMArchiveName f@(Framework _ Dynamic _) (Version v) =
   appendFrameworkExtensionTo f ++ ".dSYM" ++ "-" ++ v ++ ".zip"
-dSYMArchiveName f@(Framework _ Static) (Version v) =
+dSYMArchiveName f@(Framework _ Static _) (Version v) =
   appendFrameworkExtensionTo f
     ++ ".dSYM"
     ++ "-"
@@ -232,8 +233,38 @@ filterByFrameworkEqualTo versions f =
 -- | in the list of `Framework`.
 filterOutFrameworksAndVersionsIfNotIn
   :: [FrameworkVersion] -> [Framework] -> [FrameworkVersion]
-filterOutFrameworksAndVersionsIfNotIn verions fs =
-  [ v | v <- verions, _framework v `notElem` fs ]
+filterOutFrameworksAndVersionsIfNotIn versions frameworks = do
+  ver@(FrameworkVersion f@(Framework n t ps) v) <- versions -- For each version
+  let filtered =
+        (\(Framework nF tF psF) -> nF == n && tF == t) `filter` frameworks -- filter the frameworks to exclude based on name and type, not on the platforms
+  if null filtered -- If none match
+    then return ver -- don't filter this FrameworkVersion out
+    else do  -- if there there are matches
+      let op =
+            f `removePlatformsIn` nub (concatMap _frameworkPlatforms filtered)
+      guard (not . null $ _frameworkPlatforms op) -- if the entry completely filters out the FrameworkVersion then remove it
+      return $ FrameworkVersion op v -- if it doesn't, then remove from f the platforms that appear in the filter above.
+ where
+  removePlatformsIn :: Framework -> [TargetPlatform] -> Framework
+  removePlatformsIn (Framework n t ps) rPs =
+    Framework n t [ p | p <- ps, p `notElem` rPs ]
+
+
+
+removeIntersectingPlatforms :: [Framework] -> [Framework] -> [Framework]
+removeIntersectingPlatforms lhs rhs = do
+  f <- lhs
+  return $ foldl removeIntersectingPlatforms' f rhs
+ where
+  -- | Given a `Framework` and a list of `TargetPlatform`
+  -- | remove the overlapping platforms
+  removeIntersectingPlatforms' :: Framework -> Framework -> Framework
+  removeIntersectingPlatforms' f1@(Framework n t ps) f2@(Framework n2 t2 ps2)
+    | n == n2 && t == t2 && (not . null) (ps `intersect` ps2) = Framework
+      n
+      t
+      [ p | p <- ps, p `notElem` ps2 ]
+    | otherwise = f1
 
 
 
@@ -246,16 +277,39 @@ restrictRepositoryMapToGitRepoName repoMap repoName =
 
 
 
+-- | Given two lists of `RomefileEntry`, adjust the entries in one list
+-- | according to entries in the other list. Specifically remove the platforms that
+-- | are common in both entries. If the resulting platforms are empty, remove the entry.
+filterRomeFileEntriesByPlatforms
+  :: [RomefileEntry] -> [RomefileEntry] -> [RomefileEntry]
+filterRomeFileEntriesByPlatforms lhs rhs =
+  (uncurry RomefileEntry <$>) . M.toList $ lhsMap `purgingPlatformsIn` rhsMap
+ where
+  purgingPlatformsIn = M.differenceWith purge
+  purge a b =
+    let op =
+          (\(Framework nt t ps) -> not . null $ ps)
+            `filter` (a `removeIntersectingPlatforms` b)
+    in  Just op
+  lhsMap = toRepositoryMap lhs
+  rhsMap = toRepositoryMap rhs
+
+
+
 -- | Builds a string representing the remote path to a framework zip archive.
 remoteFrameworkPath
   :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
 remoteFrameworkPath p r f v =
   remoteCacheDirectory p r f ++ frameworkArchiveName f v
 
+
+
 -- | Builds a `String` representing the remote path to a dSYM zip archive
 remoteDsymPath
   :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
 remoteDsymPath p r f v = remoteCacheDirectory p r f ++ dSYMArchiveName f v
+
+
 
 -- | Builds a `String` representing the remote path to a bcsymbolmap zip archive
 remoteBcsymbolmapPath
@@ -334,15 +388,6 @@ repoNameForFrameworkName reverseRomeMap framework = fromMaybe
 
 
 -- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVersion` produces
--- | a list of __unique__ `ProjectName`s
-repoNamesForFrameworkVersion
-  :: InvertedRepositoryMap -> [FrameworkVersion] -> [ProjectName]
-repoNamesForFrameworkVersion reverseRomeMap =
-  nub . map (repoNameForFrameworkName reverseRomeMap . _framework)
-
-
-
--- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVersion` produces
 -- | a list of __unique__ `ProjectNameAndVersion`s
 repoNamesAndVersionForFrameworkVersions
   :: InvertedRepositoryMap -> [FrameworkVersion] -> [ProjectNameAndVersion]
@@ -400,10 +445,9 @@ deriveFrameworkNameAndVersion
   :: RepositoryMap -> CartfileEntry -> [FrameworkVersion]
 deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry _ _ v) =
   map (`FrameworkVersion` v) $ fromMaybe
-    [Framework repositoryName Dynamic]
+    [Framework repositoryName Dynamic allTargetPlatforms]
     (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
   where repositoryName = unProjectName $ gitRepoNameFromCartfileEntry cfe
-
 
 
 -- | Given a `RepositoryMap` and a list of `ProjectName`s produces another
@@ -485,9 +529,7 @@ absolutizePath aPath
   | "~" `T.isPrefixOf` T.pack aPath = do
     homePath <- getHomeDirectory
     return $ normalise $ addTrailingPathSeparator homePath ++ Prelude.tail aPath
-  | otherwise = do
-    pathMaybeWithDots <- absolute_path aPath
-    return $ fromJust $ guess_dotdot pathMaybeWithDots
+  | otherwise = fromJust . guess_dotdot <$> absolute_path aPath
 
 
 

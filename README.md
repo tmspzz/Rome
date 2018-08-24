@@ -226,7 +226,7 @@ Alternatively the endpoint can also be specified by setting an `AWS_ENDPOINT` en
 ### Romefile
 
 #### About the format
-Since version `0.17.0.47` the Romefile is in [YAML](https://learnxinyminutes.com/docs/yaml/) format.
+Since version `0.17.0.48` the Romefile is in [YAML](https://learnxinyminutes.com/docs/yaml/) format.
 Rome can still read the [INI](https://en.wikipedia.org/wiki/INI_file) Romefile, for now.
 
 __Sucessive release might abandon compatibility__.
@@ -235,7 +235,7 @@ Feature support that require additions or changes to the Romefile __won't be sup
 
 You can migrate your Romefile to YAML by running `rome utils migrate-romefile`.
 
-If you are looking for the documention prior to `0.17.0.47`, check the [wiki](https://github.com/blender/Rome/wiki/Romefile-prior-0.17.x.x)
+If you are looking for the documention prior to `0.17.0.48`, check the [wiki](https://github.com/blender/Rome/wiki/Romefile-prior-0.17.x.x)
 
 #### Purpose
 

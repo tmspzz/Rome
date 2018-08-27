@@ -1,6 +1,6 @@
 ![](logo/colosseum.jpg)
 
-# Rome [![Build Status](https://travis-ci.org/blender/Rome.svg?branch=master)](https://travis-ci.org/blender/Rome) [![rome-latest](https://img.shields.io/badge/release-v0.17.0.48-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.17.0.48) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
+# Rome [![Build Status](https://travis-ci.org/blender/Rome.svg?branch=master)](https://travis-ci.org/blender/Rome) [![rome-latest](https://img.shields.io/badge/release-v0.17.1.49-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.17.1.49) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
 
 Rome is a tool that allows developers on Apple platforms to use:
 
@@ -162,7 +162,7 @@ same level where the `Cartfile` is.
 If you just want to use only a local folder as a cache then:
 
 - You need a [Romefile](#romefile) in the project where you want to use Rome. At the
-same level where the `Cartfile` is. If you want to place if elsewhere or name it dirrentely
+same level where the `Cartfile` is. Since `0.17.1.49`, if you want to place the Romefile elsewhere or name it dirrentely
 use `--romefile <path-to-romefile>` when running `rome <COMMAND>`.
 
 ### Setting up AWS credentials

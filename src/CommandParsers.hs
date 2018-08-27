@@ -20,7 +20,7 @@ import           Types.Commands
 -- verifyParser :: Parser VerifyFlag
 -- verifyParser = VerifyFlag <$> Opts.switch ( Opts.long "verify" <> Opts.help "Verify that the framework has the same hash as specified in the Cartfile.resolved.")
 
-cachePrefixParser :: Parser String
+cachePrefixParser :: Opts.Parser String
 cachePrefixParser = Opts.strOption
   (  Opts.value ""
   <> Opts.metavar "PREFIX"
@@ -29,13 +29,13 @@ cachePrefixParser = Opts.strOption
        "A prefix appended to the top level directories inside the caches. Usefull to separate artifacts between Swift versions."
   )
 
-skipLocalCacheParser :: Parser SkipLocalCacheFlag
+skipLocalCacheParser :: Opts.Parser SkipLocalCacheFlag
 skipLocalCacheParser = SkipLocalCacheFlag <$> Opts.switch
   (  Opts.long "skip-local-cache"
   <> Opts.help "Ignore the local cache when performing the operation."
   )
 
-noIgnoreParser :: Parser NoIgnoreFlag
+noIgnoreParser :: Opts.Parser NoIgnoreFlag
 noIgnoreParser = NoIgnoreFlag <$> Opts.switch
   (  Opts.long "no-ignore"
   <> Opts.help
@@ -139,9 +139,17 @@ romeUtilsSubcommandParser =  Opts.subparser
       `withInfo` "Migrates a Romefile from INI to YAML."
       )
 
-
 utilsParser :: Opts.Parser RomeCommand
 utilsParser = Utils <$> utilsPayloadParser
+
+parseRomefilePath :: Opts.Parser String
+parseRomefilePath = Opts.strOption
+  (  Opts.value canonicalRomefileName
+  <> Opts.metavar "PATH"
+  <> Opts.long "romefile"
+  <> Opts.help
+       "The path to the Romemefile to use. Defaults to the \"Romefile\" in the current directory."
+  )
 
 parseRomeCommand :: Opts.Parser RomeCommand
 parseRomeCommand =
@@ -168,7 +176,7 @@ parseRomeCommand =
          )
 
 parseRomeOptions :: Opts.Parser RomeOptions
-parseRomeOptions = RomeOptions <$> parseRomeCommand <*> Opts.switch
+parseRomeOptions = RomeOptions <$> parseRomeCommand <*> parseRomefilePath <*> Opts.switch
   (Opts.short 'v' <> help "Show verbose output")
 
 withInfo :: Opts.Parser a -> String -> Opts.ParserInfo a

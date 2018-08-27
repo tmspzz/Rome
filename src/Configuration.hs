@@ -22,13 +22,13 @@ getCartfileEntires = do
     Left e -> throwError $ "Carfile.resolved parse error: " ++ show e
     Right cartfileEntries -> return cartfileEntries
 
-getRomefileEntries :: RomeMonad Romefile
-getRomefileEntries = 
-  let fromYaml = ExceptT $ left prettyPrintParseException <$> decodeFileEither romefileName
-      fromIni = ExceptT $ parseRomefile <$> T.readFile romefileName 
+getRomefileEntries :: FilePath -> RomeMonad Romefile
+getRomefileEntries absoluteRomefilePath = 
+  let fromYaml = ExceptT $ left prettyPrintParseException <$> decodeFileEither absoluteRomefilePath
+      fromIni = ExceptT $ parseRomefile <$> T.readFile absoluteRomefilePath 
       in
         withExceptT toErr $ fromYaml <|> fromIni
-  where toErr e = "Error while parsing " <> romefileName <> ": " <> e
+  where toErr e = "Error while parsing " <> absoluteRomefilePath <> ": " <> e
 
 getS3ConfigFile :: MonadIO m => m FilePath
 getS3ConfigFile = (</> awsConfigFilePath) `liftM` liftIO getHomeDirectory

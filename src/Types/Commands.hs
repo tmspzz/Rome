@@ -53,6 +53,7 @@ data ListMode = All
                deriving (Show, Eq)
 
 data RomeOptions = RomeOptions { romeCommand :: RomeCommand
+                               , romefilePath :: FilePath 
                                , verbose     :: Bool
                                }
                                deriving (Show, Eq)

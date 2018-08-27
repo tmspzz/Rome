@@ -32,7 +32,7 @@ setup() {
     cp ../_Cartfile.resolved_bkp Cartfile.resolved 
   fi
 
-  cat >> Romefile << EOF
+  cat >> ../Romefile.yaml << EOF
 cache:
   local: rome-local-cache
   s3Bucket: rome
@@ -82,7 +82,7 @@ teardown() {
   MINIO_HTTP_TRACE=output.log minio server minio-buckets &
   sleep 4 
 
-  run rome upload --cache-prefix travis
+  run rome upload --cache-prefix travis --romefile ../Romefile.yaml
 
   if [ -d "minio-buckets/rome" ]; then
     cp -R minio-buckets/rome/ ../_rome_bkp
@@ -144,7 +144,7 @@ teardown() {
   sleep 4 
 
   rm -rf Carthage/Build
-  run rome download --cache-prefix travis --skip-local-cache
+  run rome download --cache-prefix travis --skip-local-cache --romefile ../Romefile.yaml
 
   [ "$status" -eq 0 ]
 
@@ -185,7 +185,7 @@ teardown() {
   fi
   
   rm -rf Carthage/Build
-  run rome download --cache-prefix travis
+  run rome download --cache-prefix travis --romefile ../Romefile.yaml
 
   [ "$status" -eq 0 ]
 

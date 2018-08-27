@@ -96,22 +96,24 @@ runRomeWithOptions
   :: RomeOptions -- ^ The `RomeOptions` to run Rome with.
   -> RomeVersion
   -> RomeMonad ()
-runRomeWithOptions (RomeOptions options verbose) romeVersion = case options of
-  Utils utilsPayload -> runUtilsCommand options verbose romeVersion
-  otherCommad        -> runUDCCommand options verbose romeVersion
+runRomeWithOptions (RomeOptions options romefilePath verbose) romeVersion = do
+  absoluteRomefilePath <- liftIO $ absolutizePath romefilePath
+  case options of
+    Utils utilsPayload -> runUtilsCommand options absoluteRomefilePath verbose romeVersion
+    otherCommad        -> runUDCCommand options absoluteRomefilePath verbose romeVersion
 
-runUtilsCommand :: RomeCommand -> Bool -> RomeVersion -> RomeMonad ()
-runUtilsCommand command verbose romeVersion = do
+runUtilsCommand :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
+runUtilsCommand command absoluteRomefilePath verbose romeVersion =
   case command of
     Utils _ -> do
-      romeFileEntries <- getRomefileEntries
-      lift $ encodeFile romefileName romeFileEntries
+      romeFileEntries <- getRomefileEntries absoluteRomefilePath
+      lift $ encodeFile absoluteRomefilePath romeFileEntries
     _ -> throwError "Error: Programming Error. Only Utils command supported."
 
-runUDCCommand :: RomeCommand -> Bool -> RomeVersion -> RomeMonad ()
-runUDCCommand command verbose romeVersion = do
+runUDCCommand :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
+runUDCCommand command absoluteRomefilePath verbose romeVersion = do
   cartfileEntries <- getCartfileEntires
-  romeFile        <- getRomefileEntries
+  romeFile        <- getRomefileEntries absoluteRomefilePath
 
   let ignoreMapEntries     = _ignoreMapEntries romeFile
   let repositoryMapEntries = _repositoryMapEntries romeFile

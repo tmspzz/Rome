@@ -14,9 +14,9 @@ as a shared cache for frameworks built with [Carthage](https://github.com/Cartha
 
 Trusted by: 
 
-<a href="https://www.sharecare.com"><img src="https://www.hmnads.com/wp-content/uploads/2015/06/Sharecare-logo.png" alt="sharecare" height="90px"/></a>
-<a href="https://line.me"><img src="https://vignette.wikia.nocookie.net/starwars/images/b/b1/LINE_Corp_logo.png/revision/latest?cb=20170923181031" alt="linecorp" height="90px"/></a>
-<a href="https://www.daimler-tss.com"><img src="https://www.hdm-stuttgart.de/unternehmen/karrieremarktplatz/anmeldung/aussteller_uploads/99/dLlVePMVtu191516349018.png" alt="DaimlerTSS" height="90px"/></a><a href="https://www.mozilla.com"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Mozilla_logo.svg/2000px-Mozilla_logo.svg.png" alt="Mozilla" height="90px"/></a><a href="https://www.brave.com"><img src="https://brave.com/brave-branding-assets/images/brave_logo_2color_fulltrim_screen.png" alt="Brave" height="90px"/></a>
+<a href="https://www.sharecare.com"><img src="https://www.hmnads.com/wp-content/uploads/2015/06/Sharecare-logo.png" alt="sharecare" height="90px"/></a> 
+<a href="https://line.me"><img src="https://vignette.wikia.nocookie.net/starwars/images/b/b1/LINE_Corp_logo.png/revision/latest?cb=20170923181031" alt="linecorp" height="90px"/></a> 
+<a href="https://www.daimler-tss.com"><img src="https://www.hdm-stuttgart.de/unternehmen/karrieremarktplatz/anmeldung/aussteller_uploads/99/dLlVePMVtu191516349018.png" alt="DaimlerTSS" height="90px"/></a> <a href="https://www.mozilla.com"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Mozilla_logo.svg/2000px-Mozilla_logo.svg.png" alt="Mozilla" height="90px"/></a> <a href="https://www.brave.com"><img src="https://brave.com/brave-branding-assets/images/brave_logo_2color_fulltrim_screen.png" alt="Brave" height="90px"/></a>
 
 [Search Github](https://github.com/search?utf8=%E2%9C%93&q=filename%3ARomefile&type=Code)
 
@@ -38,8 +38,9 @@ Trusted by:
 		- [Cache](#cache)
 		- [RepositoryMap](#repositorymap)
 		- [IgnoreMap](#ignoremap)
-			- [Multiple Aliases](#multiple-aliases)
-			- [Static Frameworks](#static-frameworks)
+		- [Multiple Aliases](#multiple-aliases)
+		- [Static Frameworks](#static-frameworks)
+		- [Platforms](#platforms)
 	- [Cache Structure](#cache-structure)
 		- [Cache Prefix](#cache-prefix)
 - [Usage](#usage)
@@ -258,6 +259,7 @@ Each `Romefile Entry` is made of:
 
 - A `name`
 - A `type` which can be `static` or `dynamic`
+- A set of supported `platforms` including `iOS`, `Mac`, `tvOS`, `watchOS`
 
 A Romefile looks like this:
 
@@ -274,6 +276,7 @@ respositoryMap: # optional
     type: static # optional, defaults to dynamic
 - HockeySDK-iOS:
   - name: HockeySDK
+    platforms: [iOS] # optional, all platforms if empty
 - awesome-framework-for-cat-names:
   - name: CatFramework
     type: dynamic
@@ -333,8 +336,10 @@ respositoryMap:
 - better-dog-names: # this is the Romefile Entry for  `better-dog-names`
   - name: DogFramework
     type: static
+    platforms: [iOS, Mac]
 - HockeySDK-iOS: # this is the Romefile Entry for  `HockeySDK-iOS`
   - name: HockeySDK
+    platforms: [iOS]
 - awesome-framework-for-cat-names:  # this is the Romefile Entry for  `awesome-framework-for-cat-names`
   - name: CatFramework
   - type: dynamic
@@ -368,16 +373,16 @@ ignoreMap:
   - name: xcconfigs
 ```
 
-Each entry in the `IgnoreMap` is also a `Romefile Entry`
+Each entry in the `IgnoreMap` is also a `Romefile Entry` and supports all keys.
 
-##### Multiple Aliases
+#### Multiple Aliases
 
 Suppose you have a framework `Framework` that builds two targets, `t1` and `t2`,
 Rome can handle both targets by specifying
 
 ```yaml
 repositoryMap:
-- Framework: 
+- Framework:
   - name: t1
   - name: t2
 ```
@@ -387,20 +392,40 @@ when running `rome list [--missing]`
 
 Multiple aliases are supported in `ignoreMap` too
 
-##### Static Frameworks
+#### Static Frameworks
 
 Since version [0.30.1](https://github.com/Carthage/Carthage/releases/tag/0.30.1) Carthage has support for Static Frameworks. 
 To indicate that one of the aliases is a Static Framework, modify the `repositoryMap` like so:
 
 ```yaml
 repositoryMap:
-- Framework: 
+- Framework:
   - name: t1
     type: static
   - name: t2
 ```
 
 If left unspecified, an alias is a __Dynamic Framework by default__.
+
+#### Platforms
+
+Since version [0.17.1.49](https://github.com/blender/Rome/releases/tag/v0.17.1.49) Rome allows you
+to specify what platforms are supported for a specific `Romefile Entry`. This serves a differet purpose
+than the command line option `--platforms`.
+
+```yaml
+repositoryMap:
+- Framework: 
+  - name: t1
+    type: static
+    platforms: [iOS, Mac]
+  - name: t2
+```
+
+The above means that `t1` is only available for `iOS` and `Mac`.
+The `--platforms` command line options can be used to futher limit the Rome command to a
+specific subset of the supported platfroms.
+
 
 ### Cache Structure
 

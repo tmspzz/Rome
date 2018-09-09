@@ -99,10 +99,13 @@ runRomeWithOptions
 runRomeWithOptions (RomeOptions options romefilePath verbose) romeVersion = do
   absoluteRomefilePath <- liftIO $ absolutizePath romefilePath
   case options of
-    Utils utilsPayload -> runUtilsCommand options absoluteRomefilePath verbose romeVersion
-    otherCommad        -> runUDCCommand options absoluteRomefilePath verbose romeVersion
+    Utils utilsPayload ->
+      runUtilsCommand options absoluteRomefilePath verbose romeVersion
+    otherCommad ->
+      runUDCCommand options absoluteRomefilePath verbose romeVersion
 
-runUtilsCommand :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
+runUtilsCommand
+  :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
 runUtilsCommand command absoluteRomefilePath verbose romeVersion =
   case command of
     Utils _ -> do
@@ -1075,15 +1078,18 @@ filterAccordingToListMode Commands.Present = filter _isAvailable
 -- | then if not found the region is read via `Configuration.getS3ConfigFile`
 -- | looking at the _AWS_PROFILE_ environment variable
 -- | or falling back to _default_ profile.
-discoverRegion :: MonadIO m => ExceptT String m AWS.Region
+discoverRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Region
 discoverRegion = do
   envRegion <-
     liftIO $ maybeToEither "No env variable AWS_REGION found. " <$> lookupEnv
       "AWS_REGION"
-  f       <- getS3ConfigFile
   profile <- liftIO $ lookupEnv "AWS_PROFILE"
-  let eitherText = ExceptT . return $ envRegion >>= AWS.fromText . T.pack
-  eitherText <|> getRegionFromFile f (fromMaybe "default" profile)
+  let eitherEnvRegion = ExceptT . return $ envRegion >>= AWS.fromText . T.pack
+  let
+    eitherFileRegion =
+      (getS3ConfigFile >>= flip getRegionFromFile (fromMaybe "default" profile))
+        `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
+  eitherEnvRegion <|> eitherFileRegion
 
 
 
@@ -1103,7 +1109,7 @@ getRegionFromFile f profile = fromFile f $ \file -> ExceptT . return $ do
 -- | then if not found the endpoint is read via `Configuration.getS3ConfigFile`
 -- | looking at the _AWS_PROFILE_ environment variable
 -- | or falling back to _default_ profile.
-discoverEndpoint :: MonadIO m => ExceptT String m URL
+discoverEndpoint :: (MonadIO m, MonadCatch m) => ExceptT String m URL
 discoverEndpoint = do
   maybeString <- liftIO $ lookupEnv "AWS_ENDPOINT"
   let envEndpointURL =
@@ -1111,9 +1117,14 @@ discoverEndpoint = do
           $   maybeString
           >>= importURL
   profile <- liftIO $ lookupEnv "AWS_PROFILE"
-  let fileEndpointURL = liftIO getS3ConfigFile
+  let
+    fileEndPointURL =
+      (   getS3ConfigFile
         >>= flip getEndpointFromFile (fromMaybe "default" profile)
-  (ExceptT . return $ envEndpointURL) <|> fileEndpointURL
+        )
+        `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
+  (ExceptT . return $ envEndpointURL) <|> fileEndPointURL
+
 
 
 

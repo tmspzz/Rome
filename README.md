@@ -269,7 +269,7 @@ cache: # required
                                # at least one between `local` and `s3Bucket` is required
   s3Bucket: ios-dev-bucket # optional
                            # at least one between `local` and `s3Bucket` is required 
-respositoryMap: # optional
+repositoryMap: # optional
 - better-dog-names: # entry that does not follow
                     # the "Organization/FrameworkName" convention.
   - name: DogFramework # required
@@ -332,7 +332,7 @@ simply add a `repositoryMap` key to your `Romefile` and specify the following ma
 ```yaml
 cache:
   local: ~/Library/Caches/Rome 
-respositoryMap:
+repositoryMap:
 - better-dog-names: # this is the Romefile Entry for  `better-dog-names`
   - name: DogFramework
     type: static

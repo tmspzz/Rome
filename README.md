@@ -707,7 +707,7 @@ If you prefer a more accurate way of generating cache prefixes for different swi
 consider using the following:
 
 ```
---cache-prefix `swift --version | head -1 | sed 's/.*\((.*)\).*/\1/' | tr -d "()" | tr " " "-"`
+--cache-prefix `xcrun swift --version | head -1 | sed 's/.*\((.*)\).*/\1/' | tr -d "()" | tr " " "-"`
 ```
 
 The specified prefix is prepended to the git repository name in the caches.
@@ -751,6 +751,8 @@ Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org
 - [Romefile](https://youtu.be/2cCIuidT9VA?t=1104)
 
 [![cocoaheads-berlin-video-presentation](http://i.imgur.com/1vC8jYq.png)](https://www.youtube.com/watch?v=2cCIuidT9VA)
+
+[AppUnite article](https://appunite.com/blog/dependencies-ios-carthage) - comparison of popular approaches to building dependencies with Carthage by Szymon Mrozek 
 
 ## License
 Rome is released under MIT License

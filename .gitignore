@@ -15,6 +15,7 @@ cabal.sandbox.config
 *.aux
 *.hp
 *.eventlog
+*.orig
 .DS_Store
 .stack-work/
 .vscode/

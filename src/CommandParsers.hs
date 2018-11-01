@@ -39,7 +39,14 @@ noIgnoreParser :: Opts.Parser NoIgnoreFlag
 noIgnoreParser = NoIgnoreFlag <$> Opts.switch
   (  Opts.long "no-ignore"
   <> Opts.help
-       "Ignore the [IgnoreMap] section in the current Romefile when performing the operation."
+       "Ignore the `ignoreMap` section in the Romefile when performing the operation."
+  )
+
+noSkipCurrentParser :: Opts.Parser NoSkipCurrentFlag
+noSkipCurrentParser = NoSkipCurrentFlag <$> Opts.switch
+  (  Opts.long "no-skip-current"
+  <> Opts.help
+       "Do not skip the `currentMap` section in the Romefile when performing the operation."
   )
 
 reposParser :: Opts.Parser [ProjectName]
@@ -80,6 +87,7 @@ udcPayloadParser =
     <*> cachePrefixParser
     <*> skipLocalCacheParser
     <*> noIgnoreParser
+    <*> noSkipCurrentParser
 
 uploadParser :: Opts.Parser RomeCommand
 uploadParser = pure Upload <*> udcPayloadParser
@@ -124,20 +132,18 @@ listPayloadParser =
     <*> cachePrefixParser
     <*> printFormatParser
     <*> noIgnoreParser
+    <*> noSkipCurrentParser
 
 listParser :: Opts.Parser RomeCommand
 listParser = List <$> listPayloadParser
 
 utilsPayloadParser :: Opts.Parser RomeUtilsPayload
-utilsPayloadParser =  RomeUtilsPayload <$> romeUtilsSubcommandParser
+utilsPayloadParser = RomeUtilsPayload <$> romeUtilsSubcommandParser
 
 romeUtilsSubcommandParser :: Opts.Parser RomeUtilsSubcommand
-romeUtilsSubcommandParser =  Opts.subparser 
-  $ Opts.command
-      "migrate-romefile" 
-      (pure MigrateRomefile
-      `withInfo` "Migrates a Romefile from INI to YAML."
-      )
+romeUtilsSubcommandParser = Opts.subparser $ Opts.command
+  "migrate-romefile"
+  (pure MigrateRomefile `withInfo` "Migrates a Romefile from INI to YAML.")
 
 utilsParser :: Opts.Parser RomeCommand
 utilsParser = Utils <$> utilsPayloadParser
@@ -176,8 +182,9 @@ parseRomeCommand =
          )
 
 parseRomeOptions :: Opts.Parser RomeOptions
-parseRomeOptions = RomeOptions <$> parseRomeCommand <*> parseRomefilePath <*> Opts.switch
-  (Opts.short 'v' <> help "Show verbose output")
+parseRomeOptions =
+  RomeOptions <$> parseRomeCommand <*> parseRomefilePath <*> Opts.switch
+    (Opts.short 'v' <> help "Show verbose output")
 
 withInfo :: Opts.Parser a -> String -> Opts.ParserInfo a
 withInfo opts desc = Opts.info (Opts.helper <*> opts) $ Opts.progDesc desc

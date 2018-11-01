@@ -17,6 +17,7 @@ data RomeUDCPayload = RomeUDCPayload { _payload            :: [ProjectName]
                                     --  , _verifyFlag         :: VerifyFlag
                                      , _skipLocalCacheFlag :: SkipLocalCacheFlag
                                      , _noIgnoreFlag       :: NoIgnoreFlag
+                                     , _noSkipCurrentFlag  :: NoSkipCurrentFlag
                                      }
                                      deriving (Show, Eq)
 
@@ -35,11 +36,15 @@ newtype SkipLocalCacheFlag = SkipLocalCacheFlag { _skipLocalCache :: Bool }
 newtype NoIgnoreFlag = NoIgnoreFlag { _noIgnore :: Bool }
                                     deriving (Show, Eq)
 
-data RomeListPayload = RomeListPayload { _listMode         :: ListMode
-                                       , _listPlatforms    :: [TargetPlatform]
-                                       , _listCachePrefix  :: String
-                                       , _listFormat       :: PrintFormat
-                                       , _listNoIgnoreFlag :: NoIgnoreFlag
+newtype NoSkipCurrentFlag = NoSkipCurrentFlag { _noSkipCurrent :: Bool }
+                                              deriving (Show, Eq)
+
+data RomeListPayload = RomeListPayload { _listMode              :: ListMode
+                                       , _listPlatforms         :: [TargetPlatform]
+                                       , _listCachePrefix       :: String
+                                       , _listFormat            :: PrintFormat
+                                       , _listNoIgnoreFlag      :: NoIgnoreFlag
+                                       , _listNoSkipCurrentFlag :: NoSkipCurrentFlag
                                        }
                                        deriving (Show, Eq)
 
@@ -53,7 +58,7 @@ data ListMode = All
                deriving (Show, Eq)
 
 data RomeOptions = RomeOptions { romeCommand :: RomeCommand
-                               , romefilePath :: FilePath 
+                               , romefilePath :: FilePath
                                , verbose     :: Bool
                                }
                                deriving (Show, Eq)

@@ -13,7 +13,7 @@ jobs:
     - stage: "Build"
       name: "Build Rome & Test Dymanic Frameworks"
       env:
-        - ARGS="--resolver=lts-11.13"
+        - ARGS="--resolver=lts-12.17"
       before_install:
         # Update Homebrew
         - brew update
@@ -45,12 +45,13 @@ jobs:
         - stack $ARGS build
         - stack $ARGS sdist
         - stack $ARGS install
-        - travis_wait 30 bats integration-tests/dynamic-frameworks-ini.bats
-        - travis_wait 30 bats integration-tests/dynamic-frameworks-yml.bats
+        - travis_wait 60 bats integration-tests/dynamic-frameworks-ini.bats
+        - travis_wait 60 bats integration-tests/dynamic-frameworks-yml.bats
+        - travis_wait 60 bats integration-tests/current-framework-yaml.bats
     - stage: "Build"
       name: "Build Rome & Test Static Frameworks"
       env:
-        - ARGS="--resolver=lts-11.13"
+        - ARGS="--resolver=lts-12.17"
       before_install:
         # Update Homebrew
         - brew update
@@ -82,8 +83,8 @@ jobs:
         - stack $ARGS build
         - stack $ARGS sdist
         - stack $ARGS install
-        - travis_wait 30 bats integration-tests/static-frameworks-ini.bats
-        - travis_wait 30 bats integration-tests/static-frameworks-yml.bats
+        - travis_wait 60 bats integration-tests/static-frameworks-ini.bats
+        - travis_wait 60 bats integration-tests/static-frameworks-yml.bats
 
 cache:
   directories:

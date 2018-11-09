@@ -438,6 +438,31 @@ deriveFrameworkNamesAndVersion romeMap =
 
 
 
+-- | Matches the current HEAD commit to a tag
+-- | Returns the HEAD commit hash in case there is no match
+deriveCurrentVersion :: MonadIO m => ExceptT String m Version
+deriveCurrentVersion = do
+  (revparseExitCode, headCommit, revparseErrorText) <- Turtle.procStrictWithErr
+    "git"
+    ["rev-parse", "HEAD"]
+    (return $ Turtle.unsafeTextToLine "")
+  case revparseExitCode of
+    Turtle.ExitSuccess -> do
+      (describeExitCode, version, describeErrorCode) <- Turtle.procStrictWithErr
+        "git"
+        ["describe", "--tags", "--exact-match", T.stripEnd headCommit]
+        (return $ Turtle.unsafeTextToLine "")
+      case describeExitCode of
+        Turtle.ExitSuccess -> return $ Version (T.unpack $ T.stripEnd version)
+        _ -> return $ Version (T.unpack $ T.stripEnd headCommit)
+    _ -> throwError $ if (not . T.null) revparseErrorText
+      then T.unpack $ errorMessageHeader <> revparseErrorText
+      else T.unpack $ errorMessageHeader <> unknownErrorText
+ where
+  unknownErrorText   = "Unknown git error"
+  errorMessageHeader = "Git Error: "
+
+
 -- | Given a `RepositoryMap` and a `CartfileEntry` creates a list of
 -- | `FrameworkVersion` by attaching the `Version` information from the
 -- | `FrameworkName` in the `CartfileEntry`.

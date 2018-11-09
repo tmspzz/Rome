@@ -125,6 +125,7 @@ instance ToJSON RomefileEntry where
   toJSON (RomefileEntry (ProjectName prjname) fwrks) = object [T.pack prjname .= fwrks]
 
 
+
 cacheJSONKey :: T.Text
 cacheJSONKey = "cache"
 
@@ -134,10 +135,13 @@ repositoryMapJSONKey = "repositoryMap"
 ignoreMapJSONKey :: T.Text
 ignoreMapJSONKey = "ignoreMap"
 
+currentMapJSONKey :: T.Text
+currentMapJSONKey = "currentMap"
 
 data Romefile = Romefile { _cacheInfo            :: RomeCacheInfo
                          , _repositoryMapEntries :: [RomefileEntry]
                          , _ignoreMapEntries     :: [RomefileEntry]
+                         , _currentMapEntries    :: [RomefileEntry]
                          }
                          deriving (Eq, Show, Generic)
 
@@ -146,13 +150,15 @@ instance FromJSON Romefile where
     <$> v .: cacheJSONKey
     <*> v .:? repositoryMapJSONKey .!= []
     <*> v .:? ignoreMapJSONKey .!= []
+    <*> v .:? currentMapJSONKey .!= []
 
 instance ToJSON Romefile where
-  toJSON (Romefile cInfo rMap iMap) = object fields
+  toJSON (Romefile cInfo rMap iMap cMap) = object fields
     where
       fields = (cacheJSONKey .= cInfo)
         : [ repositoryMapJSONKey .= rMap | not $ null rMap]
         ++ [ ignoreMapJSONKey .= iMap | not $ null iMap]
+        ++ [ currentMapJSONKey .= cMap | not $ null cMap]
 
 frameworkName :: Lens' Framework String
 frameworkName = lens
@@ -223,7 +229,11 @@ toRomefile ini = do
   let _repositoryMapEntries = getRepositoryMapEntries ini
       _ignoreMapEntries     = getIgnoreMapEntries ini
       _cacheInfo            = RomeCacheInfo {..}
-  Romefile <$> Right _cacheInfo <*> _repositoryMapEntries <*> _ignoreMapEntries
+  Romefile
+    <$> Right _cacheInfo
+    <*> _repositoryMapEntries
+    <*> _ignoreMapEntries
+    <*> Right []
 
 getSection :: T.Text -> M.HashMap T.Text b -> Either T.Text b
 getSection key = maybe (Left err) Right . M.lookup key

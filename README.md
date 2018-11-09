@@ -16,7 +16,7 @@ Trusted by:
 
 <a href="https://www.sharecare.com"><img src="https://www.hmnads.com/wp-content/uploads/2015/06/Sharecare-logo.png" alt="sharecare" height="90px"/></a> 
 <a href="https://line.me"><img src="https://vignette.wikia.nocookie.net/starwars/images/b/b1/LINE_Corp_logo.png/revision/latest?cb=20170923181031" alt="linecorp" height="90px"/></a> 
-<a href="https://www.daimler-tss.com"><img src="https://www.hdm-stuttgart.de/unternehmen/karrieremarktplatz/anmeldung/aussteller_uploads/99/dLlVePMVtu191516349018.png" alt="DaimlerTSS" height="90px"/></a> <a href="https://www.mozilla.com"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Mozilla_logo.svg/2000px-Mozilla_logo.svg.png" alt="Mozilla" height="90px"/></a> <a href="https://www.brave.com"><img src="https://brave.com/brave-branding-assets/images/brave_logo_2color_fulltrim_screen.png" alt="Brave" height="90px"/></a>
+<a href="https://www.daimler-tss.com"><img src="https://www.hdm-stuttgart.de/unternehmen/karrieremarktplatz/anmeldung/aussteller_uploads/99/dLlVePMVtu191516349018.png" alt="DaimlerTSS" height="90px"/></a> <a href="https://www.mozilla.com"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Mozilla_logo.svg/2000px-Mozilla_logo.svg.png" alt="Mozilla" height="90px"/></a> <a href="https://www.brave.com"><img src="https://brave.com/fonts/brave-logotype-dark.svg" alt="Brave" height="90px"/></a>
 
 [Search Github](https://github.com/search?utf8=%E2%9C%93&q=filename%3ARomefile&type=Code)
 
@@ -38,6 +38,7 @@ Trusted by:
 		- [Cache](#cache)
 		- [RepositoryMap](#repositorymap)
 		- [IgnoreMap](#ignoremap)
+		- [CurrentMap](#currentmap)
 		- [Multiple Aliases](#multiple-aliases)
 		- [Static Frameworks](#static-frameworks)
 		- [Platforms](#platforms)
@@ -110,6 +111,8 @@ $ vi Cartfile # point to the new version of the framework
 $ carthage update && rome upload
 ```
 
+If you are running Rome in the context of a framework and want to [upload](#uploading) the current framework see [CurrentMap](#currentmap).
+
 ### Consumer workflow
 
 ```bash
@@ -123,6 +126,8 @@ or
 $ vi Cartfile.resolved # point to the new version of the framework
 $ rome download
 ```
+
+If you are running Rome in the context of a framework and want to [download](#downloading) the current framework see [CurrentMap](#currentmap).
 
 ### CI workflow
 
@@ -148,6 +153,8 @@ If no frameworks are missing, the `awk` pipe to `carthage` will fail and the res
 
 You can use the [fastlane plugin for Rome](#use-rome-with-fastlane) to implement
 a CI workflow too.
+
+If you are running Rome in the context of a framework and want to [upload](#uploading) or [download](#downloading) the current framework see [CurrentMap](#currentmap).
 
 ## Set up
 
@@ -246,14 +253,16 @@ The Romefile has three purposes:
 1. Specifies what caches to use - `cache` key. This key is __required__.
 1. Allows to use custom name mappings between repository names and framework names - `repositoryMap` key. This key is __optional__ and can be omitted.
 1. Allows to ignore certain framework names - `ignoreMap` key. This key is __optional__ and can be omitted.
+1. Allows to specify the current framework's name(s) - `currentMap` key. This key is __optional__ and can be omitted.
 
 #### Structure
 
-A Romefile is made of 3 objects, of which only one, the `cache`, is mandatory.
+A Romefile is made of 4 objects, of which only one, the `cache`, is required.
 
 - A `cache` definition object
 - A `repositoryMap` made of a list of `Romefile Entry`
-- An `ignoreMap` made of a  list of `Romefile Entry`
+- An `ignoreMap` made of a list of `Romefile Entry`
+- A ``currentMap` made of a list of `Romefile Entry`
 
 Each `Romefile Entry` is made of:
 
@@ -283,6 +292,9 @@ repositoryMap: # optional
 ignoreMap:
 - GDCWebServer:
   - name: GDCWebServer
+currentMap:
+- animal-names-framework:
+  - name: AnimalNames
 ```
 
 #### Cache
@@ -374,6 +386,34 @@ ignoreMap:
 ```
 
 Each entry in the `IgnoreMap` is also a `Romefile Entry` and supports all keys.
+
+#### CurrentMap
+__By default the `currentMap` is not used__. Specify `--no-skip-current` as a command line option to use it.
+It is supported by Rome versions greater than `0.18.x.y` and can be specified only in YAML. 
+
+The `currentMap` contains the mappings of repository and framework name(s) that describe the current framework.
+This is particularly useful if you want to use Rome in the context of a framework. It is the [equivalent](https://github.com/Carthage/Carthage#share-your-xcode-schemes) of
+[Carthage's `--no-skip-current`](https://github.com/Carthage/Carthage#use-travis-ci-to-upload-your-tagged-prebuilt-frameworks).
+
+```yaml
+currentMap:
+- Alamofire:
+  - name: Alamofire
+```
+
+Each entry in the `currentMap` is also a `Romefile Entry` and supports all keys.
+
+The `currentMap` is __subject to the ignores specified in the `ignoreMap`__. 
+If you explicitly specify names of frameworks to [upload](#uploading), [download](#downloading) on the command line, 
+you don't need to pass `--no-skip-current` to use the `currentMap`. Just specify the name(s) of the current framework.
+
+The version of the current framework is determined by
+
+```
+git describe --tags --exact-match `git rev-parse HEAD`
+```
+
+__If the commands does not resolve to any tag, the HEAD commit hash from `git rev-parse HEAD` is used as version.__
 
 #### Multiple Aliases
 

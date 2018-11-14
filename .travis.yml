@@ -28,11 +28,10 @@ jobs:
     - stack $ARGS setup
     - stack $ARGS test --no-terminal --haddock --no-haddock-deps --coverage
     - stack $ARGS build
-    - stack $ARGS sdist
     - stack $ARGS install
-    - travis_wait 60 bats integration-tests/dynamic-frameworks-ini.bats
-    - travis_wait 60 bats integration-tests/dynamic-frameworks-yml.bats
-    - travis_wait 60 bats integration-tests/current-framework-yaml.bats
+      # - travis_wait 60 bats integration-tests/dynamic-frameworks-ini.bats
+      # - travis_wait 60 bats integration-tests/dynamic-frameworks-yml.bats
+      # - travis_wait 60 bats integration-tests/current-framework-yaml.bats
     after_script:
     - stack install codecov-haskell
     - codecov-haskell Rome-test
@@ -59,10 +58,9 @@ jobs:
     - stack $ARGS setup
     - stack $ARGS test --no-terminal --haddock --no-haddock-deps --coverage
     - stack $ARGS build
-    - stack $ARGS sdist
     - stack $ARGS install
-    - travis_wait 60 bats integration-tests/static-frameworks-ini.bats
-    - travis_wait 60 bats integration-tests/static-frameworks-yml.bats
+      #- travis_wait 60 bats integration-tests/static-frameworks-ini.bats
+      #- travis_wait 60 bats integration-tests/static-frameworks-yml.bats
     after_script:
     - stack install codecov-haskell
     - codecov-haskell Rome-test

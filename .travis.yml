@@ -29,11 +29,15 @@ jobs:
     - stack $ARGS test --no-terminal --haddock --no-haddock-deps --coverage
     - stack $ARGS build
     - stack $ARGS install
-      # - travis_wait 60 bats integration-tests/dynamic-frameworks-ini.bats
-      # - travis_wait 60 bats integration-tests/dynamic-frameworks-yml.bats
-      # - travis_wait 60 bats integration-tests/current-framework-yaml.bats
+      #- travis_wait 60 bats integration-tests/dynamic-frameworks-ini.bats
+      #- travis_wait 60 bats integration-tests/dynamic-frameworks-yml.bats
+      #- travis_wait 60 bats integration-tests/current-framework-yaml.bats
     after_script:
-    - stack install codecov-haskell
+    - git clone https://github.com/nirum-lang/codecov-haskell.git
+    - cd codecov-haskell
+    - git checkout fix-broken-build-with-retry-0.7
+    - stack install
+    - cd ..
     - codecov-haskell Rome-test
   - stage: Build
     name: Build Rome & Test Static Frameworks

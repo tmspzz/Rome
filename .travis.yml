@@ -38,7 +38,7 @@ jobs:
     - git checkout fix-broken-build-with-retry-0.7
     - stack install
     - cd ..
-    - codecov-haskell Rome-test
+    - codecov-haskell Rome-test --tix-dir ./.stack-work/install/x86_64-*/lts-*/*/hpc/Rome/
   - stage: Build
     name: Build Rome & Test Static Frameworks
     env:

@@ -37,6 +37,7 @@ jobs:
     - cd codecov-haskell
     - git checkout fix-broken-build-with-retry-0.7
     - stack build --install-ghc --no-terminal --copy-bins codecov-haskell
+    - stack instal
     - cd ..
     - export PATH=$HOME/.local/bin:$PATH
     - stack exec -- codecov-haskel --tix-dir ./.stack-work/install/x86_64-*/lts-*/*/hpc/Rome/ --mix-dir ./.stack-work/dist/x86_64-osx/Cabal-*/hpc/ Rome-test

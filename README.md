@@ -141,20 +141,40 @@ following:
 - build missing artifacts if any
 - upload build artifacts to the cache if needed
 
-Or in code:
+You can use the [fastlane plugin for Rome](#use-rome-with-fastlane) to implement
+a CI workflow too.
 
+If you are running Rome in the context of a framework and want to [upload](#uploading) or [download](#downloading) the current framework see [CurrentMap](#currentmap).
+
+#### `--cache-builds` workflow (recommended)
+
+This workflow relies on `.version` files being produced by Carthage.
+This means that you have to invoke `carthage` with `--cache-builds` for this to work.
+
+In code:
+
+```sh
+#!/bin/bash
+rome download --platform iOS # download missing frameworks (or copy from local cache)
+carthage bootstrap --platform iOS --cache-builds # build dependencies missing a .version file or that where not found in the cache
+rome list --missing --platform iOS | awk '{print $1}' | xargs rome upload --platform iOS # upload what is missing
 ```
+
+#### List workflow
+
+This workflow relies on querying the cache to check for missing dependencies and then selectively telling Carthage what to build.
+__This flow is more fragile__ as Carthage will refuse to build indirect dependencies.
+
+In code:
+
+```sh
+#!/bin/bash
 rome download --platform iOS # download missing frameworks (or copy from local cache)
 rome list --missing --platform ios | awk '{print $1}' | xargs carthage update --platform ios --cache-builds # list what is missing and update/build if needed
 rome list --missing --platform ios | awk '{print $1}' | xargs rome upload --platform ios # upload what is missing
 ```
 
 If no frameworks are missing, the `awk` pipe to `carthage` will fail and the rest of the command will not be executed. This avoids rebuilding all dependencies or uploading artifacts already present in the cache.
-
-You can use the [fastlane plugin for Rome](#use-rome-with-fastlane) to implement
-a CI workflow too.
-
-If you are running Rome in the context of a framework and want to [upload](#uploading) or [download](#downloading) the current framework see [CurrentMap](#currentmap).
 
 ## Set up
 

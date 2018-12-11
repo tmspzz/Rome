@@ -1,93 +1,80 @@
 os: osx
 language: objective-c
 osx_image: xcode9.4
-
 git:
   depth: 1
-
-# Use new container infrastructure to enable caching
 rvm: 2.1
-
 jobs:
   include:
-    - stage: "Build"
-      name: "Build Rome & Test Dymanic Frameworks"
-      env:
-        - ARGS="--resolver=lts-12.17"
-      before_install:
-        # Update Homebrew
-        - brew update
-        # Run bundler and install the dependencies in vendor/bundle
-        # so that it can be cached.
-        - bundle install --deployment 
-      install:
-        # Install stack
-        - mkdir -p ~/.local/bin
-        - export PATH=$HOME/.local/bin:$PATH
-        - brew install stack
-
-        # Download and instal hlint
-        - rake hlint:install[2.1.8]
-
-        # Download and install minio
-        - travis_retry wget -O $HOME/.local/bin/minio https://dl.minio.io/server/minio/release/darwin-amd64/minio || echo "Minio already in cache"
-        - chmod +x $HOME/.local/bin/minio
-
-        # Install Carthage
-        - brew outdated carthage || brew upgrade carthage
-
-        # Install bats-core
-        - brew install bats-core
-      script:
-        - bundle exec danger
-        - stack $ARGS setup
-        - stack $ARGS test --no-terminal --haddock --no-haddock-deps
-        - stack $ARGS build
-        - stack $ARGS sdist
-        - stack $ARGS install
-        - travis_wait 60 bats integration-tests/dynamic-frameworks-ini.bats
-        - travis_wait 60 bats integration-tests/dynamic-frameworks-yml.bats
-        - travis_wait 60 bats integration-tests/current-framework-yaml.bats
-    - stage: "Build"
-      name: "Build Rome & Test Static Frameworks"
-      env:
-        - ARGS="--resolver=lts-12.17"
-      before_install:
-        # Update Homebrew
-        - brew update
-        # Run bundler and install the dependencies in vendor/bundle
-        # so that it can be cached.
-        - bundle install --deployment 
-      install:
-        # Install stack
-        - mkdir -p ~/.local/bin
-        - export PATH=$HOME/.local/bin:$PATH
-        - brew install stack
-
-        # Download and instal hlint
-        - rake hlint:install[2.1.8]
-
-        # Download and install minio
-        - test ! -e $HOME/.local/bin/minio && travis_retry wget -O $HOME/.local/bin/minio https://dl.minio.io/server/minio/release/darwin-amd64/minio || echo "Minio already in cache"
-        - chmod +x $HOME/.local/bin/minio
-
-        # Install Carthage
-        - brew outdated carthage || brew upgrade carthage
-
-        # Install bats-core
-        - brew install bats-core
-      script:
-        - bundle exec danger
-        - stack $ARGS setup
-        - stack $ARGS test --no-terminal --haddock --no-haddock-deps
-        - stack $ARGS build
-        - stack $ARGS sdist
-        - stack $ARGS install
-        - travis_wait 60 bats integration-tests/static-frameworks-ini.bats
-        - travis_wait 60 bats integration-tests/static-frameworks-yml.bats
-
+  - stage: Build
+    name: Build Rome & Test Dymanic Frameworks
+    env:
+    - ARGS="--resolver=lts-12.17"
+    before_install:
+    - brew update
+    - bundle install --deployment
+    install:
+    - mkdir -p ~/.local/bin
+    - export PATH=$HOME/.local/bin:$PATH
+    - brew install stack
+    - rake hlint:install[2.1.8]
+    - travis_retry wget -O $HOME/.local/bin/minio https://dl.minio.io/server/minio/release/darwin-amd64/minio
+      || echo "Minio already in cache"
+    - chmod +x $HOME/.local/bin/minio
+    - brew outdated carthage || brew upgrade carthage
+    - brew install bats-core
+    script:
+    - bundle exec danger
+    - stack $ARGS setup
+    - stack $ARGS test --no-terminal --haddock --no-haddock-deps --coverage
+    - stack $ARGS build
+    - stack $ARGS install
+      #- travis_wait 60 bats integration-tests/dynamic-frameworks-ini.bats
+      #- travis_wait 60 bats integration-tests/dynamic-frameworks-yml.bats
+      #- travis_wait 60 bats integration-tests/current-framework-yaml.bats
+    after_script:
+    - git clone https://github.com/nirum-lang/codecov-haskell.git
+    - cd codecov-haskell
+    - git checkout fix-broken-build-with-retry-0.7
+    - stack build --install-ghc --no-terminal --copy-bins codecov-haskell
+    - stack instal
+    - cd ..
+    - export PATH=$HOME/.local/bin:$PATH
+    - stack exec -- codecov-haskel --tix-dir ./.stack-work/install/x86_64-*/lts-*/*/hpc/Rome/ --mix-dir ./.stack-work/dist/x86_64-osx/Cabal-*/hpc/ Rome-test
+  - stage: Build
+    name: Build Rome & Test Static Frameworks
+    env:
+    - ARGS="--resolver=lts-12.17"
+    before_install:
+    - brew update
+    - bundle install --deployment
+    install:
+    - mkdir -p ~/.local/bin
+    - export PATH=$HOME/.local/bin:$PATH
+    - brew install stack
+    - rake hlint:install[2.1.8]
+    - test ! -e $HOME/.local/bin/minio && travis_retry wget -O $HOME/.local/bin/minio
+      https://dl.minio.io/server/minio/release/darwin-amd64/minio || echo "Minio already
+      in cache"
+    - chmod +x $HOME/.local/bin/minio
+    - brew outdated carthage || brew upgrade carthage
+    - brew install bats-core
+    script:
+    - bundle exec danger
+    - stack $ARGS setup
+    - stack $ARGS test --no-terminal --haddock --no-haddock-deps --coverage
+    - stack $ARGS build
+    - stack $ARGS install
+      #- travis_wait 60 bats integration-tests/static-frameworks-ini.bats
+      #- travis_wait 60 bats integration-tests/static-frameworks-yml.bats
+    after_script:
+    - stack install codecov-haskell
+    - codecov-haskell Rome-test
 cache:
   directories:
-  - $HOME/.local/bin
-  - $HOME/.stack
+  - "$HOME/.local/bin"
+  - "$HOME/.stack"
   - vendor/bundle
+env:
+  global:
+    secure: q33Lhxoxv7k72Z3QafeXS3KEOB9mzjw3LsO4WusIB+s8FLaz/s4biG8zPECSSiLDqP4oXfs7Q7di2Wlh5DT4XD3sP4rLPC6l+djRm1zUUntYkNnHI9ev+jZsUUSkL9Lm9qKac5iBgHibV6bLIP+Dr7fI0OeTkzVWBWb3aSqENhY4s1Ggqs3Q8B90lq0syoWURgjenvAO9DIo3Weu5sIP8QQrxuIyDCBDA+E2B6bt/iGoUUC54Vi3g+NHlcgMzEp24V/5BiDIonu1oWZCHACH4pvEanKvaGVDOx+QYhSOigVO+sQHIRm8DiijDunrYYVRIkqUyRSsLo2N9nZfuayLPZyrl3mduUYGjuNkvVbSr9d5hVvbTKIpJ2dVkJWheOx7tKy0S5zwj3JRzvOG6t6DT0e/ALvhfxGp0yHnnAGvFjPsCxxTqP3TWJmFsRjvVQv9Re9fC4B+gb4rGu4dUD1CXsNgR2HrN+mxbVsxOmJOSie9+OJKEns9gkJ35cgUzfn119b9FgCwT1Dlt5gEpSGkQvv4AUSyesfpvyEiRjVyxiTD+aXRPpfQ+yDNxyCCApt9kRG1K1FG5ynS9RCV04W66TWERUIc6deOg9MgHZLmT92Qgiw785xpE7UoRjVm3W14WeNv3e+QRj9EWFDu5tEMnL3zI2BM6T4xzSN61MI9iYQ=

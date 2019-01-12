@@ -6,7 +6,7 @@ git:
   depth: 1
 
 # Use new container infrastructure to enable caching
-rvm: 2.1
+rvm: 2.3.0
 
 jobs:
   include:

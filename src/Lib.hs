@@ -313,11 +313,12 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
             frameworkVersions =
               (derivedFrameworkVersions <> currentFrameworkVersions)
                 `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
-            cachePrefix = CachePrefix cachePrefixString
+            cachePrefix        = CachePrefix cachePrefixString
+            currentInvertedMap = toInvertedRepositoryMap currentMapEntries
         runReaderT
           (flowFunc mS3BucketName
                     mlCacheDir
-                    reverseRepositoryMap
+                    (reverseRepositoryMap <> currentInvertedMap)
                     frameworkVersions
                     platforms
           )

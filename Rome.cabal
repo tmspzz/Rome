@@ -1,5 +1,5 @@
 name:                Rome
-version:             0.18.0.51
+version:             0.18.1.52
 synopsis:            A cache for Carthage
 description:         Please see README.md
 homepage:            https://github.com/blender/Rome
@@ -7,7 +7,7 @@ license:             MIT
 license-file:        LICENSE
 author:              Tommaso Piazza
 maintainer:          tommaso.piazza@gmail.com
-copyright:           2016, 2017, 2018 Tommaso Piazza
+copyright:           2016, 2017, 2018, 2019 Tommaso Piazza
 category:            Utility
 build-type:          Simple
 -- extra-source-files:

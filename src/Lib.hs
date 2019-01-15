@@ -175,11 +175,14 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
               derivedFrameworkVersions
                 `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
         let cachePrefix = CachePrefix cachePrefixString
+        let filteredCurrentMap =
+              currentMapEntries
+                `filterRomeFileEntriesByPlatforms` ignoreMapEntries
         let currentFrameworks =
-              concatMap (snd . romeFileEntryToTuple) currentMapEntries
+              concatMap (snd . romeFileEntryToTuple) filteredCurrentMap
         let currentFrameworkVersions =
               map (flip FrameworkVersion currentVersion) currentFrameworks
-        let currentInvertedMap = toInvertedRepositoryMap currentMapEntries
+        let currentInvertedMap = toInvertedRepositoryMap filteredCurrentMap
 
         runReaderT
           (listArtifacts
@@ -283,13 +286,16 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
                 (cachePrefix, skipLocalCache, verbose)
               when (_noSkipCurrent noSkipCurrentFlag) $ do
                 currentVersion <- deriveCurrentVersion
+                let filteredCurrentMap =
+                      currentMapEntries
+                        `filterRomeFileEntriesByPlatforms` ignoreMapEntries
                 let currentFrameworks =
-                      concatMap (snd . romeFileEntryToTuple) currentMapEntries
+                      concatMap (snd . romeFileEntryToTuple) filteredCurrentMap
                 let currentFrameworkVersions = map
                       (flip FrameworkVersion currentVersion)
                       currentFrameworks
                 let currentInvertedMap =
-                      toInvertedRepositoryMap currentMapEntries
+                      toInvertedRepositoryMap filteredCurrentMap
                 runReaderT
                   (flowFunc
                     mS3BucketName
@@ -303,8 +309,11 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
                   (cachePrefix, skipLocalCache, verbose)
       else do
         currentVersion <- deriveCurrentVersion
+        let filteredCurrentMap =
+              currentMapEntries
+                `filterRomeFileEntriesByPlatforms` ignoreMapEntries
         let currentFrameworks =
-              concatMap (snd . romeFileEntryToTuple) currentMapEntries
+              concatMap (snd . romeFileEntryToTuple) filteredCurrentMap
         let currentFrameworkVersions =
               map (flip FrameworkVersion currentVersion) currentFrameworks
         let derivedFrameworkVersions = deriveFrameworkNamesAndVersion
@@ -314,7 +323,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
               (derivedFrameworkVersions <> currentFrameworkVersions)
                 `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
             cachePrefix        = CachePrefix cachePrefixString
-            currentInvertedMap = toInvertedRepositoryMap currentMapEntries
+            currentInvertedMap = toInvertedRepositoryMap filteredCurrentMap
         runReaderT
           (flowFunc mS3BucketName
                     mlCacheDir

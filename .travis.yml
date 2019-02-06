@@ -1,12 +1,12 @@
 os: osx
 language: objective-c
-osx_image: xcode9.4
+osx_image: xcode10.1
 
 git:
   depth: 1
 
 # Use new container infrastructure to enable caching
-rvm: 2.1
+rvm: 2.3.0
 
 jobs:
   include:
@@ -47,7 +47,43 @@ jobs:
         - stack $ARGS install
         - travis_wait 60 bats integration-tests/dynamic-frameworks-ini.bats
         - travis_wait 60 bats integration-tests/dynamic-frameworks-yml.bats
+    - stage: "Build"
+      name: "Build Rome & Test Current Frameworks"
+      env:
+        - ARGS="--resolver=lts-12.17"
+      before_install:
+        # Update Homebrew
+        - brew update
+        # Run bundler and install the dependencies in vendor/bundle
+        # so that it can be cached.
+        - bundle install --deployment 
+      install:
+        # Install stack
+        - mkdir -p ~/.local/bin
+        - export PATH=$HOME/.local/bin:$PATH
+        - brew install stack
+
+        # Download and instal hlint
+        - rake hlint:install[2.1.8]
+
+        # Download and install minio
+        - travis_retry wget -O $HOME/.local/bin/minio https://dl.minio.io/server/minio/release/darwin-amd64/minio || echo "Minio already in cache"
+        - chmod +x $HOME/.local/bin/minio
+
+        # Install Carthage
+        - brew outdated carthage || brew upgrade carthage
+
+        # Install bats-core
+        - brew install bats-core
+      script:
+        - bundle exec danger
+        - stack $ARGS setup
+        - stack $ARGS test --no-terminal --haddock --no-haddock-deps
+        - stack $ARGS build
+        - stack $ARGS sdist
+        - stack $ARGS install
         - travis_wait 60 bats integration-tests/current-framework-yaml.bats
+        - travis_wait 60 bats integration-tests/current-framework-named-yaml.bats
     - stage: "Build"
       name: "Build Rome & Test Static Frameworks"
       env:

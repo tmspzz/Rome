@@ -59,8 +59,10 @@ Trusted by:
 
 ## Get Rome
 ### Using Homebrew
-`$ brew install blender/homebrew-tap/rome`
-
+```
+$ brew tap blender/tap https://github.com/blender/homebrew-tap.git
+$ brew install blender/homebrew-tap/rome
+```
 ### Using CocoaPods
 Simply add the following line to your Podfile:
 ```

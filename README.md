@@ -16,7 +16,7 @@ Trusted by:
 
 <a href="https://www.sharecare.com"><img src="https://www.hmnads.com/wp-content/uploads/2015/06/Sharecare-logo.png" alt="sharecare" height="90px"/></a> 
 <a href="https://line.me"><img src="https://vignette.wikia.nocookie.net/starwars/images/b/b1/LINE_Corp_logo.png/revision/latest?cb=20170923181031" alt="linecorp" height="90px"/></a> 
-<a href="https://www.daimler-tss.com"><img src="https://www.hdm-stuttgart.de/unternehmen/karrieremarktplatz/anmeldung/aussteller_uploads/99/dLlVePMVtu191516349018.png" alt="DaimlerTSS" height="90px"/></a> <a href="https://www.mozilla.com"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Mozilla_logo.svg/2000px-Mozilla_logo.svg.png" alt="Mozilla" height="90px"/></a> <a href="https://www.brave.com"><img src="https://brave.com/fonts/brave-logotype-dark.svg" alt="Brave" height="90px"/></a>
+<a href="https://www.daimler-tss.com"><img src="https://www.hdm-stuttgart.de/unternehmen/karrieremarktplatz/anmeldung/aussteller_uploads/99/dLlVePMVtu191516349018.png" alt="DaimlerTSS" height="90px"/></a> <a href="https://www.mozilla.com"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Mozilla_logo.svg/2000px-Mozilla_logo.svg.png" alt="Mozilla" height="90px"/></a> <a href="https://www.brave.com"><img src="https://www.brave.com/fonts/brave_logo_2color_reversed.svg" alt="Brave" height="90px"/></a>
 
 [Search Github](https://github.com/search?utf8=%E2%9C%93&q=filename%3ARomefile&type=Code)
 

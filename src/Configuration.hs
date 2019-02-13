@@ -13,6 +13,7 @@ import qualified Data.Text.IO                    as T
 import           System.Directory
 import           System.FilePath
 import           Types
+import           Debug.Trace
 
 
 getCartfileEntires :: RomeMonad [CartfileEntry]

@@ -3,7 +3,6 @@
 module Text.Parsec.Utils
     ( parseWhiteSpaces
     , parseUnquotedString
-    -- , onceAndConsumeTill
     ) where
 
 

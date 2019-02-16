@@ -17,6 +17,7 @@ import qualified Text.Parsec          as Parsec
 import qualified Text.Parsec.String   as Parsec
 import qualified Text.Parsec.Utils    as Parsec
 import           Data.Carthage.Common
+import           Debug.Trace
 
 newtype Location = Location { unLocation :: String }
                    deriving (Eq, Show, Ord)
@@ -55,20 +56,45 @@ quotedContent :: Parsec.Parsec String () String
 quotedContent =
   Parsec.char '"' *> Parsec.parseUnquotedString <* Parsec.char '"'
 
-parseCartfileResolvedLine :: Parsec.Parsec String () CartfileEntry
-parseCartfileResolvedLine = do
+parseCartfileEntry :: Parsec.Parsec String () CartfileEntry
+parseCartfileEntry = do
   hosting  <- repoHosting
   location <- Location <$> quotedContent
   _        <- Parsec.many1 Parsec.space
   version  <- Version <$> quotedContent
   return CartfileEntry {..}
 
-parseMaybeCartfileEntry :: Parsec.Parsec String () (Maybe CartfileEntry)
-parseMaybeCartfileEntry =
-  Parsec.optional Parsec.spaces
-    *> (parseCartfileResolvedLine `Parsec.onceAndConsumeTill` Parsec.endOfLine)
-
 parseCartfileResolved
   :: MonadIO m => String -> m (Either Parsec.ParseError [CartfileEntry])
 parseCartfileResolved = liftIO . Parsec.parseFromFile
-  (catMaybes <$> Parsec.many (Parsec.try parseMaybeCartfileEntry))
+  (   catMaybes
+  <$> (  (Parsec.many $ do
+           line <-
+             Parsec.optional Parsec.endOfLine
+             *> (   Parsec.try parseEmtpyLine
+                <|> Parsec.try parseDependency
+                <|> Parsec.try parseComment
+                )
+             <* Parsec.optional Parsec.endOfLine
+           case line of
+             Dependency entry ->
+               return $ Just entry
+             _ -> return Nothing
+         )
+      <* Parsec.eof
+      )
+  )
+
+data CartfileLine = EmptyLine | Comment | Dependency { entry :: CartfileEntry } deriving (Eq, Show)
+
+parseDependency :: Parsec.Parsec String () CartfileLine
+parseDependency = Dependency <$> parseCartfileEntry
+
+parseComment :: Parsec.Parsec String () CartfileLine
+parseComment =
+  Parsec.char '#'
+    >> Parsec.manyTill Parsec.anyChar (Parsec.lookAhead Parsec.endOfLine)
+    >> return Comment
+
+parseEmtpyLine :: Parsec.Parsec String () CartfileLine
+parseEmtpyLine = Parsec.many1 Parsec.space >> return EmptyLine

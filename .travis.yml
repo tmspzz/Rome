@@ -40,9 +40,9 @@ jobs:
         - brew install bats-core
       script:
         - bundle exec danger
-        - stack $ARGS setup
+        - stack $ARGS setup -j 2
         - stack $ARGS test --no-terminal --haddock --no-haddock-deps
-        - stack $ARGS build
+        - stack $ARGS build -j 2
         - stack $ARGS sdist
         - stack $ARGS install
         - travis_wait 60 bats integration-tests/dynamic-frameworks-ini.bats
@@ -77,9 +77,9 @@ jobs:
         - brew install bats-core
       script:
         - bundle exec danger
-        - stack $ARGS setup
+        - stack $ARGS setup -j 2
         - stack $ARGS test --no-terminal --haddock --no-haddock-deps
-        - stack $ARGS build
+        - stack $ARGS build -j 2
         - stack $ARGS sdist
         - stack $ARGS install
         - travis_wait 60 bats integration-tests/current-framework-yaml.bats
@@ -114,9 +114,9 @@ jobs:
         - brew install bats-core
       script:
         - bundle exec danger
-        - stack $ARGS setup
+        - stack $ARGS setup -j 2
         - stack $ARGS test --no-terminal --haddock --no-haddock-deps
-        - stack $ARGS build
+        - stack $ARGS build -j 2
         - stack $ARGS sdist
         - stack $ARGS install
         - travis_wait 60 bats integration-tests/static-frameworks-ini.bats
@@ -126,4 +126,5 @@ cache:
   directories:
   - $HOME/.local/bin
   - $HOME/.stack
+  - $TRAVIS_BUILD_DIR/.stack-work
   - vendor/bundle

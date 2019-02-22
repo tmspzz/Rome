@@ -284,7 +284,7 @@ A Romefile is made of 4 objects, of which only one, the `cache`, is required.
 - A `cache` definition object
 - A `repositoryMap` made of a list of `Romefile Entry`
 - An `ignoreMap` made of a list of `Romefile Entry`
-- A ``currentMap` made of a list of `Romefile Entry`
+- A `currentMap` made of a list of `Romefile Entry`
 
 Each `Romefile Entry` is made of:
 

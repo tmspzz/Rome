@@ -71,7 +71,7 @@ parseCartfileResolved = liftIO . Parsec.parseFromFile
   <$> (  (Parsec.many $ do
            line <-
              Parsec.optional Parsec.endOfLine
-             *> (   Parsec.try parseEmtpyLine
+             *> (   Parsec.try parseEmptyLine
                 <|> Parsec.try parseDependency
                 <|> Parsec.try parseComment
                 )
@@ -96,5 +96,5 @@ parseComment =
     >> Parsec.manyTill Parsec.anyChar (Parsec.lookAhead Parsec.endOfLine)
     >> return Comment
 
-parseEmtpyLine :: Parsec.Parsec String () CartfileLine
-parseEmtpyLine = Parsec.many1 Parsec.space >> return EmptyLine
+parseEmptyLine :: Parsec.Parsec String () CartfileLine
+parseEmptyLine = Parsec.many1 Parsec.space >> return EmptyLine

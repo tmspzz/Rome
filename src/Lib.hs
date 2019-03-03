@@ -182,7 +182,8 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
               concatMap (snd . romeFileEntryToTuple) filteredCurrentMapEntries
         let currentFrameworkVersions =
               map (flip FrameworkVersion currentVersion) currentFrameworks
-        let currentInvertedMap = toInvertedRepositoryMap filteredCurrentMapEntries
+        let currentInvertedMap =
+              toInvertedRepositoryMap filteredCurrentMapEntries
 
         runReaderT
           (listArtifacts
@@ -269,44 +270,46 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
 
     if null gitRepoNames
       then
-        let derivedFrameworkVersions =
-              deriveFrameworkNamesAndVersion repositoryMap cartfileEntries
-            cachePrefix = CachePrefix cachePrefixString
-        in  do
+        let
+          derivedFrameworkVersions =
+            deriveFrameworkNamesAndVersion repositoryMap cartfileEntries
+          cachePrefix = CachePrefix cachePrefixString
+        in
+          do
+            runReaderT
+              (flowFunc
+                mS3BucketName
+                mlCacheDir
+                reverseRepositoryMap
+                (derivedFrameworkVersions
+                `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
+                )
+                platforms
+              )
+              (cachePrefix, skipLocalCache, verbose)
+            when (_noSkipCurrent noSkipCurrentFlag) $ do
+              currentVersion <- deriveCurrentVersion
+              let filteredCurrentMapEntries =
+                    currentMapEntries
+                      `filterRomeFileEntriesByPlatforms` ignoreMapEntries
+              let currentFrameworks = concatMap (snd . romeFileEntryToTuple)
+                                                filteredCurrentMapEntries
+              let currentFrameworkVersions = map
+                    (flip FrameworkVersion currentVersion)
+                    currentFrameworks
+              let currentInvertedMap =
+                    toInvertedRepositoryMap filteredCurrentMapEntries
               runReaderT
                 (flowFunc
                   mS3BucketName
                   mlCacheDir
-                  reverseRepositoryMap
-                  (derivedFrameworkVersions
+                  currentInvertedMap
+                  (currentFrameworkVersions
                   `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                   )
                   platforms
                 )
                 (cachePrefix, skipLocalCache, verbose)
-              when (_noSkipCurrent noSkipCurrentFlag) $ do
-                currentVersion <- deriveCurrentVersion
-                let filteredCurrentMapEntries =
-                      currentMapEntries
-                        `filterRomeFileEntriesByPlatforms` ignoreMapEntries
-                let currentFrameworks =
-                      concatMap (snd . romeFileEntryToTuple) filteredCurrentMapEntries
-                let currentFrameworkVersions = map
-                      (flip FrameworkVersion currentVersion)
-                      currentFrameworks
-                let currentInvertedMap =
-                      toInvertedRepositoryMap filteredCurrentMapEntries
-                runReaderT
-                  (flowFunc
-                    mS3BucketName
-                    mlCacheDir
-                    currentInvertedMap
-                    (currentFrameworkVersions
-                    `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
-                    )
-                    platforms
-                  )
-                  (cachePrefix, skipLocalCache, verbose)
       else do
         currentVersion <- deriveCurrentVersion
         let filteredCurrentMapEntries =
@@ -316,14 +319,16 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
               concatMap (snd . romeFileEntryToTuple) filteredCurrentMapEntries
         let currentFrameworkVersions =
               map (flip FrameworkVersion currentVersion) currentFrameworks
-        let derivedFrameworkVersions = deriveFrameworkNamesAndVersion
-              repositoryMap
-              (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries)
-            frameworkVersions =
-              (derivedFrameworkVersions <> currentFrameworkVersions)
-                `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
-            cachePrefix        = CachePrefix cachePrefixString
-            currentInvertedMap = toInvertedRepositoryMap filteredCurrentMapEntries
+        let
+          derivedFrameworkVersions = deriveFrameworkNamesAndVersion
+            repositoryMap
+            (filterCartfileEntriesByGitRepoNames gitRepoNames cartfileEntries)
+          frameworkVersions =
+            (derivedFrameworkVersions <> currentFrameworkVersions)
+              `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
+          cachePrefix = CachePrefix cachePrefixString
+          currentInvertedMap =
+            toInvertedRepositoryMap filteredCurrentMapEntries
         runReaderT
           (flowFunc mS3BucketName
                     mlCacheDir
@@ -946,7 +951,9 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRom
                                        verbose
                 deleteFrameworkDirectory fVersion platform verbose
                 unzipBinary frameworkBinary fwn frameworkZipName verbose
-                  <* makeExecutable platform f
+                  <* ifExists
+                       frameworkExecutablePath
+                       (makeExecutable frameworkExecutablePath)
               whenLeft sayFunc e2
             )
             remoteReaderEnv
@@ -1034,7 +1041,9 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRom
   remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
   platformBuildDirectory =
     carthageArtifactsBuildDirectoryForPlatform platform f
-  dSYMName = fwn <> ".dSYM"
+  dSYMName                = fwn <> ".dSYM"
+  frameworkExecutablePath = frameworkBuildBundleForPlatform platform f </> fwn
+
 
 
 downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVersion@(FrameworkVersion (Framework fwn fwt fwps) _) platform

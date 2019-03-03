@@ -100,7 +100,7 @@ getBcsymbolmapFromS3
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
-  -> DwarfUUID -- ^ The UUID of the bcsymblmap
+  -> DwarfUUID -- ^ The UUID of the bcsymbolmap
   -> ExceptT
        String
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
@@ -158,13 +158,13 @@ getAndUnzipDSYMFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(
 
 
 
--- | Retrieves a bcsymblmap from an S3 Cache and unzip the contents
+-- | Retrieves a bcsymbolmap from an S3 Cache and unzip the contents
 getAndUnzipBcsymbolmapFromS3
   :: S3.BucketName -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
-  -> DwarfUUID -- ^ The UUID of the bcsymblmap
+  -> DwarfUUID -- ^ The UUID of the bcsymbolmap
   -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
 getAndUnzipBcsymbolmapFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform dwarfUUID
   = when (platform `elem` fwps) $ do
@@ -175,13 +175,13 @@ getAndUnzipBcsymbolmapFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVers
                                    fVersion
                                    platform
                                    dwarfUUID
-    deleteFile (bcsybolmapPath dwarfUUID) verbose
+    deleteFile (bcsymbolmapPath dwarfUUID) verbose
     unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
  where
   platformBuildDirectory =
     carthageArtifactsBuildDirectoryForPlatform platform f
   bcsymbolmapZipName d = bcsymbolmapArchiveName d version
-  bcsybolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
+  bcsymbolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
 
 
 

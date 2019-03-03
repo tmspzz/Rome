@@ -52,7 +52,7 @@ data DwarfUUID = DwarfUUID { _uuid :: String
 
 -- Functions
 
--- | Attemps to get UUIDs of DWARFs form a .framework/<binary-name> or .dSYM
+-- | Attempts to get UUIDs of DWARFs form a .framework/<binary-name> or .dSYM
 -- | by running `xcrun dwarfdump --uuid <path>`
 dwarfUUIDsFrom
   :: MonadIO m

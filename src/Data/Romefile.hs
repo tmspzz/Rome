@@ -276,26 +276,26 @@ toEntry (repoName, frameworksAsStrings) =
 
 toFramework :: T.Text -> Either T.Text Framework
 toFramework t = case T.splitOn "/" t of
-  []      -> Left "Framework type and name are unespectedly empty"
+  []      -> Left "Framework type and name are unexpectedly empty"
   [fName] -> Right $ Framework (T.unpack fName) Dynamic allPlatforms
   [fType, fName] ->
-    let upackedFtype = T.unpack fType
+    let unpackedFtype = T.unpack fType
         unpackedName = T.unpack fName
     in  left T.pack
         $   Framework
         <$> Right (T.unpack fName)
-        <*> ( left (const (errorMessage unpackedName upackedFtype))
+        <*> ( left (const (errorMessage unpackedName unpackedFtype))
             . readEither
-            $ upackedFtype
+            $ unpackedFtype
             )
         <*> Right allPlatforms
   (fType : fNameFragments) ->
-    let upackedFtype = T.unpack fType
+    let unpackedFtype = T.unpack fType
         unpackedName = T.unpack $ T.intercalate "/" fNameFragments
     in  left T.pack
         $   Framework
         <$> Right unpackedName
-        <*> ( left (const (errorMessage unpackedName upackedFtype))
+        <*> ( left (const (errorMessage unpackedName unpackedFtype))
             . readEither
             . T.unpack
             $ fType

@@ -28,7 +28,7 @@ getFrameworkFromLocalCache
   => FilePath -- ^ The cache definition
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the Framework
+  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String m LBS.ByteString
 getFrameworkFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
@@ -61,7 +61,7 @@ getVersionFileFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
-  -> ProjectNameAndVersion -- ^ The `ProjectNameAndVersion` used to indentify the .version file
+  -> ProjectNameAndVersion -- ^ The `ProjectNameAndVersion` used to identify the .version file
   -> ExceptT String m LBS.ByteString
 getVersionFileFromLocalCache lCacheDir (CachePrefix prefix) projectNameAndVersion
   = do
@@ -94,7 +94,7 @@ getBcsymbolmapFromLocalCache
   => FilePath -- ^ The cache definition
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the dSYM
+  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> DwarfUUID -- ^ The UUID of the bcsymbolmap
   -> ExceptT String m LBS.ByteString
@@ -131,7 +131,7 @@ getDSYMFromLocalCache
   => FilePath -- ^ The cache definition
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
-  -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the dSYM
+  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String m LBS.ByteString
 getDSYMFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
@@ -188,7 +188,7 @@ getAndUnzipBcsymbolmapFromLocalCache
       <> symbolmapName
       <> " in local cache at: "
       <> frameworkLocalCachePath prefix
-    deleteFile (bcsybolmapPath dwarfUUID) verbose
+    deleteFile (bcsymbolmapPath dwarfUUID) verbose
     unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
  where
   frameworkLocalCachePath cPrefix =
@@ -196,7 +196,7 @@ getAndUnzipBcsymbolmapFromLocalCache
   remoteFrameworkUploadPath =
     remoteFrameworkPath platform reverseRomeMap f version
   bcsymbolmapZipName d = bcsymbolmapArchiveName d version
-  bcsybolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
+  bcsymbolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
   platformBuildDirectory =
     carthageArtifactsBuildDirectoryForPlatform platform f
 
@@ -375,7 +375,7 @@ getAndSaveVersionFilesFromLocalCache lCacheDir =
 
 
 
--- | Gets a .version file from a local cache and copies it to the approrpiate location.
+-- | Gets a .version file from a local cache and copies it to the appropriate location.
 getAndSaveVersionFileFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition.

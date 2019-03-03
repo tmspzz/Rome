@@ -14,7 +14,7 @@ import           Utils
 -- | Probes a `FilePath` to check if each `FrameworkVersion` exists for each `TargetPlatform`
 probeLocalCacheForFrameworks
   :: MonadIO m
-  => FilePath -- ^ The chache definition.
+  => FilePath -- ^ The cache definition.
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` to probe for.
@@ -32,7 +32,7 @@ probeLocalCacheForFrameworks lCacheDir cachePrefix reverseRomeMap frameworkVersi
 -- | Probes a `FilePath` to check if a `FrameworkVersion` exists for each `TargetPlatform`
 probeLocalCacheForFramework
   :: MonadIO m
-  => FilePath -- ^ The chache definition.
+  => FilePath -- ^ The cache definition.
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
@@ -54,7 +54,7 @@ probeLocalCacheForFramework lCacheDir cachePrefix reverseRomeMap frameworkVersio
 -- | Probes a `FilePath` to check if a `FrameworkVersion` exists for a given `TargetPlatform`
 probeLocalCacheForFrameworkOnPlatform
   :: MonadIO m
-  => FilePath -- ^ The chache definition.
+  => FilePath -- ^ The cache definition.
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.

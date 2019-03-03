@@ -15,7 +15,7 @@ import           Types.Commands
 
 
 
-{- Commnad line arguments parsing -}
+{- Command line arguments parsing -}
 
 -- verifyParser :: Parser VerifyFlag
 -- verifyParser = VerifyFlag <$> Opts.switch ( Opts.long "verify" <> Opts.help "Verify that the framework has the same hash as specified in the Cartfile.resolved.")
@@ -121,7 +121,7 @@ printFormatParser = Opts.option
   (  Opts.value Text
   <> Opts.long "print-format"
   <> Opts.metavar "FORMATS"
-  <> Opts.help "Avaiable print formats: JSON or if omitted, default to Text"
+  <> Opts.help "Available print formats: JSON or if omitted, default to Text"
   )
 
 listPayloadParser :: Opts.Parser RomeListPayload
@@ -154,7 +154,7 @@ parseRomefilePath = Opts.strOption
   <> Opts.metavar "PATH"
   <> Opts.long "romefile"
   <> Opts.help
-       "The path to the Romemefile to use. Defaults to the \"Romefile\" in the current directory."
+       "The path to the Romefile to use. Defaults to the \"Romefile\" in the current directory."
   )
 
 parseRomeCommand :: Opts.Parser RomeCommand

@@ -94,7 +94,7 @@ runRomeWithOptions (RomeOptions options romefilePath verbose) romeVersion = do
   case options of
     Utils utilsPayload ->
       runUtilsCommand options absoluteRomefilePath verbose romeVersion
-    otherCommad ->
+    otherCommand ->
       runUDCCommand options absoluteRomefilePath verbose romeVersion
 
 -- | Runs one of the Utility commands
@@ -110,7 +110,7 @@ runUtilsCommand command absoluteRomefilePath verbose romeVersion =
 -- | Runs a command containing a `UDCPayload`   
 runUDCCommand :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
 runUDCCommand command absoluteRomefilePath verbose romeVersion = do
-  cartfileEntries <- getCartfileEntires
+  cartfileEntries <- getCartfileEntries
     `catch` \(e :: IOError) -> ExceptT . return $ Right []
   romeFile <- getRomefileEntries absoluteRomefilePath
 
@@ -225,7 +225,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
 type FlowFunction  = Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
-  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .verison files
+  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
 
@@ -371,7 +371,7 @@ getProjectAvailabilityFromCaches
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
-  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .verison files
+  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to.
   -> ReaderT
        (CachePrefix, SkipLocalCacheFlag, Bool)
@@ -417,7 +417,7 @@ downloadArtifacts
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
-  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .verison files
+  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
 downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
@@ -489,7 +489,7 @@ uploadArtifacts
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
-  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .verison files
+  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
 uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
@@ -542,7 +542,7 @@ uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions 
 
 -- | Uploads a lest of .version files to the caches.
 uploadVersionFilesToCaches
-  :: S3.BucketName -- ^ The chache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
   -> [ProjectNameAndVersion] -- ^ A list of `ProjectName` and `Version` information.
   -> ReaderT UploadDownloadCmdEnv IO ()
@@ -553,7 +553,7 @@ uploadVersionFilesToCaches s3Bucket mlCacheDir =
 
 -- | Uploads a .version file the caches.
 uploadVersionFileToCaches
-  :: S3.BucketName -- ^ The chache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
   -> ProjectNameAndVersion -- ^ The information used to derive the name and path for the .version file.
   -> ReaderT UploadDownloadCmdEnv IO ()
@@ -585,12 +585,12 @@ uploadVersionFileToCaches s3BucketName mlCacheDir projectNameAndVersion = do
 
 
 
--- | Uploads a list of Framewokrs and relative dSYMs to a caches.
+-- | Uploads a list of Frameworks and relative dSYMs to a caches.
 uploadFrameworksAndArtifactsToCaches
-  :: S3.BucketName -- ^ The chache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to a local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
-  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` idenfitying the Frameworks and dSYMs.
+  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying the Frameworks and dSYMs.
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
 uploadFrameworksAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fvs
@@ -602,9 +602,9 @@ uploadFrameworksAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fvs
 
 
 
--- | Uploads a Framework, the relative dSYM and bcsybolmaps to the caches.
+-- | Uploads a Framework, the relative dSYM and bcsymbolmaps to the caches.
 uploadFrameworkAndArtifactsToCaches
-  :: S3.BucketName -- ^ The chache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM
@@ -665,7 +665,7 @@ uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVers
       maybeUUIDsArchives <- liftIO $ forM dwarfUUIDs $ \dwarfUUID ->
         runMaybeT $ do
           dwarfArchive <- exceptToMaybeT
-            $ createZipArchive (bcSybolMapPath dwarfUUID) verbose
+            $ createZipArchive (bcSymbolMapPath dwarfUUID) verbose
           return (dwarfUUID, dwarfArchive)
 
       unless skipLocalCache
@@ -703,16 +703,16 @@ uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVers
     platformBuildDirectory </> frameworkNameWithFrameworkExtension
   dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension <> ".dSYM"
   dSYMdirectory = platformBuildDirectory </> dSYMNameWithDSYMExtension
-  bcSybolMapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
+  bcSymbolMapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
 
 
 
--- | Saves a list of Frameworks, relative dYSMs and bcsymbolmaps to a local cache.
+-- | Saves a list of Frameworks, relative dSYMs and bcsymbolmaps to a local cache.
 saveFrameworksAndArtifactsToLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
-  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` idenfitying Frameworks and dSYMs
+  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` restricting the scope of this action.
   -> ReaderT (CachePrefix, Bool) m ()
 saveFrameworksAndArtifactsToLocalCache lCacheDir reverseRomeMap fvs = mapM_
@@ -723,12 +723,12 @@ saveFrameworksAndArtifactsToLocalCache lCacheDir reverseRomeMap fvs = mapM_
 
 
 
--- | Saves a Framework, the relative dYSM and then bcsymbolmaps to a local cache.
+-- | Saves a Framework, the relative dSYM and then bcsymbolmaps to a local cache.
 saveFrameworkAndArtifactsToLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
-  -> FrameworkVersion -- ^ A `FrameworkVersion` idenfitying Framework and dSYM.
+  -> FrameworkVersion -- ^ A `FrameworkVersion` identifying Framework and dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT (CachePrefix, Bool) m ()
 saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
@@ -763,7 +763,7 @@ saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(Framewo
       maybeUUIDsArchives <- liftIO $ forM dwarfUUIDs $ \dwarfUUID ->
         runMaybeT $ do
           dwarfArchive <- exceptToMaybeT
-            $ createZipArchive (bcSybolMapPath dwarfUUID) verbose
+            $ createZipArchive (bcSymbolMapPath dwarfUUID) verbose
           return (dwarfUUID, dwarfArchive)
       forM_ maybeUUIDsArchives $ mapM $ \(dwarfUUID, dwarfArchive) ->
         liftIO $ runReaderT
@@ -783,13 +783,13 @@ saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(Framewo
     platformBuildDirectory </> frameworkNameWithFrameworkExtension
   dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension <> ".dSYM"
   dSYMdirectory = platformBuildDirectory </> dSYMNameWithDSYMExtension
-  bcSybolMapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
+  bcSymbolMapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
 
 
 
 -- | Downloads a list of .version files from an S3 Bucket or a local cache.
 downloadVersionFilesFromCaches
-  :: S3.BucketName -- ^ The chache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath  -- ^ Just the local cache path or Nothing
   -> [ProjectNameAndVersion] -- ^ A list of `ProjectName`s and `Version`s information.
   -> ReaderT UploadDownloadCmdEnv IO ()
@@ -802,7 +802,7 @@ downloadVersionFilesFromCaches s3BucketName lDir =
 -- | If the .version file is not found in the local cache, it is downloaded from S3.
 -- | If SkipLocalCache is specified, the local cache is ignored.
 downloadVersionFileFromCaches
-  :: S3.BucketName -- ^ The chache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the local cache path or Nothing
   -> ProjectNameAndVersion -- ^ The `ProjectName` and `Version` information.
   -> ReaderT UploadDownloadCmdEnv IO ()
@@ -874,10 +874,10 @@ downloadVersionFileFromCaches s3BucketName Nothing projectNameAndVersion = do
 
 -- | Downloads a list Frameworks and relative dSYMs from an S3 Bucket or a local cache.
 downloadFrameworksAndArtifactsFromCaches
-  :: S3.BucketName -- ^ The chache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
-  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` indentifying the Frameworks and dSYMs
+  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying the Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
 downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap fvs
@@ -896,7 +896,7 @@ downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap 
 -- | If the Framework and dSYM are not found in the local cache then they are downloaded from S3.
 -- | If SkipLocalCache is specified, th local cache is ignored.
 downloadFrameworkAndArtifactsFromCaches
-  :: S3.BucketName -- ^ The chache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and dSYM
@@ -972,7 +972,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRom
                     let symbolmapLoggingName =
                           fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
                     let bcsymbolmapZipName d = bcsymbolmapArchiveName d version
-                    let localBcsybolmapPathFrom d =
+                    let localBcsymbolmapPathFrom d =
                           platformBuildDirectory </> bcsymbolmapNameFrom d
                     symbolmapBinary <- getBcsymbolmapFromS3 s3BucketName
                                                             reverseRomeMap
@@ -986,7 +986,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRom
                       )
                       fwn
                       verbose
-                    deleteFile (localBcsybolmapPathFrom dwarfUUID) verbose
+                    deleteFile (localBcsymbolmapPathFrom dwarfUUID) verbose
                     unzipBinary symbolmapBinary
                                 symbolmapLoggingName
                                 (bcsymbolmapZipName dwarfUUID)

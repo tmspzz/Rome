@@ -17,7 +17,7 @@ import           Utils
 -- | Probes the caches described by `RomeCacheInfo` to check whether a list of `FrameworkVersion` is present or not
 -- | in the caches for each `TargetPlatform`
 probeS3ForFrameworks
-  :: S3.BucketName -- ^ The chache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` to probe for.
   -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
@@ -32,7 +32,7 @@ probeS3ForFrameworks s3BucketName reverseRomeMap frameworkVersions platforms =
 
 -- | Probes the caches described by `RomeCacheInfo` to check whether a `FrameworkVersion` is present or not in each `TargetPlatform`
 probeS3ForFramework
-  :: S3.BucketName -- ^ The chache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
   -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
@@ -48,7 +48,7 @@ probeS3ForFramework s3BucketName reverseRomeMap frameworkVersion platforms =
 
 -- | Probes the caches described by `RomeCacheInfo` to check whether a `FrameworkVersion` is present or not for a `TargetPlatform`.
 probeS3ForFrameworkOnPlatform
-  :: S3.BucketName -- ^ The chache definition.
+  :: S3.BucketName -- ^ The cache definition.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.

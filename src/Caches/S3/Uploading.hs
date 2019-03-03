@@ -61,7 +61,7 @@ uploadDsymToS3 dSYMArchive s3BucketName reverseRomeMap (FrameworkVersion f@(Fram
 
 -- | Uploads a bcsymbolmap `Zip.Archive` to an S3 Bucket.
 uploadBcsymbolmapToS3
-  :: DwarfUUID -- ^ The UUID of the bcsymblmap
+  :: DwarfUUID -- ^ The UUID of the bcsymbolmap
   -> Zip.Archive -- ^ The `Zip.Archive` of the dSYM.
   -> S3.BucketName -- ^ The cache definition.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.

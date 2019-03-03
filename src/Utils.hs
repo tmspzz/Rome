@@ -219,7 +219,7 @@ gitRepoNameFromCartfileEntry (CartfileEntry Binary (Location l) _) =
 
 
 
--- | Given a lsit of `FrameworkVersion` and a `Framework` returns
+-- | Given a list of `FrameworkVersion` and a `Framework` returns
 -- | a list for `FrameworkVersion` elements matching `Framework`.
 filterByFrameworkEqualTo
   :: [FrameworkVersion] -> Framework -> [FrameworkVersion]
@@ -569,7 +569,7 @@ createZipArchive filePath verbose = do
   directoryExist <- liftIO $ doesDirectoryExist filePath
   if fileExists || directoryExist
     then do
-      when verbose $ sayLnWithTime $ "Staring to zip: " <> filePath
+      when verbose $ sayLnWithTime $ "Starting to zip: " <> filePath
       liftIO $ Zip.addFilesToArchive
         [Zip.OptRecursive, Zip.OptPreserveSymbolicLinks]
         Zip.emptyArchive
@@ -666,7 +666,7 @@ unzipBinary
   -> Bool -- ^ A verbostiry flag.
   -> m ()
 unzipBinary objectBinary objectName objectZipName verbose = do
-  when verbose $ sayLnWithTime $ "Staring to unzip " <> objectZipName
+  when verbose $ sayLnWithTime $ "Starting to unzip " <> objectZipName
   liftIO $ Zip.extractFilesFromArchive
     [Zip.OptRecursive, Zip.OptPreserveSymbolicLinks]
     (Zip.toArchive objectBinary)

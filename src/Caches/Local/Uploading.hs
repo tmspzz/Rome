@@ -26,7 +26,7 @@ saveFrameworkToLocalCache
   :: FilePath -- ^ The cache definition.
   -> Zip.Archive -- ^ The zipped archive of the Framework
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-  -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the dSYM.
+  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
 saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap (FrameworkVersion f@(Framework _ _ fwps) version) platform
@@ -50,7 +50,7 @@ saveDsymToLocalCache
   :: FilePath -- ^ The cache definition.
   -> Zip.Archive -- ^ The zipped archive of the dSYM.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-  -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the dSYM.
+  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
 saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
@@ -69,10 +69,10 @@ saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap (FrameworkVersion f@(F
 -- | Saves a bcsymbolmap `Zip.Archive` to a local cache.
 saveBcsymbolmapToLocalCache
   :: FilePath -- ^ The cache definition.
-  -> DwarfUUID -- ^ The UUID of the bcsymblmap
+  -> DwarfUUID -- ^ The UUID of the bcsymbolmap
   -> Zip.Archive -- ^ The zipped archive of the bcsymbolmap.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
-  -> FrameworkVersion -- ^ The `FrameworkVersion` indentifying the dSYM.
+  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
 saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap (FrameworkVersion f@(Framework _ _ fwps) version) platform

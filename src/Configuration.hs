@@ -16,11 +16,11 @@ import           Types
 import           Debug.Trace
 
 
-getCartfileEntires :: RomeMonad [CartfileEntry]
-getCartfileEntires = do
+getCartfileEntries :: RomeMonad [CartfileEntry]
+getCartfileEntries = do
   eitherCartfileEntries <- parseCartfileResolved cartfileResolved
   case eitherCartfileEntries of
-    Left e -> throwError $ "Carfile.resolved parse error: " ++ show e
+    Left e -> throwError $ "Cartfile.resolved parse error: " ++ show e
     Right cartfileEntries -> return cartfileEntries
 
 getRomefileEntries :: FilePath -> RomeMonad Romefile

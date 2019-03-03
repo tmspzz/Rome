@@ -310,7 +310,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
       else do
         currentVersion <- deriveCurrentVersion
         let filteredCurrentMapEntries =
-              currentMapEntries
+              ((\e -> _projectName e `elem` gitRepoNames) `filter` currentMapEntries) -- Make the command is only run for the mentioned projects
                 `filterRomeFileEntriesByPlatforms` ignoreMapEntries
         let currentFrameworks =
               concatMap (snd . romeFileEntryToTuple) filteredCurrentMapEntries

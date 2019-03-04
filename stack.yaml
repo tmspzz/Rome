@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-12.17
+resolver: lts-13.10
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -35,21 +35,21 @@ resolver: lts-12.17
 # A package marked 'extra-dep: true' will only be built if demanded by a
 # non-dependency (i.e. a user package), and its test suites and benchmarks
 # will not be run. This is useful for tweaking upstream packages.
-packages:
-  - '.'
-  - location:
-      git: https://github.com/brendanhay/amazonka
-      commit: c9d8a62118b2269fb54b1e89c4e92106e8243050
-    subdirs:
-      - amazonka
-      - core
-      - amazonka-s3
-    extra-dep: true
+# packages:
+#  - '.'
+#  - location:
+#      git: https://github.com/brendanhay/amazonka
+#      commit: c9d8a62118b2269fb54b1e89c4e92106e8243050
+#    subdirs:
+#      - amazonka
+#      - core
+#      - amazonka-s3
+#    extra-dep: true
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-extra-deps:
-  - url-2.1.3
-  - yaml-0.9.0
+#extra-deps:
+  #- url-2.1.3
+  #- yaml-0.9.0
 # Override default flag values for local packages and extra-deps
 flags: {}
 

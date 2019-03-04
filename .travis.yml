@@ -13,7 +13,7 @@ jobs:
     - stage: "Build"
       name: "Build Rome & Test Dymanic Frameworks"
       env:
-        - ARGS="--resolver=lts-12.17"
+        - ARGS="--resolver=lts-13.10"
       before_install:
         # Update Homebrew
         - brew update

@@ -581,14 +581,15 @@ createZipArchive filePath verbose = do
 -- | Adds executable permissions to a Framework. See https://github.com/blender/Rome/issues/57
 makeExecutable
   :: MonadIO m
-  => TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
-  -> Framework -- ^ The Framework
+  => String -- ^ Path to the file
   -> m Turtle.Permissions
-makeExecutable p f = Turtle.chmod
-  Turtle.executable
-  (Turtle.fromString $ frameworkBuildBundleForPlatform p f </> _frameworkName f)
+makeExecutable path = Turtle.chmod Turtle.executable $ Turtle.fromString path
 
-
+-- | Perform an action on a file if it exists
+ifExists :: MonadIO m => String -> m a -> m (Maybe a)
+ifExists path fileAction = do
+  fileExists <- liftIO $ doesFileExist path
+  if fileExists then Just <$> fileAction else return Nothing
 
 -- | Delete a directory an all it's contents
 deleteDirectory
@@ -667,15 +668,23 @@ unzipBinary
   -> m ()
 unzipBinary objectBinary objectName objectZipName verbose = do
   when verbose $ sayLnWithTime $ "Starting to unzip " <> objectZipName
-  liftIO $ Zip.extractFilesFromArchive
-    [Zip.OptRecursive, Zip.OptPreserveSymbolicLinks]
-    (Zip.toArchive objectBinary)
-  when verbose
-    $  sayLnWithTime
-    $  "Unzipped "
-    <> objectName
-    <> " from: "
-    <> objectZipName
+  if LBS.length objectBinary == 0
+    then
+      when verbose
+      $  sayLnWithTime
+      $  "Warning: "
+      <> objectZipName
+      <> " is ZERO bytes"
+    else do
+      liftIO $ Zip.extractFilesFromArchive
+        [Zip.OptRecursive, Zip.OptPreserveSymbolicLinks]
+        (Zip.toArchive objectBinary)
+      when verbose
+        $  sayLnWithTime
+        $  "Unzipped "
+        <> objectName
+        <> " from: "
+        <> objectZipName
 
 
 

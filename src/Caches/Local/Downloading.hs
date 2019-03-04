@@ -320,14 +320,15 @@ getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkV
       <> " in local cache at: "
       <> frameworkLocalCachePath prefix
     deleteFrameworkDirectory fVersion platform verbose
-    unzipBinary binary fwn frameworkZipName verbose <* makeExecutable platform f
+    unzipBinary binary fwn frameworkZipName verbose
+      <* ifExists frameworkExecutablePath (makeExecutable frameworkExecutablePath)
  where
   frameworkLocalCachePath cPrefix =
     lCacheDir </> cPrefix </> remoteFrameworkUploadPath
   remoteFrameworkUploadPath =
     remoteFrameworkPath platform reverseRomeMap f version
   frameworkZipName = frameworkArchiveName f version
-
+  frameworkExecutablePath = frameworkBuildBundleForPlatform platform f </> fwn
 
 
 
@@ -355,7 +356,7 @@ getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersio
       <> " in local cache at: "
       <> finalDSYMLocalPath
     deleteDSYMDirectory fVersion platform verbose
-    unzipBinary binary fwn dSYMZipName verbose <* makeExecutable platform f
+    unzipBinary binary fwn dSYMZipName verbose
  where
   dSYMLocalCachePath cPrefix = lCacheDir </> cPrefix </> remotedSYMUploadPath
   remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version

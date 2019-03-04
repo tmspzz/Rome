@@ -21,6 +21,7 @@ import           Data.Romefile                (Framework (..))
 import qualified Data.Text                    as T
 import qualified Network.AWS                  as AWS
 import qualified Network.AWS.S3               as S3
+import           System.Directory             (doesFileExist)
 import           System.FilePath              ((</>))
 import           Types                        hiding (version)
 import           Utils
@@ -61,7 +62,7 @@ getDSYMFromS3
        String
        (ReaderT (AWS.Env, CachePrefix, Bool) IO)
        LBS.ByteString
-getDSYMFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps)  version) platform
+getDSYMFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
   = do
     (env, CachePrefix prefix, verbose) <- ask
     let finalRemoteDSYMUploadPath = prefix </> remoteDSYMUploadPath
@@ -136,8 +137,12 @@ getAndUnzipFrameworkFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVersio
                                           platform
     deleteFrameworkDirectory fVersion platform verbose
     unzipBinary frameworkBinary fwn frameworkZipName verbose
-      <* makeExecutable platform f
-  where frameworkZipName = frameworkArchiveName f version
+      <* ifExists
+           frameworkExecutablePath
+           (makeExecutable frameworkExecutablePath)
+ where
+  frameworkZipName        = frameworkArchiveName f version
+  frameworkExecutablePath = frameworkBuildBundleForPlatform platform f </> fwn
 
 
 

@@ -9,6 +9,7 @@ import qualified Codec.Archive.Zip            as Zip
 import           Configuration                (carthageArtifactsBuildDirectoryForPlatform)
 import           Control.Arrow                (left)
 import           Control.Exception            as E (try)
+import           Control.Lens                 hiding (List)
 import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Trans.Resource (MonadUnliftIO, runResourceT)
@@ -32,7 +33,9 @@ import           Data.Text.Encoding
 import qualified Data.Text.IO                 as T
 import           Data.Time
 import           Debug.Trace
-import qualified Network.AWS                  as AWS (Error)
+import qualified Network.AWS                  as AWS (Error, ErrorMessage(..), serviceMessage, _ServiceError)
+import qualified Network.AWS.Data.Text        as AWS (showText)
+
 import           Network.HTTP.Conduit         as HTTP
 import           Network.HTTP.Types.Header    as HTTP (hUserAgent)
 import           Numeric                      (showFFloat)
@@ -108,9 +111,14 @@ checkIfRomeLatestVersionIs currentRomeVersion = do
 
 
 -- | Turns an `AWS.Error` to `String` or defaults to "Unexpected Error".
-awsErrorToString :: AWS.Error -> String
-awsErrorToString = show
-
+awsErrorToString :: AWS.Error -> Bool -> String
+awsErrorToString e verbose = if verbose
+  then show e
+  else AWS.showText $ fromMaybe (AWS.ErrorMessage "Unexpected Error") maybeServiceError
+  where
+    maybeServiceError = view AWS.serviceMessage =<< (e ^? AWS._ServiceError)
+    fromErrorMessage :: AWS.ErrorMessage -> String
+    fromErrorMessage (AWS.ErrorMessage t) = T.unpack t
 
 
 -- | Prints a `String` doing the lifting for you.

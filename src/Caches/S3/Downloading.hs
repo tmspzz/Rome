@@ -236,17 +236,17 @@ getArtifactFromS3
   -> String -- ^ A colloquial name for the artifact
   -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
 getArtifactFromS3 s3BucketName remotePath artifactName = do
-  env            <- ask
+  readerEnv@(_, verbose)            <- ask
   eitherArtifact <- liftIO $ try $ runReaderT
     (downloadBinary s3BucketName remotePath artifactName)
-    env
+    readerEnv
   case eitherArtifact of
     Left e ->
       throwError
         $  "Error: could not download "
         <> artifactName
         <> " : "
-        <> awsErrorToString e
+        <> awsErrorToString e verbose
     Right artifactBinary -> return artifactBinary
 
 

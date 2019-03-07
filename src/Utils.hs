@@ -117,8 +117,7 @@ awsErrorToString e verbose = if verbose
   else AWS.showText $ fromMaybe (AWS.ErrorMessage "Unexpected Error") maybeServiceError
   where
     maybeServiceError = view AWS.serviceMessage =<< (e ^? AWS._ServiceError)
-    fromErrorMessage :: AWS.ErrorMessage -> String
-    fromErrorMessage (AWS.ErrorMessage t) = T.unpack t
+
 
 
 -- | Prints a `String` doing the lifting for you.

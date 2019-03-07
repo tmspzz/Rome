@@ -20,6 +20,7 @@ import           Caches.S3.Probing
 import           Caches.S3.Uploading
 import           Configuration
 import           Control.Applicative          ((<|>))
+import           Control.Concurrent.Async.Lifted.Safe (mapConcurrently_, mapConcurrently, concurrently_)
 import           Control.Lens                 hiding (List)
 import           Control.Monad
 import           Control.Monad.Catch
@@ -437,21 +438,21 @@ downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersion
       (Just s3BucketName, lCacheDir) -> do
         env <- lift getAWSRegion
         let uploadDownloadEnv = (env, cachePrefix, s, verbose)
-        liftIO $ runReaderT
-          (downloadFrameworksAndArtifactsFromCaches s3BucketName
-                                                    lCacheDir
-                                                    reverseRepositoryMap
-                                                    frameworkVersions
-                                                    platforms
-          )
-          uploadDownloadEnv
-        liftIO $ runReaderT
-          (downloadVersionFilesFromCaches s3BucketName
-                                          lCacheDir
-                                          gitRepoNamesAndVersions
-          )
-          uploadDownloadEnv
-
+        let action1 = runReaderT
+                                (downloadFrameworksAndArtifactsFromCaches s3BucketName
+                                                                          lCacheDir
+                                                                          reverseRepositoryMap
+                                                                          frameworkVersions
+                                                                          platforms
+                                )
+                                uploadDownloadEnv
+        let action2 = runReaderT
+                                (downloadVersionFilesFromCaches s3BucketName
+                                                                lCacheDir
+                                                                gitRepoNamesAndVersions
+                                )
+                                uploadDownloadEnv
+        liftIO $ concurrently_ action1 action2
       (Nothing, Just lCacheDir) -> do
 
         let readerEnv = (cachePrefix, verbose)
@@ -504,20 +505,21 @@ uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions 
       (Just s3BucketName, lCacheDir) -> do
         env <- lift getAWSRegion
         let uploadDownloadEnv = (env, cachePrefix, s, verbose)
-        liftIO $ runReaderT
-          (uploadFrameworksAndArtifactsToCaches s3BucketName
-                                                lCacheDir
-                                                reverseRepositoryMap
-                                                frameworkVersions
-                                                platforms
-          )
-          uploadDownloadEnv
-        liftIO $ runReaderT
-          (uploadVersionFilesToCaches s3BucketName
-                                      lCacheDir
-                                      gitRepoNamesAndVersions
-          )
-          uploadDownloadEnv
+        let action1 = runReaderT
+                        (uploadFrameworksAndArtifactsToCaches s3BucketName
+                                                              lCacheDir
+                                                              reverseRepositoryMap
+                                                              frameworkVersions
+                                                              platforms
+                        )
+                        uploadDownloadEnv
+        let action2 = runReaderT
+                        (uploadVersionFilesToCaches s3BucketName
+                                                    lCacheDir
+                                                    gitRepoNamesAndVersions
+                        )
+                        uploadDownloadEnv
+        liftIO $ concurrently_ action1 action2
 
       (Nothing, Just lCacheDir) -> do
         let readerEnv = (cachePrefix, verbose)
@@ -598,13 +600,10 @@ uploadFrameworksAndArtifactsToCaches
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying the Frameworks and dSYMs.
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-uploadFrameworksAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fvs
-  = mapM_ (sequence . upload)
+uploadFrameworksAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fvs platforms
+  = mapConcurrently_ (uploadForAll platforms) fvs
  where
-  upload = mapM
-    (uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap)
-    fvs
-
+  uploadForAll platforms f = mapConcurrently (uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap f) platforms
 
 
 -- | Uploads a Framework, the relative dSYM and bcsymbolmaps to the caches.
@@ -885,15 +884,10 @@ downloadFrameworksAndArtifactsFromCaches
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying the Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap fvs
-  = mapM_ (sequence . downloadFramework)
+downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap fvs platforms
+  =  mapConcurrently_ (downloadForAll platforms) fvs
  where
-  downloadFramework = mapM
-    (downloadFrameworkAndArtifactsFromCaches s3BucketName
-                                             mlCacheDir
-                                             reverseRomeMap
-    )
-    fvs
+  downloadForAll platforms f = mapConcurrently (downloadFrameworkAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap f) platforms
 
 
 

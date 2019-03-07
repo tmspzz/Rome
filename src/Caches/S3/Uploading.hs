@@ -127,7 +127,7 @@ uploadBinary s3BucketName binaryZip destinationPath objectName = do
                      (AWS.send $ S3.putObject s3BucketName objectKey body)
     case rs of
       Left e ->
-        sayFunc $ "Error uploading " <> objectName <> ": " <> awsErrorToString e
+        sayFunc $ "Error uploading " <> objectName <> ": " <> awsErrorToString e verbose
       Right _ ->
         sayFunc $ "Uploaded " <> objectName <> " to: " <> destinationPath
 

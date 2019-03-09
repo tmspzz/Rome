@@ -126,11 +126,11 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
 
   case command of
 
-    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag)
+    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              uploadArtifacts
-             (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag)
+             (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFalg)
              (repositoryMapEntries, ignoreMapEntries, currentMapEntries)
              gitRepoNames
              cartfileEntries
@@ -139,11 +139,11 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
              mlCacheDir
              platforms
 
-    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag)
+    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              downloadArtifacts
-             (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag)
+             (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFalg)
              (repositoryMapEntries, ignoreMapEntries, currentMapEntries)
              gitRepoNames
              cartfileEntries
@@ -229,7 +229,7 @@ type FlowFunction  = Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
-  -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) RomeMonad ()
 
 
 -- | Convenience function wrapping the regular sequence of events
@@ -239,7 +239,8 @@ performWithDefaultFlow
   -> (Bool {- verbose -}
           , NoIgnoreFlag  {- noIgnoreFlag -}
                         , SkipLocalCacheFlag {- skipLocalCache -}
-                                            , NoSkipCurrentFlag) {- noSkipCurrentFlag -}
+                                            , NoSkipCurrentFlag {- noSkipCurrentFlag -}
+                                                               , ConcurrentlyFlag) {- concurrentlyFlag -}
   -> ([RomefileEntry] {- repositoryMapEntries -}
                      , [RomefileEntry] {- ignoreMapEntries -}
                                       , [RomefileEntry]) {- currentMapEntries -}
@@ -250,7 +251,7 @@ performWithDefaultFlow
   -> Maybe String -- mlCacheDir
   -> [TargetPlatform] -- platforms
   -> RomeMonad ()
-performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag) (repositoryMapEntries, ignoreMapEntries, currentMapEntries) gitRepoNames cartfileEntries cachePrefixString mS3BucketName mlCacheDir platforms
+performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFlag) (repositoryMapEntries, ignoreMapEntries, currentMapEntries) gitRepoNames cartfileEntries cachePrefixString mS3BucketName mlCacheDir platforms
   = do
 
     let ignoreFrameworks = concatMap _frameworks ignoreMapEntries
@@ -287,7 +288,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
                 )
                 platforms
               )
-              (cachePrefix, skipLocalCache, verbose)
+              (cachePrefix, skipLocalCache, concurrentlyFlag, verbose)
             when (_noSkipCurrent noSkipCurrentFlag) $ do
               currentVersion <- deriveCurrentVersion
               let filteredCurrentMapEntries =
@@ -310,7 +311,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
                   )
                   platforms
                 )
-                (cachePrefix, skipLocalCache, verbose)
+                (cachePrefix, skipLocalCache, concurrentlyFlag, verbose)
       else do
         currentVersion <- deriveCurrentVersion
         let filteredCurrentMapEntries =
@@ -337,7 +338,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
                     frameworkVersions
                     platforms
           )
-          (cachePrefix, skipLocalCache, verbose)
+          (cachePrefix, skipLocalCache, concurrentlyFlag, verbose)
 
 -- | Lists Frameworks in the caches.
 listArtifacts
@@ -425,10 +426,10 @@ downloadArtifacts
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to.
-  -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) RomeMonad ()
 downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
   = do
-    (cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
+    (cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), ConcurrentlyFlag performConcurrently, verbose) <- ask
 
     let sayFunc :: MonadIO m => String -> m ()
         sayFunc = if verbose then sayLnWithTime else sayLn
@@ -497,10 +498,10 @@ uploadArtifacts
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
-  -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) RomeMonad ()
 uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
   = do
-    (cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
+    (cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), ConcurrentlyFlag performConcurrently, verbose) <- ask
     case (mS3BucketName, mlCacheDir) of
       (Just s3BucketName, lCacheDir) -> do
         env <- lift getAWSRegion

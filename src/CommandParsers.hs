@@ -49,6 +49,13 @@ noSkipCurrentParser = NoSkipCurrentFlag <$> Opts.switch
        "Do not skip the `currentMap` section in the Romefile when performing the operation."
   )
 
+concurrentlyParser :: Opts.Parser ConcurrentlyFlag
+concurrentlyParser = ConcurrentlyFlag <$> Opts.switch
+  (  Opts.long "concurrently"
+  <> Opts.help
+        "Maximise concurrency while performing the operation."
+  )
+
 reposParser :: Opts.Parser [ProjectName]
 reposParser = Opts.many
   (Opts.argument
@@ -88,6 +95,7 @@ udcPayloadParser =
     <*> skipLocalCacheParser
     <*> noIgnoreParser
     <*> noSkipCurrentParser
+    <*> concurrentlyParser
 
 uploadParser :: Opts.Parser RomeCommand
 uploadParser = pure Upload <*> udcPayloadParser

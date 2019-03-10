@@ -86,7 +86,7 @@ teardown() {
   ls
   echo `pwd`
 
-  run rome upload --cache-prefix travis ${FRAMEWORK_REPO_NAME}
+  run rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME}
 
   [ "$status" -eq 0 ]
 
@@ -150,7 +150,7 @@ teardown() {
   sleep 4 
 
   rm -rf Carthage/Build
-  run rome download --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME} 
+  run rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME} 
 
   [ "$status" -eq 0 ]
 
@@ -188,7 +188,7 @@ teardown() {
   fi
   
   rm -rf Carthage/Build
-  run rome download --cache-prefix travis ${FRAMEWORK_REPO_NAME} 
+  run rome download --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME} 
 
   [ "$status" -eq 0 ]
 
@@ -229,7 +229,7 @@ teardown() {
   sleep 4 
 
   rm -rf Carthage/Build
-  run rome download --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME}
+  run rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME}
 
   [ "$status" -eq 0 ]
 

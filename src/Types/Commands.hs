@@ -18,6 +18,7 @@ data RomeUDCPayload = RomeUDCPayload { _payload            :: [ProjectName]
                                      , _skipLocalCacheFlag :: SkipLocalCacheFlag
                                      , _noIgnoreFlag       :: NoIgnoreFlag
                                      , _noSkipCurrentFlag  :: NoSkipCurrentFlag
+                                     , _concurrentlyFlag   :: ConcurrentlyFlag
                                      }
                                      deriving (Show, Eq)
 
@@ -37,6 +38,9 @@ newtype NoIgnoreFlag = NoIgnoreFlag { _noIgnore :: Bool }
                                     deriving (Show, Eq)
 
 newtype NoSkipCurrentFlag = NoSkipCurrentFlag { _noSkipCurrent :: Bool }
+                                              deriving (Show, Eq)
+
+newtype ConcurrentlyFlag = ConcurrentlyFlag { _concurrently :: Bool }
                                               deriving (Show, Eq)
 
 data RomeListPayload = RomeListPayload { _listMode              :: ListMode

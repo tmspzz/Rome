@@ -14,7 +14,7 @@ import           Types.Commands
 
 
 
-type UploadDownloadCmdEnv  = (AWS.Env, CachePrefix, SkipLocalCacheFlag, Bool)
+type UploadDownloadCmdEnv  = (AWS.Env, CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool)
 type UploadDownloadEnv     = (AWS.Env, CachePrefix, Bool)
 type RomeMonad             = ExceptT String IO
 type RepositoryMap         = M.Map ProjectName [Framework]

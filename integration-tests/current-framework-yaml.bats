@@ -82,7 +82,7 @@ teardown() {
   ls
   echo `pwd`
 
-  run rome upload --cache-prefix travis --no-skip-current
+  run rome upload --concurrently --cache-prefix travis --no-skip-current
 
   [ "$status" -eq 0 ]
 
@@ -146,7 +146,7 @@ teardown() {
   sleep 4 
 
   rm -rf Carthage/Build
-  run rome download --cache-prefix travis --skip-local-cache --no-skip-current
+  run rome download --concurrently --cache-prefix travis --skip-local-cache --no-skip-current
 
   [ "$status" -eq 0 ]
 
@@ -184,7 +184,7 @@ teardown() {
   fi
   
   rm -rf Carthage/Build
-  run rome download --cache-prefix travis --no-skip-current
+  run rome download --concurrently --cache-prefix travis --no-skip-current
 
   [ "$status" -eq 0 ]
 
@@ -222,7 +222,7 @@ teardown() {
   ls
   echo `pwd`
 
-  run rome upload --cache-prefix travis --no-skip-current Alamofire
+  run rome upload --concurrently --cache-prefix travis --no-skip-current Alamofire
 
   [ "$status" -eq 0 ]
 
@@ -286,7 +286,7 @@ teardown() {
   sleep 4 
 
   rm -rf Carthage/Build
-  run rome download --cache-prefix travis --skip-local-cache --no-skip-current Alamofire
+  run rome download --concurrently --cache-prefix travis --skip-local-cache --no-skip-current Alamofire
 
   [ "$status" -eq 0 ]
 

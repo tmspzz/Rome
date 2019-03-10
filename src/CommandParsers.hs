@@ -53,7 +53,7 @@ concurrentlyParser :: Opts.Parser ConcurrentlyFlag
 concurrentlyParser = ConcurrentlyFlag <$> Opts.switch
   (  Opts.long "concurrently"
   <> Opts.help
-        "Maximise concurrency while performing the operation."
+       "Maximise concurrency while performing the operation. Might make verbose output hard to follow."
   )
 
 reposParser :: Opts.Parser [ProjectName]

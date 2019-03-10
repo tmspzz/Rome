@@ -63,7 +63,7 @@ teardown() {
   MINIO_HTTP_TRACE=output.log minio server minio-buckets &
   sleep 4 
 
-  run rome upload --cache-prefix travis
+  run rome upload --concurrently --cache-prefix travis
 
   if [ -d "minio-buckets/rome" ]; then
     cp -R minio-buckets/rome/ ../_rome_bkp
@@ -111,7 +111,7 @@ teardown() {
   sleep 4 
 
   rm -rf Carthage/Build
-  run rome download --cache-prefix travis --skip-local-cache
+  run rome download --concurrently --cache-prefix travis --skip-local-cache
 
   [ "$status" -eq 0 ]
 
@@ -141,7 +141,7 @@ teardown() {
   fi
   
   rm -rf Carthage/Build
-  run rome download --cache-prefix travis
+  run rome download --concurrently --cache-prefix travis
 
   [ "$status" -eq 0 ]
 

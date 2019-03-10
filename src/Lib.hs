@@ -130,7 +130,12 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              uploadArtifacts
-             (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFalg)
+             ( verbose
+             , noIgnoreFlag
+             , skipLocalCache
+             , noSkipCurrentFlag
+             , concurrentlyFalg
+             )
              (repositoryMapEntries, ignoreMapEntries, currentMapEntries)
              gitRepoNames
              cartfileEntries
@@ -143,7 +148,12 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              downloadArtifacts
-             (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFalg)
+             ( verbose
+             , noIgnoreFlag
+             , skipLocalCache
+             , noSkipCurrentFlag
+             , concurrentlyFalg
+             )
              (repositoryMapEntries, ignoreMapEntries, currentMapEntries)
              gitRepoNames
              cartfileEntries
@@ -236,11 +246,12 @@ type FlowFunction  = Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
 -- | in case of Download or Upload commands
 performWithDefaultFlow
   :: FlowFunction
-  -> (Bool {- verbose -}
-          , NoIgnoreFlag  {- noIgnoreFlag -}
-                        , SkipLocalCacheFlag {- skipLocalCache -}
-                                            , NoSkipCurrentFlag {- noSkipCurrentFlag -}
-                                                               , ConcurrentlyFlag) {- concurrentlyFlag -}
+  -> ( Bool {- verbose -}
+     , NoIgnoreFlag  {- noIgnoreFlag -}
+     , SkipLocalCacheFlag {- skipLocalCache -}
+     , NoSkipCurrentFlag {- noSkipCurrentFlag -}
+     , ConcurrentlyFlag
+     ) {- concurrentlyFlag -}
   -> ([RomefileEntry] {- repositoryMapEntries -}
                      , [RomefileEntry] {- ignoreMapEntries -}
                                       , [RomefileEntry]) {- currentMapEntries -}
@@ -315,7 +326,9 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
       else do
         currentVersion <- deriveCurrentVersion
         let filteredCurrentMapEntries =
-              ((\e -> _projectName e `elem` gitRepoNames) `filter` currentMapEntries) -- Make the command is only run for the mentioned projects
+              (        (\e -> _projectName e `elem` gitRepoNames)
+                `filter` currentMapEntries
+                ) -- Make sure the command is only run for the mentioned projects
                 `filterRomeFileEntriesByPlatforms` ignoreMapEntries
         let currentFrameworks =
               concatMap (snd . romeFileEntryToTuple) filteredCurrentMapEntries
@@ -426,10 +439,14 @@ downloadArtifacts
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to.
-  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) RomeMonad ()
+  -> ReaderT
+       (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool)
+       RomeMonad
+       ()
 downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
   = do
-    (cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), ConcurrentlyFlag performConcurrently, verbose) <- ask
+    (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), conconrrentlyFlag@(ConcurrentlyFlag performConcurrently), verbose) <-
+      ask
 
     let sayFunc :: MonadIO m => String -> m ()
         sayFunc = if verbose then sayLnWithTime else sayLn
@@ -438,22 +455,26 @@ downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersion
 
       (Just s3BucketName, lCacheDir) -> do
         env <- lift getAWSRegion
-        let uploadDownloadEnv = (env, cachePrefix, s, verbose)
+        let uploadDownloadEnv =
+              (env, cachePrefix, skipLocalCacheFlag, conconrrentlyFlag, verbose)
         let action1 = runReaderT
-                                (downloadFrameworksAndArtifactsFromCaches s3BucketName
-                                                                          lCacheDir
-                                                                          reverseRepositoryMap
-                                                                          frameworkVersions
-                                                                          platforms
-                                )
-                                uploadDownloadEnv
+              (downloadFrameworksAndArtifactsFromCaches s3BucketName
+                                                        lCacheDir
+                                                        reverseRepositoryMap
+                                                        frameworkVersions
+                                                        platforms
+              )
+              uploadDownloadEnv
         let action2 = runReaderT
-                                (downloadVersionFilesFromCaches s3BucketName
-                                                                lCacheDir
-                                                                gitRepoNamesAndVersions
-                                )
-                                uploadDownloadEnv
-        liftIO $ concurrently_ action1 action2
+              (downloadVersionFilesFromCaches s3BucketName
+                                              lCacheDir
+                                              gitRepoNamesAndVersions
+              )
+              uploadDownloadEnv
+        if performConcurrently
+          then liftIO $ concurrently_ action1 action2
+          else liftIO $ action1 >> action2
+
       (Nothing, Just lCacheDir) -> do
 
         let readerEnv = (cachePrefix, verbose)
@@ -498,29 +519,41 @@ uploadArtifacts
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
-  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) RomeMonad ()
+  -> ReaderT
+       (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool)
+       RomeMonad
+       ()
 uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
   = do
-    (cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), ConcurrentlyFlag performConcurrently, verbose) <- ask
+    (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), concurrentlyFlag@(ConcurrentlyFlag performConcurrently), verbose) <-
+      ask
     case (mS3BucketName, mlCacheDir) of
       (Just s3BucketName, lCacheDir) -> do
-        env <- lift getAWSRegion
-        let uploadDownloadEnv = (env, cachePrefix, s, verbose)
+        awsEnv <- lift getAWSRegion
+        let uploadDownloadEnv =
+              ( awsEnv
+              , cachePrefix
+              , skipLocalCacheFlag
+              , concurrentlyFlag
+              , verbose
+              )
         let action1 = runReaderT
-                        (uploadFrameworksAndArtifactsToCaches s3BucketName
-                                                              lCacheDir
-                                                              reverseRepositoryMap
-                                                              frameworkVersions
-                                                              platforms
-                        )
-                        uploadDownloadEnv
-        let action2 = runReaderT
-                        (uploadVersionFilesToCaches s3BucketName
+              (uploadFrameworksAndArtifactsToCaches s3BucketName
                                                     lCacheDir
-                                                    gitRepoNamesAndVersions
-                        )
-                        uploadDownloadEnv
-        liftIO $ concurrently_ action1 action2
+                                                    reverseRepositoryMap
+                                                    frameworkVersions
+                                                    platforms
+              )
+              uploadDownloadEnv
+        let action2 = runReaderT
+              (uploadVersionFilesToCaches s3BucketName
+                                          lCacheDir
+                                          gitRepoNamesAndVersions
+              )
+              uploadDownloadEnv
+        if performConcurrently
+          then liftIO $ concurrently_ action1 action2
+          else liftIO $ action1 >> action2
 
       (Nothing, Just lCacheDir) -> do
         let readerEnv = (cachePrefix, verbose)
@@ -537,10 +570,8 @@ uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions 
                (saveVersionFilesToLocalCache lCacheDir gitRepoNamesAndVersions)
                readerEnv
 
-
       (Nothing, Nothing) -> throwError bothCacheKeysMissingMessage
  where
-
   gitRepoNamesAndVersions :: [ProjectNameAndVersion]
   gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVersions
     reverseRepositoryMap
@@ -566,7 +597,7 @@ uploadVersionFileToCaches
   -> ProjectNameAndVersion -- ^ The information used to derive the name and path for the .version file.
   -> ReaderT UploadDownloadCmdEnv IO ()
 uploadVersionFileToCaches s3BucketName mlCacheDir projectNameAndVersion = do
-  (env, cachePrefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
+  (env, cachePrefix, SkipLocalCacheFlag skipLocalCache, _, verbose) <- ask
 
   versionFileExists <- liftIO $ doesFileExist versionFileLocalPath
 
@@ -593,7 +624,7 @@ uploadVersionFileToCaches s3BucketName mlCacheDir projectNameAndVersion = do
 
 
 
--- | Uploads a list of Frameworks and relative dSYMs to a caches.
+-- | Uploads a list of Frameworks and relative dSYMs to the caches.
 uploadFrameworksAndArtifactsToCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to a local cache or Nothing
@@ -602,9 +633,23 @@ uploadFrameworksAndArtifactsToCaches
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
 uploadFrameworksAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fvs platforms
-  = mapConcurrently_ (uploadForAll platforms) fvs
+  = do
+    (_, _, _, ConcurrentlyFlag performConcurrently, _) <- ask
+    if performConcurrently
+      then mapConcurrently_ (uploadConcurrently platforms) fvs
+      else mapM_ (sequence . upload) platforms
  where
-  uploadForAll platforms f = mapConcurrently (uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap f) platforms
+  uploadConcurrently platforms f = mapConcurrently
+    (uploadFrameworkAndArtifactsToCaches s3BucketName
+                                         mlCacheDir
+                                         reverseRomeMap
+                                         f
+    )
+    platforms
+  upload = mapM
+    (uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap)
+    fvs
+
 
 
 -- | Uploads a Framework, the relative dSYM and bcsymbolmaps to the caches.
@@ -617,7 +662,7 @@ uploadFrameworkAndArtifactsToCaches
   -> ReaderT UploadDownloadCmdEnv IO ()
 uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
   = do
-    (env, cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
+    (env, cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), _, verbose) <- ask
 
     let uploadDownloadEnv = (env, cachePrefix, verbose)
 
@@ -813,7 +858,7 @@ downloadVersionFileFromCaches
   -> ReaderT UploadDownloadCmdEnv IO ()
 downloadVersionFileFromCaches s3BucketName (Just lCacheDir) projectNameAndVersion
   = do
-    (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, verbose) <-
+    (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, _, verbose) <-
       ask
 
     when skipLocalCache $ downloadVersionFileFromCaches s3BucketName
@@ -859,7 +904,7 @@ downloadVersionFileFromCaches s3BucketName (Just lCacheDir) projectNameAndVersio
   versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
 
 downloadVersionFileFromCaches s3BucketName Nothing projectNameAndVersion = do
-  (env, cachePrefix, _, verbose) <- ask
+  (env, cachePrefix, _, _, verbose) <- ask
   let sayFunc :: MonadIO m => String -> m ()
       sayFunc = if verbose then sayLnWithTime else sayLn
   eitherError <- liftIO $ runReaderT
@@ -886,9 +931,25 @@ downloadFrameworksAndArtifactsFromCaches
   -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
 downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap fvs platforms
-  =  mapConcurrently_ (downloadForAll platforms) fvs
+  = do
+    (_, _, _, ConcurrentlyFlag performConcurrently, _) <- ask
+    if performConcurrently
+      then mapConcurrently_ (downloadConcurrently platforms) fvs
+      else mapM_ (sequence . download) platforms
  where
-  downloadForAll platforms f = mapConcurrently (downloadFrameworkAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap f) platforms
+  downloadConcurrently platforms f = mapConcurrently
+    (downloadFrameworkAndArtifactsFromCaches s3BucketName
+                                             mlCacheDir
+                                             reverseRomeMap
+                                             f
+    )
+    platforms
+  download = mapM
+    (downloadFrameworkAndArtifactsFromCaches s3BucketName
+                                             mlCacheDir
+                                             reverseRomeMap
+    )
+    fvs
 
 
 
@@ -904,7 +965,7 @@ downloadFrameworkAndArtifactsFromCaches
   -> ReaderT UploadDownloadCmdEnv IO ()
 downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
   = do
-    (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, verbose) <-
+    (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, _, verbose) <-
       ask
 
     let remoteReaderEnv = (env, cachePrefix, verbose)
@@ -1043,7 +1104,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRom
 
 downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVersion@(FrameworkVersion (Framework fwn fwt fwps) _) platform
   = do
-    (env, cachePrefix, _, verbose) <- ask
+    (env, cachePrefix, _, _, verbose) <- ask
 
     let readerEnv = (env, cachePrefix, verbose)
 

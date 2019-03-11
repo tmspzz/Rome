@@ -646,6 +646,8 @@ Uploaded Alamofire.dSYM to: Alamofire/iOS/Alamofire.framework.dSYM-4.3.0.zip
 ```
 
 If a local cache is specified in your `Romefile` and you wish to ignore it pass `--skip-local-cache` on the command line.
+If you are on a fast Internet connection you can use the `--concurrently` flag to maximise concurrency for the operation
+and maximise bandwith use. Using the --concurrently` flag should result in a x3 speedup.
 
 ### Downloading
 
@@ -679,6 +681,8 @@ Downloaded Alamofire.dSYM from: Alamofire/watchOS/Alamofire.framework.dSYM-4.3.0
 ```
 
 If a local cache is specified in your `Romefile` and you wish to ignore it pass `--skip-local-cache` on the command line.
+If you are on a fast Internet connection you can use the `--concurrently` flag to maximise concurrency for the operation
+and maximise bandwith use. Using the --concurrently` flag should result in a x3 speedup.
 
 ### Listing
 

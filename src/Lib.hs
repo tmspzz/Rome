@@ -38,11 +38,12 @@ import           Data.Maybe                   (fromMaybe, maybe)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import qualified Data.Map.Strict              as M (empty)
-import qualified Data.S3Config                as S3Config
 import qualified Data.Text                    as T
 import qualified Network.AWS                  as AWS
 import qualified Network.AWS.Data             as AWS (fromText)
 import qualified Network.AWS.S3               as S3
+import qualified Network.AWS.Utils            as AWS
+
 import           Network.URL
 import           System.Directory
 import           System.Environment
@@ -1208,9 +1209,9 @@ getRegionFromFile
   => FilePath -- ^ The path to the file containing the `AWS.Region`
   -> String -- ^ The name of the profile to use
   -> ExceptT String m AWS.Region
-getRegionFromFile f profile = fromFile f $ \file -> ExceptT . return $ do
-  config <- S3Config.parseS3Config file
-  S3Config.regionOf (T.pack profile) config
+getRegionFromFile f profile = fromFile f $ \fileContents -> ExceptT . return $ do
+  config <- AWS.parseConfigFile fileContents
+  AWS.regionOf (T.pack profile) config
 
 
 
@@ -1243,7 +1244,7 @@ getEndpointFromFile
   => FilePath -- ^ The path to the file containing the `AWS.Region`
   -> String -- ^ The name of the profile to use
   -> ExceptT String m URL
-getEndpointFromFile f profile = fromFile f $ \file -> ExceptT . return $ do
-  config <- S3Config.parseS3Config file
-  S3Config.endPointOf (T.pack profile) config
+getEndpointFromFile f profile = fromFile f $ \fileContents -> ExceptT . return $ do
+  config <- AWS.parseConfigFile fileContents
+  AWS.endPointOf (T.pack profile) config
 

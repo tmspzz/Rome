@@ -1,10 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Data.S3Config
-  ( S3Config
-  , parseS3Config
+module Network.AWS.Utils
+  ( ConfigFile
+  , CredentialsFile
+  , parseConfigFile
+  , parseCredentialsFile
   , regionOf
   , endPointOf
+  , sourceProfileOf
   ) where
 
 -- For now, only very little information needs to be extracted from the S3
@@ -20,18 +23,28 @@ import qualified Network.AWS       as AWS
 import qualified Network.AWS.Data  as AWS
 import           Network.URL
 
-newtype S3Config = S3Config { _ini :: Ini }
+newtype ConfigFile = ConfigFile { _awsConfigIni :: Ini }
+newtype CredentialsFile = CredentialsFile { _awsCredentialsIni :: Ini }
 
-regionOf :: T.Text -> S3Config -> Either String AWS.Region
-regionOf profile = parseRegion <=< lookupValue profile "region" . _ini
+class FromIni a where
+  asIni :: a -> Ini
+
+instance FromIni ConfigFile where
+  asIni = _awsConfigIni
+
+instance FromIni CredentialsFile where
+  asIni = _awsCredentialsIni
+
+regionOf :: T.Text -> ConfigFile -> Either String AWS.Region
+regionOf profile = parseRegion <=< lookupValue profile "region" . asIni
  where
   parseRegion s = if T.null s
 -- better error message
     then Left "Failed reading: Failure parsing Region from empty string"
     else AWS.fromText s
 
-endPointOf :: T.Text -> S3Config -> Either String URL
-endPointOf profile = parseURL <=< lookupValue profile "endpoint" . _ini
+endPointOf :: T.Text -> ConfigFile -> Either String URL
+endPointOf profile = parseURL <=< lookupValue profile "endpoint" . asIni
  where
   parseURL s = if T.null s
     then Left "Failed reading: Failure parsing Endpoint from empty string"
@@ -41,5 +54,11 @@ endPointOf profile = parseURL <=< lookupValue profile "endpoint" . _ini
       . T.unpack
       $ s
 
-parseS3Config :: T.Text -> Either String S3Config
-parseS3Config = fmap S3Config . parseIni
+sourceProfileOf :: T.Text ->  CredentialsFile -> Either String CredentialsFile
+sourceProfileOf p credentialsFile = undefined
+
+parseConfigFile :: T.Text -> Either String ConfigFile
+parseConfigFile = fmap ConfigFile . parseIni
+
+parseCredentialsFile :: T.Text -> Either String CredentialsFile
+parseCredentialsFile = fmap CredentialsFile . parseIni

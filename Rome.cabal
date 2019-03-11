@@ -26,7 +26,6 @@ library
                        , Data.Carthage.Common
                        , Data.Carthage.VersionFile
                        , Data.Romefile
-                       , Data.S3Config
                        , Text.Parsec.Utils
                        , Xcode.DWARF
                        , Caches.S3.Probing
@@ -36,6 +35,7 @@ library
                        , Caches.Local.Uploading
                        , Caches.Local.Downloading
                        , Caches.Common
+                       , Network.AWS.Utils
 
   build-depends:       base >= 4.7 && < 5
                        , amazonka >= 1.6.1

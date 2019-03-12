@@ -1,6 +1,6 @@
 ![](logo/colosseum.jpg)
 
-# Rome [![Build Status](https://travis-ci.org/blender/Rome.svg?branch=master)](https://travis-ci.org/blender/Rome) [![rome-latest](https://img.shields.io/badge/release-v0.19.0.55-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.19.0.55) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
+# Rome [![Build Status](https://travis-ci.org/blender/Rome.svg?branch=master)](https://travis-ci.org/blender/Rome) [![rome-latest](https://img.shields.io/badge/release-v0.20.0.56-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.20.0.56) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
 
 Rome is a tool that allows developers on Apple platforms to use:
 
@@ -647,6 +647,8 @@ Uploaded Alamofire.dSYM to: Alamofire/iOS/Alamofire.framework.dSYM-4.3.0.zip
 
 If a local cache is specified in your `Romefile` and you wish to ignore it pass `--skip-local-cache` on the command line.
 
+Since version `0.20.0.56`, if you are on a fast Internet connection you can use the `--concurrently` flag to maximise concurrency for the operation and maximise bandwith use. Using the `--concurrently` flag should result in a __x3 speedup__.
+
 ### Downloading
 
 Downloading one or more frameworks, corresponding dSYMs, .bcsymbolmaps and
@@ -679,6 +681,8 @@ Downloaded Alamofire.dSYM from: Alamofire/watchOS/Alamofire.framework.dSYM-4.3.0
 ```
 
 If a local cache is specified in your `Romefile` and you wish to ignore it pass `--skip-local-cache` on the command line.
+
+Since version `0.20.0.56`, if you are on a fast Internet connection you can use the `--concurrently` flag to maximise concurrency for the operation and maximise bandwith use. Using the `--concurrently` flag should result in a __x3 speedup__.
 
 ### Listing
 

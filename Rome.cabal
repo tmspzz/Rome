@@ -71,7 +71,7 @@ library
                        , yaml >= 0.9.0
                        , safe >= 0.3.17
 
-  ghc-options:         -Wall -fno-warn-unused-do-bind
+  ghc-options:         -Wall -Werror -fno-warn-unused-do-bind
 
 
 

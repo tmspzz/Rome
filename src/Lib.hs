@@ -434,7 +434,7 @@ getProjectAvailabilityFromCaches
        [ProjectAvailability]
 getProjectAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap frameworkVersions platforms
   = do
-    env                       <- lift getAWSRegion
+    env                       <- lift getAWSEnv
     (cachePrefix, _, verbose) <- ask
     let readerEnv = (env, cachePrefix, verbose)
     availabilities <- liftIO $ runReaderT
@@ -489,7 +489,7 @@ downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersion
     case (mS3BucketName, mlCacheDir) of
 
       (Just s3BucketName, lCacheDir) -> do
-        env <- lift getAWSRegion
+        env <- lift getAWSEnv
         let uploadDownloadEnv =
               (env, cachePrefix, skipLocalCacheFlag, conconrrentlyFlag, verbose)
         let action1 = runReaderT
@@ -564,7 +564,7 @@ uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions 
       ask
     case (mS3BucketName, mlCacheDir) of
       (Just s3BucketName, lCacheDir) -> do
-        awsEnv <- lift getAWSRegion
+        awsEnv <- lift getAWSEnv
         let uploadDownloadEnv =
               ( awsEnv
               , cachePrefix

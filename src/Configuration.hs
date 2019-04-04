@@ -39,7 +39,7 @@ getAWSConfigFilePath = (</> awsConfigFilePath) `liftM` liftIO getHomeDirectory
 
 getAWSCredentialsFilePath:: MonadIO m => m FilePath
 getAWSCredentialsFilePath = (</> awsCredentialsFilePath) `liftM` liftIO getHomeDirectory
-  where awsCredentialsFilePath = ".aws/crendetials"
+  where awsCredentialsFilePath = ".aws/credentials"
 
 carthageBuildDirectory :: FilePath
 carthageBuildDirectory = "Carthage" </> "Build"

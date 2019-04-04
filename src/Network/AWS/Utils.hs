@@ -2,12 +2,14 @@
 
 module Network.AWS.Utils
   ( ConfigFile
-  , CredentialsFile
+  , credentialsFromFile
   , parseConfigFile
-  , parseCredentialsFile
   , regionOf
   , endPointOf
   , sourceProfileOf
+  , accessKeyIdOf
+  , secretAccessKeyOf
+  , roleARNOf
   ) where
 
 -- For now, only very little information needs to be extracted from the S3
@@ -19,9 +21,12 @@ import           Control.Monad     ((<=<))
 import           Data.Either.Utils (maybeToEither)
 import           Data.Ini          (Ini, lookupValue, parseIni)
 import qualified Data.Text         as T (Text, null, unpack)
+import qualified Data.Text.IO      as T (readFile)
 import qualified Network.AWS       as AWS
 import qualified Network.AWS.Data  as AWS
 import           Network.URL
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Control.Monad.Except (ExceptT (..), withExceptT)
 
 newtype ConfigFile = ConfigFile { _awsConfigIni :: Ini }
 newtype CredentialsFile = CredentialsFile { _awsCredentialsIni :: Ini }
@@ -34,6 +39,17 @@ instance FromIni ConfigFile where
 
 instance FromIni CredentialsFile where
   asIni = _awsCredentialsIni
+
+-- | Reads `CredentialsFile` from a file at a given path
+credentialsFromFile 
+  :: MonadIO m
+  => FilePath -- ^ The path to the file containing the credentials. Usually `~/.aws/credentials`
+  -> ExceptT String m CredentialsFile
+credentialsFromFile filePath = do
+  file <- liftIO (T.readFile filePath)
+  withExceptT (("Could not parse " <> filePath <> ": ") <>) (action file)
+  where
+    action a = ExceptT . return $ parseCredentialsFile a
 
 regionOf :: T.Text -> ConfigFile -> Either String AWS.Region
 regionOf profile = parseRegion <=< lookupValue profile "region" . asIni
@@ -54,11 +70,24 @@ endPointOf profile = parseURL <=< lookupValue profile "endpoint" . asIni
       . T.unpack
       $ s
 
-sourceProfileOf :: T.Text ->  CredentialsFile -> Either String CredentialsFile
-sourceProfileOf p credentialsFile = undefined
+getPropertyFromCredentials :: T.Text -> T.Text -> CredentialsFile -> Either String T.Text
+getPropertyFromCredentials profile property = lookupValue profile property . asIni
+
+sourceProfileOf :: T.Text -> CredentialsFile -> Either String T.Text
+sourceProfileOf profile = getPropertyFromCredentials profile "source_profile"
+
+roleARNOf :: T.Text -> CredentialsFile -> Either String T.Text
+roleARNOf profile = getPropertyFromCredentials profile "role_arn"
+
+accessKeyIdOf :: T.Text -> CredentialsFile -> Either String T.Text
+accessKeyIdOf profile = getPropertyFromCredentials profile "aws_access_key_id"
+
+secretAccessKeyOf :: T.Text -> CredentialsFile -> Either String T.Text
+secretAccessKeyOf profile = getPropertyFromCredentials profile "aws_secret_access_key"
 
 parseConfigFile :: T.Text -> Either String ConfigFile
 parseConfigFile = fmap ConfigFile . parseIni
 
 parseCredentialsFile :: T.Text -> Either String CredentialsFile
 parseCredentialsFile = fmap CredentialsFile . parseIni
+

@@ -91,9 +91,9 @@ getAWSEnv = do
         let secretAccessKey = T.encodeUtf8 <$> AWS.secretAccessKeyOf profile credentilas
         let authEnv = AWS.AuthEnv <$> (AWS.AccessKey <$> accessKeyId) 
                         <*> (AWS.Sensitive . AWS.SecretKey <$> secretAccessKey)  
-                        <*> Right Nothing 
-                        <*> Right Nothing
-        let auth = (,) <$> (AWS.Auth <$> authEnv) <*> Right (Just region)
+                        <*> pure Nothing 
+                        <*> pure Nothing
+        let auth = (,) <$> (AWS.Auth <$> authEnv) <*> pure (pure region)
         ExceptT $ pure auth
   manager <- liftIO (Conduit.newManager Conduit.tlsManagerSettings)
   ref <- liftIO (newIORef Nothing)
@@ -1281,25 +1281,3 @@ getEndpointFromFile
 getEndpointFromFile profile f = fromFile f $ \fileContents -> ExceptT . return $ do
   config <- AWS.parseConfigFile fileContents
   AWS.endPointOf (T.pack profile) config
-
-
-
--- -- | Reads `source_profile` from a file for a given profile
--- getSourceProfileFromCredentials
---   :: MonadIO m
---   => String -- ^ The name of the profile to use
---   -> FilePath -- ^ The path to the file containing the `AWS.Region`
---   -> ExceptT String m T.Text
--- getSourceProfileFromCredentials profile f = fromFile f $ \fileContents -> ExceptT . return $ do
---   credentials <- AWS.parseCredentialsFile fileContents
---   AWS.sourceProfileOf (T.pack profile) credentials
-
--- -- | Reads `source_profile` from a file for a given profile
--- getRoleARNFromFile
---   :: MonadIO m
---   => String -- ^ The name of the profile to use
---   -> FilePath -- ^ The path to the file containing the `AWS.Region`
---   -> ExceptT String m T.Text
--- getRoleARNFromFile profile f = fromFile f $ \fileContents -> ExceptT . return $ do
---   credentials <- AWS.parseCredentialsFile fileContents
---   AWS.roleARNOf (T.pack profile) credentials

@@ -3,6 +3,7 @@
 module Network.AWS.Utils
   ( ConfigFile
   , credentialsFromFile
+  , authFromCredentilas
   , parseConfigFile
   , regionOf
   , endPointOf
@@ -19,11 +20,14 @@ module Network.AWS.Utils
 
 import           Control.Monad     ((<=<))
 import           Data.Either.Utils (maybeToEither)
+import           Data.Either.Extra (mapLeft)
 import           Data.Ini          (Ini, lookupValue, parseIni)
 import qualified Data.Text         as T (Text, null, unpack)
+import qualified Data.Text.Encoding           as T (encodeUtf8)
 import qualified Data.Text.IO      as T (readFile)
 import qualified Network.AWS       as AWS
 import qualified Network.AWS.Data  as AWS
+import qualified Network.AWS.Data.Sensitive   as AWS (Sensitive (..))
 import           Network.URL
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Except (ExceptT (..), withExceptT)
@@ -41,15 +45,26 @@ instance FromIni CredentialsFile where
   asIni = _awsCredentialsIni
 
 -- | Reads `CredentialsFile` from a file at a given path
-credentialsFromFile 
+credentialsFromFile
   :: MonadIO m
   => FilePath -- ^ The path to the file containing the credentials. Usually `~/.aws/credentials`
   -> ExceptT String m CredentialsFile
 credentialsFromFile filePath = do
   file <- liftIO (T.readFile filePath)
   withExceptT (("Could not parse " <> filePath <> ": ") <>) (action file)
-  where
-    action a = ExceptT . return $ parseCredentialsFile a
+  where action a = ExceptT . return $ parseCredentialsFile a
+
+authFromCredentilas :: T.Text -> CredentialsFile -> Either String AWS.Auth
+authFromCredentilas profile credentials = AWS.Auth <$> authEnv
+ where
+  accessKeyId     = T.encodeUtf8 <$> accessKeyIdOf profile credentials
+  secretAccessKey = T.encodeUtf8 <$> secretAccessKeyOf profile credentials
+  authEnv =
+    AWS.AuthEnv
+      <$> (AWS.AccessKey <$> accessKeyId)
+      <*> (AWS.Sensitive . AWS.SecretKey <$> secretAccessKey)
+      <*> pure Nothing
+      <*> pure Nothing
 
 regionOf :: T.Text -> ConfigFile -> Either String AWS.Region
 regionOf profile = parseRegion <=< lookupValue profile "region" . asIni
@@ -70,20 +85,44 @@ endPointOf profile = parseURL <=< lookupValue profile "endpoint" . asIni
       . T.unpack
       $ s
 
-getPropertyFromCredentials :: T.Text -> T.Text -> CredentialsFile -> Either String T.Text
-getPropertyFromCredentials profile property = lookupValue profile property . asIni
+getPropertyFromCredentials
+  :: T.Text -> T.Text -> CredentialsFile -> Either String T.Text
+getPropertyFromCredentials profile property =
+  lookupValue profile property . asIni
 
 sourceProfileOf :: T.Text -> CredentialsFile -> Either String T.Text
-sourceProfileOf profile = getPropertyFromCredentials profile "source_profile"
+sourceProfileOf profile credFile =
+  getPropertyFromCredentials profile "source_profile" credFile
+    `withError` const (missingKeyError key profile)
+  where key = "source_profile"
 
 roleARNOf :: T.Text -> CredentialsFile -> Either String T.Text
-roleARNOf profile = getPropertyFromCredentials profile "role_arn"
+roleARNOf profile credFile = getPropertyFromCredentials profile key credFile
+  `withError` const (missingKeyError key profile)
+  where key = "role_arn"
 
 accessKeyIdOf :: T.Text -> CredentialsFile -> Either String T.Text
-accessKeyIdOf profile = getPropertyFromCredentials profile "aws_access_key_id"
+accessKeyIdOf profile credFile =
+  getPropertyFromCredentials profile key credFile
+    `withError` const (missingKeyError key profile)
+  where key = "aws_access_key_id"
+
+missingKeyError :: T.Text -> T.Text -> String
+missingKeyError key profile =
+  "Could not find key `"
+    ++ T.unpack key
+    ++ "` for profile `"
+    ++ T.unpack profile
+    ++ "`"
+
+withError :: Either a b -> (a -> c) -> Either c b
+withError = flip mapLeft
 
 secretAccessKeyOf :: T.Text -> CredentialsFile -> Either String T.Text
-secretAccessKeyOf profile = getPropertyFromCredentials profile "aws_secret_access_key"
+secretAccessKeyOf profile credFile =
+  getPropertyFromCredentials profile key credFile
+    `withError` const (missingKeyError key profile)
+  where key = "aws_secret_access_key"
 
 parseConfigFile :: T.Text -> Either String ConfigFile
 parseConfigFile = fmap ConfigFile . parseIni

@@ -34,7 +34,8 @@ import           Data.Yaml                    (encodeFile)
 import           Data.IORef                   (newIORef)
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
-import           Data.Either.Extra            (maybeToEither, eitherToMaybe)
+import           Data.Either.Extra            (maybeToEither, eitherToMaybe, isRight, mapLeft)
+import           Data.Either.Utils            (fromLeft)
 import           Data.Maybe                   (fromMaybe, maybe)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile
@@ -74,31 +75,50 @@ s3EndpointOverride _ = S3.s3
 
 getAWSEnv :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSEnv = do
-  region        <- discoverRegion
-  endpointURL   <- runMaybeT . exceptToMaybeT $ discoverEndpoint
-  (auth, _) <- AWS.catching AWS._MissingEnvError AWS.fromEnv $ \_ -> do
-    profile       <-  T.pack . fromMaybe "default" <$> liftIO (lookupEnv (T.unpack "AWS_PROFILE"))
-    credentilas   <- AWS.credentialsFromFile =<< getAWSCredentialsFilePath
-    let roleARN = eitherToMaybe $ AWS.roleARNOf profile credentilas
-    case roleARN of
-      Just role -> do -- There is a role specified so check if there is a source profile
-        let sourceProfile = eitherToMaybe $ AWS.sourceProfileOf profile credentilas
-        case sourceProfile of
-          Just profile -> undefined
-          Nothing -> undefined
-      Nothing -> do
-        let accessKeyId = T.encodeUtf8 <$> AWS.accessKeyIdOf profile credentilas
-        let secretAccessKey = T.encodeUtf8 <$> AWS.secretAccessKeyOf profile credentilas
-        let authEnv = AWS.AuthEnv <$> (AWS.AccessKey <$> accessKeyId) 
-                        <*> (AWS.Sensitive . AWS.SecretKey <$> secretAccessKey)  
-                        <*> pure Nothing 
-                        <*> pure Nothing
-        let auth = (,) <$> (AWS.Auth <$> authEnv) <*> pure (pure region)
-        ExceptT $ pure auth
+  region      <- discoverRegion
+  endpointURL <- runMaybeT . exceptToMaybeT $ discoverEndpoint
+  profile     <- T.pack . fromMaybe "default" <$> liftIO
+    (lookupEnv (T.unpack "AWS_PROFILE"))
+  credentials <-
+    runExceptT $ AWS.credentialsFromFile =<< getAWSCredentialsFilePath
+  (auth, _) <-
+    AWS.catching AWS._MissingEnvError AWS.fromEnv $ \envError -> either
+      throwError
+      (\cred -> do
+        let finalProfile = fromMaybe
+              profile
+              (eitherToMaybe $ AWS.sourceProfileOf profile =<< credentials)
+        let
+          authAndRegion =
+            (,)
+              <$> mapLeft
+                    (\e ->
+                      T.unpack envError
+                        ++ ". "
+                        ++ e
+                        ++ " in file ~/.aws/credentilas"
+                    )
+                    (AWS.authFromCredentilas finalProfile =<< credentials)
+              <*> pure (pure region)
+        liftEither authAndRegion
+      )
+      credentials
   manager <- liftIO (Conduit.newManager Conduit.tlsManagerSettings)
-  ref <- liftIO (newIORef Nothing)
-  let env = AWS.Env region (\_ _ -> pure ()) (AWS.retryConnectionFailure 3) mempty manager ref auth
-  return $ AWS.configure (maybe S3.s3 s3EndpointOverride endpointURL) env 
+  ref     <- liftIO (newIORef Nothing)
+  let roleARN = eitherToMaybe $ AWS.roleARNOf profile =<< credentials
+  case roleARN of
+    Just role -> do
+      undefined -- Make request to STS
+    Nothing ->
+      let env = AWS.Env region
+                        (\_ _ -> pure ())
+                        (AWS.retryConnectionFailure 3)
+                        mempty
+                        manager
+                        ref
+                        auth
+      in  return
+            $ AWS.configure (maybe S3.s3 s3EndpointOverride endpointURL) env
 
 getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSRegion = do
@@ -1231,7 +1251,9 @@ discoverRegion = do
   let eitherEnvRegion = ExceptT . return $ envRegion >>= AWS.fromText . T.pack
   let
     eitherFileRegion =
-      (getAWSConfigFilePath >>= flip getRegionFromFile (fromMaybe "default" profile))
+      (   getAWSConfigFilePath
+        >>= flip getRegionFromFile (fromMaybe "default" profile)
+        )
         `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
   eitherEnvRegion <|> eitherFileRegion
 
@@ -1243,9 +1265,10 @@ getRegionFromFile
   => FilePath -- ^ The path to the file containing the `AWS.Region`
   -> String -- ^ The name of the profile to use
   -> ExceptT String m AWS.Region
-getRegionFromFile f profile = fromFile f $ \fileContents -> ExceptT . return $ do
-  config <- AWS.parseConfigFile fileContents
-  AWS.regionOf (T.pack profile) config
+getRegionFromFile f profile =
+  fromFile f $ \fileContents -> ExceptT . return $ do
+    config <- AWS.parseConfigFile fileContents
+    AWS.regionOf (T.pack profile) config
 
 
 
@@ -1261,12 +1284,11 @@ discoverEndpoint = do
           $   maybeString
           >>= importURL
   profile <- liftIO $ lookupEnv "AWS_PROFILE"
-  let
-    fileEndPointURL =
-      (   getAWSConfigFilePath
-        >>= flip getEndpointFromFile (fromMaybe "default" profile)
-        )
-        `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
+  let fileEndPointURL =
+        (   getAWSConfigFilePath
+          >>= flip getEndpointFromFile (fromMaybe "default" profile)
+          )
+          `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
   (ExceptT . return $ envEndpointURL) <|> fileEndPointURL
 
 
@@ -1278,6 +1300,7 @@ getEndpointFromFile
   => String -- ^ The name of the profile to use
   -> FilePath -- ^ The path to the file containing the `AWS.Region`
   -> ExceptT String m URL
-getEndpointFromFile profile f = fromFile f $ \fileContents -> ExceptT . return $ do
-  config <- AWS.parseConfigFile fileContents
-  AWS.endPointOf (T.pack profile) config
+getEndpointFromFile profile f =
+  fromFile f $ \fileContents -> ExceptT . return $ do
+    config <- AWS.parseConfigFile fileContents
+    AWS.endPointOf (T.pack profile) config

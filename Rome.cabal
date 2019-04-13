@@ -41,6 +41,7 @@ library
                        , amazonka >= 1.6.1
                        , amazonka-core >= 1.6.1
                        , amazonka-s3 >= 1.6.1
+                       , amazonka-sts >= 1.6.1
                        , exceptions >= 0.8
                        , lens >= 4.13
                        , parsec >= 3.1.10

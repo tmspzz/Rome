@@ -48,6 +48,7 @@ import qualified Network.AWS.Env              as AWS (Env (..), retryConnectionF
 import qualified Network.AWS.Data             as AWS (fromText)
 import qualified Network.AWS.Data.Sensitive   as AWS (Sensitive (..))
 import qualified Network.AWS.S3               as S3
+import qualified Network.AWS.STS.AssumeRole   as STS (assumeRole, arrsCredentials)
 import qualified Network.AWS.Utils            as AWS
 import qualified Network.HTTP.Conduit         as Conduit
 
@@ -73,6 +74,18 @@ s3EndpointOverride (URL (Absolute h) _ _) =
                       S3.s3
 s3EndpointOverride _ = S3.s3
 
+-- | Tries to get authentication details and region to perform
+-- | requests to AWS. 
+-- | The `AWS_PROFILE` is read from the environment
+-- | or falls back to `default`. 
+-- | The `AWS_REGION` is first read from the environment, if not found
+-- | it is read from `~/.aws/config` based on the profile discovered in the previous step.
+-- | The `AWS_ACCESS_KEY_ID` & `AWS_SECRET_ACCESS_KEY` are first
+-- | read from the environment. If not found, then the `~/.aws/crendetilas`
+-- | file is read. If `source_profile` key is present the reading of the
+-- | authentication details happens from this profile rather then the `AWS_PROFILE`.
+-- | Finally, if `role_arn` is specified, the crendials gathered up to now are used
+-- | to obtain new credentials with STS esclated to `role_arn`.
 getAWSEnv :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSEnv = do
   region      <- discoverRegion
@@ -106,19 +119,33 @@ getAWSEnv = do
   manager <- liftIO (Conduit.newManager Conduit.tlsManagerSettings)
   ref     <- liftIO (newIORef Nothing)
   let roleARN = eitherToMaybe $ AWS.roleARNOf profile =<< credentials
+  let curerntEnv = AWS.Env region
+                           (\_ _ -> pure ())
+                           (AWS.retryConnectionFailure 3)
+                           mempty
+                           manager
+                           ref
+                           auth
   case roleARN of
-    Just role -> do
-      undefined -- Make request to STS
+    Just role -> newEnvFromRole role curerntEnv
+    Nothing   -> return
+      $ AWS.configure (maybe S3.s3 s3EndpointOverride endpointURL) curerntEnv
+
+newEnvFromRole :: MonadIO m => T.Text -> AWS.Env -> ExceptT String m AWS.Env
+newEnvFromRole roleARN currentEnv = do
+  assumeRoleResult <-
+    liftIO
+    $ AWS.runResourceT
+    . AWS.runAWS currentEnv
+    $ AWS.send
+    $ STS.assumeRole roleARN "rome-cache-operation"
+  let maybeAuth = AWS.Auth <$> assumeRoleResult ^. STS.arrsCredentials
+  case maybeAuth of
     Nothing ->
-      let env = AWS.Env region
-                        (\_ _ -> pure ())
-                        (AWS.retryConnectionFailure 3)
-                        mempty
-                        manager
-                        ref
-                        auth
-      in  return
-            $ AWS.configure (maybe S3.s3 s3EndpointOverride endpointURL) env
+      throwError
+        $  "Could not create AWS Auth from STS response: "
+        ++ show assumeRoleResult
+    Just newAuth -> return $ currentEnv & AWS.envAuth .~ newAuth
 
 getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSRegion = do

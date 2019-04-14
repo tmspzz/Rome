@@ -13,7 +13,6 @@ import qualified Data.Text.IO                    as T
 import           System.Directory
 import           System.FilePath
 import           Types
-import           Debug.Trace
 
 
 getCartfileEntries :: RomeMonad [CartfileEntry]
@@ -45,7 +44,7 @@ carthageBuildDirectory = "Carthage" </> "Build"
 --   from `Framework`. Ignores the `TargetPlatform` list in `Framework`
 carthageArtifactsBuildDirectoryForPlatform
   :: TargetPlatform -> Framework -> FilePath
-carthageArtifactsBuildDirectoryForPlatform platform (Framework n Dynamic _) =
+carthageArtifactsBuildDirectoryForPlatform platform (Framework _ Dynamic _) =
   carthageBuildDirectory </> show platform
-carthageArtifactsBuildDirectoryForPlatform platform (Framework n Static _) =
+carthageArtifactsBuildDirectoryForPlatform platform (Framework _ Static _) =
   carthageBuildDirectory </> show platform </> "Static"

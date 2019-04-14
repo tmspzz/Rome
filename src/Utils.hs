@@ -26,13 +26,11 @@ import           Data.Function                (on)
 import           Data.List
 import qualified Data.Map.Strict              as M
 import           Data.Maybe                   (fromJust, fromMaybe)
-import           Data.Monoid
 import           Data.Romefile
 import qualified Data.Text                    as T
 import           Data.Text.Encoding
 import qualified Data.Text.IO                 as T
 import           Data.Time
-import           Debug.Trace
 import qualified Network.AWS                  as AWS (Error, ErrorMessage(..), serviceMessage, _ServiceError)
 import qualified Network.AWS.Data.Text        as AWS (showText)
 
@@ -241,16 +239,18 @@ filterByFrameworkEqualTo versions f =
 filterOutFrameworksAndVersionsIfNotIn
   :: [FrameworkVersion] -> [Framework] -> [FrameworkVersion]
 filterOutFrameworksAndVersionsIfNotIn versions frameworks = do
-  ver@(FrameworkVersion f@(Framework n t ps) v) <- versions -- For each version
-  let filtered =
-        (\(Framework nF tF psF) -> nF == n && tF == t) `filter` frameworks -- filter the frameworks to exclude based on name and type, not on the platforms
-  if null filtered -- If none match
+  ver@(FrameworkVersion f@(Framework n t _) v) <- versions -- For each version
+  let filteredFrameworks =
+        (\(Framework nF tF _) -> nF == n && tF == t) `filter` frameworks -- filter the frameworks to exclude based on name and type, not on the platforms
+  if null filteredFrameworks -- If none match
     then return ver -- don't filter this FrameworkVersion out
     else do  -- if there there are matches
-      let op =
-            f `removePlatformsIn` nub (concatMap _frameworkPlatforms filtered)
-      guard (not . null $ _frameworkPlatforms op) -- if the entry completely filters out the FrameworkVersion then remove it
-      return $ FrameworkVersion op v -- if it doesn't, then remove from f the platforms that appear in the filter above.
+      let
+        filteredFrameworks2 =
+          f `removePlatformsIn` nub
+            (concatMap _frameworkPlatforms filteredFrameworks)
+      guard (not . null $ _frameworkPlatforms filteredFrameworks2) -- if the entry completely filters out the FrameworkVersion then remove it
+      return $ FrameworkVersion filteredFrameworks2 v -- if it doesn't, then remove from f the platforms that appear in the filter above.
  where
   removePlatformsIn :: Framework -> [TargetPlatform] -> Framework
   removePlatformsIn (Framework n t ps) rPs =
@@ -266,7 +266,7 @@ removeIntersectingPlatforms lhs rhs = do
   -- | Given a `Framework` and a list of `TargetPlatform`
   -- | remove the overlapping platforms
   removeIntersectingPlatforms' :: Framework -> Framework -> Framework
-  removeIntersectingPlatforms' f1@(Framework n t ps) f2@(Framework n2 t2 ps2)
+  removeIntersectingPlatforms' f1@(Framework n t ps) (Framework n2 t2 ps2)
     | n == n2 && t == t2 && (not . null) (ps `intersect` ps2) = Framework
       n
       t
@@ -294,10 +294,10 @@ filterRomeFileEntriesByPlatforms lhs rhs =
  where
   purgingPlatformsIn = M.differenceWith purge
   purge a b =
-    let op =
-          (\(Framework nt t ps) -> not . null $ ps)
+    let filteredEntries =
+          (\(Framework _ _ ps) -> not . null $ ps)
             `filter` (a `removeIntersectingPlatforms` b)
-    in  Just op
+    in  Just filteredEntries
   lhsMap = toRepositoryMap lhs
   rhsMap = toRepositoryMap rhs
 
@@ -455,7 +455,7 @@ deriveCurrentVersion = do
     (return $ Turtle.unsafeTextToLine "")
   case revparseExitCode of
     Turtle.ExitSuccess -> do
-      (describeExitCode, version, describeErrorCode) <- Turtle.procStrictWithErr
+      (describeExitCode, version, _) <- Turtle.procStrictWithErr
         "git"
         ["describe", "--tags", "--exact-match", T.stripEnd headCommit]
         (return $ Turtle.unsafeTextToLine "")

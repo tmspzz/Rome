@@ -27,7 +27,6 @@ import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Reader         (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans.Maybe    (exceptToMaybeT, runMaybeT)
-import           Debug.Trace
 import qualified Data.ByteString.Char8        as BS (pack)
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Yaml                    (encodeFile)
@@ -186,15 +185,15 @@ runRomeWithOptions
 runRomeWithOptions (RomeOptions options romefilePath verbose) romeVersion = do
   absoluteRomefilePath <- liftIO $ absolutizePath romefilePath
   case options of
-    Utils utilsPayload ->
+    Utils _ ->
       runUtilsCommand options absoluteRomefilePath verbose romeVersion
-    otherCommand ->
+    _ ->
       runUDCCommand options absoluteRomefilePath verbose romeVersion
 
 -- | Runs one of the Utility commands
 runUtilsCommand
   :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
-runUtilsCommand command absoluteRomefilePath verbose romeVersion =
+runUtilsCommand command absoluteRomefilePath _ _ =
   case command of
     Utils _ -> do
       romeFileEntries <- getRomefileEntries absoluteRomefilePath
@@ -205,7 +204,7 @@ runUtilsCommand command absoluteRomefilePath verbose romeVersion =
 runUDCCommand :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
 runUDCCommand command absoluteRomefilePath verbose romeVersion = do
   cartfileEntries <- getCartfileEntries
-    `catch` \(e :: IOError) -> ExceptT . return $ Right []
+    `catch` \(_ :: IOError) -> ExceptT . return $ Right []
   romeFile <- getRomefileEntries absoluteRomefilePath
 
   let ignoreMapEntries     = _ignoreMapEntries romeFile
@@ -767,10 +766,10 @@ uploadFrameworksAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fvs 
   = do
     (_, _, _, ConcurrentlyFlag performConcurrently, _) <- ask
     if performConcurrently
-      then mapConcurrently_ (uploadConcurrently platforms) fvs
+      then mapConcurrently_ uploadConcurrently fvs
       else mapM_ (sequence . upload) platforms
  where
-  uploadConcurrently platforms f = mapConcurrently
+  uploadConcurrently f = mapConcurrently
     (uploadFrameworkAndArtifactsToCaches s3BucketName
                                          mlCacheDir
                                          reverseRomeMap
@@ -791,7 +790,7 @@ uploadFrameworkAndArtifactsToCaches
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
+uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) _) platform
   = do
     (env, cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), _, verbose) <- ask
 
@@ -912,7 +911,7 @@ saveFrameworkAndArtifactsToLocalCache
   -> FrameworkVersion -- ^ A `FrameworkVersion` identifying Framework and dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT (CachePrefix, Bool) m ()
-saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
+saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) _) platform
   = do
     (cachePrefix, verbose) <- ask
     let readerEnv = (cachePrefix, SkipLocalCacheFlag False, verbose)
@@ -1125,10 +1124,10 @@ downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap 
   = do
     (_, _, _, ConcurrentlyFlag performConcurrently, _) <- ask
     if performConcurrently
-      then mapConcurrently_ (downloadConcurrently platforms) fvs
+      then mapConcurrently_ downloadConcurrently fvs
       else mapM_ (sequence . download) platforms
  where
-  downloadConcurrently platforms f = mapConcurrently
+  downloadConcurrently f = mapConcurrently
     (downloadFrameworkAndArtifactsFromCaches s3BucketName
                                              mlCacheDir
                                              reverseRomeMap
@@ -1154,7 +1153,7 @@ downloadFrameworkAndArtifactsFromCaches
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and dSYM
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) version) platform
+downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform
   = do
     (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, _, verbose) <-
       ask
@@ -1293,7 +1292,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRom
 
 
 
-downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVersion@(FrameworkVersion (Framework fwn fwt fwps) _) platform
+downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVersion@(FrameworkVersion (Framework fwn _ _) _) platform
   = do
     (env, cachePrefix, _, _, verbose) <- ask
 

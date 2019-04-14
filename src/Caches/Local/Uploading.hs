@@ -7,7 +7,6 @@ import           Configuration
 import           Control.Monad                (unless, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader         (ReaderT, ask)
-import           Debug.Trace
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.TargetPlatform
 import           Data.Monoid                  ((<>))
@@ -53,7 +52,7 @@ saveDsymToLocalCache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
-saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap (FrameworkVersion f@(Framework fwn fwt fwps) version) platform
+saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap (FrameworkVersion f@(Framework fwn _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
     unless skipLocalCache $ saveBinaryToLocalCache

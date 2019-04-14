@@ -17,7 +17,6 @@ import qualified Text.Parsec          as Parsec
 import qualified Text.Parsec.String   as Parsec
 import qualified Text.Parsec.Utils    as Parsec
 import           Data.Carthage.Common
-import           Debug.Trace
 
 newtype Location = Location { unLocation :: String }
                    deriving (Eq, Show, Ord)

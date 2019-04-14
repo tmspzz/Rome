@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 
 
@@ -37,7 +38,6 @@ import qualified Data.HashMap.Strict          as M
 import           Data.Ini                     as INI
 import           Data.List                    (nub)
 import           Data.Maybe
-import           Data.Monoid
 import qualified Data.Text                    as T
 import           Data.Yaml
 import           GHC.Generics

@@ -2,8 +2,8 @@
 
 setup() {
   
-  export ALAMOFIRE_VERSION="4.7.3"
-  export RESULT_VERSION="4.0.0"
+  export ALAMOFIRE_VERSION="4.8.2"
+  export RESULT_VERSION="4.1.0"
 
   cd $BATS_TMPDIR
 
@@ -101,8 +101,8 @@ teardown() {
   # Version file
   [ -f "minio-buckets/rome/travis/Alamofire/.Alamofire.version-${ALAMOFIRE_VERSION}" ]
   [ -f "rome-local-cache/travis/Alamofire/.Alamofire.version-${ALAMOFIRE_VERSION}" ]
-  [ -f "minio-buckets/rome/travis/Result/.Result.version-4.0.0" ]
-  [ -f "rome-local-cache/travis/Result/.Result.version-4.0.0" ]
+  [ -f "minio-buckets/rome/travis/Result/.Result.version-${RESULT_VERSION}" ]
+  [ -f "rome-local-cache/travis/Result/.Result.version-${RESULT_VERSION}" ]
 
   # macOS - No bitecode, No bcsymbolmap
 

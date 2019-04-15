@@ -1,12 +1,12 @@
 os: osx
 language: objective-c
-osx_image: xcode10.1
+osx_image: xcode10.2
 
 git:
   depth: 1
 
 # Use new container infrastructure to enable caching
-rvm: 2.3.0
+rvm: 2.5.0
 
 jobs:
   include:
@@ -25,7 +25,7 @@ jobs:
         - brew install stack
 
         # Download and instal hlint
-        - rake hlint:install[2.1.8]
+        - rake hlint:install[2.1.16]
 
         # Download and install minio
         - travis_retry wget -O $HOME/.local/bin/minio https://dl.minio.io/server/minio/release/darwin-amd64/minio || echo "Minio already in cache"
@@ -60,7 +60,7 @@ jobs:
         - brew install stack
 
         # Download and instal hlint
-        - rake hlint:install[2.1.8]
+        - rake hlint:install[2.1.16]
 
         # Download and install minio
         - travis_retry wget -O $HOME/.local/bin/minio https://dl.minio.io/server/minio/release/darwin-amd64/minio || echo "Minio already in cache"
@@ -95,7 +95,7 @@ jobs:
         - brew install stack
 
         # Download and instal hlint
-        - rake hlint:install[2.1.8]
+        - rake hlint:install[2.1.16]
 
         # Download and install minio
         - test ! -e $HOME/.local/bin/minio && travis_retry wget -O $HOME/.local/bin/minio https://dl.minio.io/server/minio/release/darwin-amd64/minio || echo "Minio already in cache"

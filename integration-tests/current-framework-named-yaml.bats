@@ -2,7 +2,7 @@
 
 setup() {
   
-  export FRAMEWORK_VERSION=0.2.0
+  export FRAMEWORK_VERSION=0.4.0
   export FRAMEWORK_REPO_NAME=swift-tagged
   export FRAMEWORK_ARTIFACT_NAME=Tagged
 
@@ -83,9 +83,6 @@ teardown() {
   MINIO_HTTP_TRACE=output.log minio server minio-buckets &
   sleep 4 
 
-  ls
-  echo `pwd`
-
   run rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME}
 
   [ "$status" -eq 0 ]
@@ -95,8 +92,8 @@ teardown() {
   fi
 
   # Version file
-  # [ -f "minio-buckets/rome/travis/Alamofire/.Alamofire.version-4.7.3" ]
-  # [ -f "rome-local-cache/travis/Alamofire/.Alamofire.version-4.7.3" ]
+  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/.${FRAMEWORK_REPO_NAME}.version-${FRAMEWORK_VERSION}" ]
+  [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/.${FRAMEWORK_REPO_NAME}.version-${FRAMEWORK_VERSION}" ]
 
   # macOS - No bitecode, No bcsymbolmap
   [ ! -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
@@ -155,7 +152,7 @@ teardown() {
   [ "$status" -eq 0 ]
 
   # Version file
-  # [ -f "Carthage/Build/.Alamofire.version" ]
+  [ -f "Carthage/Build/.${FRAMEWORK_REPO_NAME}.version" ]
 
   # macOS - No bitcode, No bcsymbolmap
   [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
@@ -193,7 +190,7 @@ teardown() {
   [ "$status" -eq 0 ]
 
   # Version file
-  # [ -e "Carthage/Build/.Alamofire.version" ]
+  [ -f "Carthage/Build/.${FRAMEWORK_REPO_NAME}.version" ]
 
   # macOS - No bitecode, No bcsymbolmap
   [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
@@ -234,7 +231,7 @@ teardown() {
   [ "$status" -eq 0 ]
 
   # Version file
-  # [ -f "Carthage/Build/.Alamofire.version" ]
+  [ -f "Carthage/Build/.${FRAMEWORK_REPO_NAME}.version" ]
 
   # macOS - No bitcode, No bcsymbolmap
   [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework" ]

@@ -1,7 +1,9 @@
 #!/usr/bin/env bats
 
 setup() {
-  
+
+  export FRAMEWORK_VERSION=4.8.2
+
   cd $BATS_TMPDIR
 
   rm -rf Rome-Tests
@@ -10,7 +12,7 @@ setup() {
 
   git clone https://github.com/Alamofire/Alamofire.git
   cd Alamofire
-  git checkout 4.7.3
+  git checkout ${FRAMEWORK_VERSION}
 
   if [ "$BATS_TEST_NUMBER" -eq 1 ]; then
 
@@ -91,40 +93,40 @@ teardown() {
   fi
 
   # Version file
-  # [ -f "minio-buckets/rome/travis/Alamofire/.Alamofire.version-4.7.3" ]
-  # [ -f "rome-local-cache/travis/Alamofire/.Alamofire.version-4.7.3" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/.Alamofire.version-${FRAMEWORK_VERSION}" ]
+  [ -f "rome-local-cache/travis/Alamofire/.Alamofire.version-${FRAMEWORK_VERSION}" ]
 
   # macOS - No bitecode, No bcsymbolmap
-  [ ! -f "minio-buckets/rome/travis/Alamofire/Mac/Alamofire.framework-4.7.3.zip" ]
-  [ ! -f "minio-buckets/rome/travis/Alamofire/Mac/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ ! -f "rome-local-cache/travis/Alamofire/Mac/Alamofire.framework-4.7.3.zip" ]
-  [ ! -f "rome-local-cache/travis/Alamofire/Mac/Alamofire.framework.dSYM-4.7.3.zip" ]
+  [ ! -f "minio-buckets/rome/travis/Alamofire/Mac/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ ! -f "minio-buckets/rome/travis/Alamofire/Mac/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ ! -f "rome-local-cache/travis/Alamofire/Mac/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ ! -f "rome-local-cache/travis/Alamofire/Mac/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
 
   # iOS
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/Alamofire.framework-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/iOS/Alamofire.framework-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/iOS/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/iOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/iOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/iOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/iOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
 
   # tvOS
-  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/Alamofire.framework-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/tvOS/Alamofire.framework-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/tvOS/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/tvOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/tvOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
 
   # watchOS
-  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/Alamofire.framework-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/watchOS/Alamofire.framework-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/watchOS/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/watchOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/watchOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   
   #save the local cache for later
 
@@ -151,7 +153,7 @@ teardown() {
   [ "$status" -eq 0 ]
 
   # Version file
-  # [ -f "Carthage/Build/.Alamofire.version" ]
+  [ -f "Carthage/Build/.Alamofire.version" ]
 
   # macOS - No bitcode, No bcsymbolmap
   [ ! -d "Carthage/Build/Mac/Alamofire.framework" ]
@@ -189,7 +191,7 @@ teardown() {
   [ "$status" -eq 0 ]
 
   # Version file
-  # [ -e "Carthage/Build/.Alamofire.version" ]
+  [ -f "Carthage/Build/.Alamofire.version" ]
 
   # macOS - No bitecode, No bcsymbolmap
   [ ! -d "Carthage/Build/Mac/Alamofire.framework" ]
@@ -231,40 +233,40 @@ teardown() {
   fi
 
   # Version file
-  # [ -f "minio-buckets/rome/travis/Alamofire/.Alamofire.version-4.7.3" ]
-  # [ -f "rome-local-cache/travis/Alamofire/.Alamofire.version-4.7.3" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/.Alamofire.version-${FRAMEWORK_VERSION}" ]
+  [ -f "rome-local-cache/travis/Alamofire/.Alamofire.version-${FRAMEWORK_VERSION}" ]
 
   # macOS - No bitecode, No bcsymbolmap
-  [ ! -f "minio-buckets/rome/travis/Alamofire/Mac/Alamofire.framework-4.7.3.zip" ]
-  [ ! -f "minio-buckets/rome/travis/Alamofire/Mac/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ ! -f "rome-local-cache/travis/Alamofire/Mac/Alamofire.framework-4.7.3.zip" ]
-  [ ! -f "rome-local-cache/travis/Alamofire/Mac/Alamofire.framework.dSYM-4.7.3.zip" ]
+  [ ! -f "minio-buckets/rome/travis/Alamofire/Mac/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ ! -f "minio-buckets/rome/travis/Alamofire/Mac/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ ! -f "rome-local-cache/travis/Alamofire/Mac/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ ! -f "rome-local-cache/travis/Alamofire/Mac/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
 
   # iOS
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/Alamofire.framework-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/iOS/Alamofire.framework-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/iOS/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/iOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/iOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/iOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/iOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
 
   # tvOS
-  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/Alamofire.framework-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/tvOS/Alamofire.framework-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/tvOS/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/tvOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/tvOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
 
   # watchOS
-  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/Alamofire.framework-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/watchOS/Alamofire.framework-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/watchOS/Alamofire.framework.dSYM-4.7.3.zip" ]
-  [ -f "rome-local-cache/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-4.7.3.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/watchOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/watchOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "rome-local-cache/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   
   #save the local cache for later
 
@@ -291,7 +293,7 @@ teardown() {
   [ "$status" -eq 0 ]
 
   # Version file
-  # [ -f "Carthage/Build/.Alamofire.version" ]
+  [ -f "Carthage/Build/.Alamofire.version" ]
 
   # macOS - No bitcode, No bcsymbolmap
   [ ! -d "Carthage/Build/Mac/Alamofire.framework" ]

@@ -11,7 +11,7 @@ setup() {
   mkdir Rome-Tests && cd Rome-Tests
 
   if [ "$BATS_TEST_NUMBER" -eq 1 ]; then
-    echo 'github "Alamofire/Alamofire" == ${FRAMEWORK_VERSION}' > Cartfile
+    printf "github \"Alamofire/Alamofire\" == %s \n" ${FRAMEWORK_VERSION} > Cartfile
     carthage bootstrap --cache-builds --no-use-binaries
     
     rm -rf ../_Carthage_build_bkp

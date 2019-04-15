@@ -12,8 +12,8 @@ setup() {
   mkdir Rome-Tests && cd Rome-Tests
 
   if [ "$BATS_TEST_NUMBER" -eq 1 ]; then
-    printf "github \"Alamofire/Alamofire\" == ${ALAMOFIRE_VERSION}\n" > Cartfile
-    printf "github \"antitypical/Result\" == ${RESULT_VERSION}\n" >> Cartfile
+    printf "github \"Alamofire/Alamofire\" == %s \n" ${ALAMOFIRE_VERSION} > Cartfile
+    printf "github \"antitypical/Result\" == %s \n"  ${RESULT_VERSION} >> Cartfile
 
     carthage bootstrap --cache-builds --no-use-binaries
     

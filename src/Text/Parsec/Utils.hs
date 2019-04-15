@@ -9,7 +9,6 @@ module Text.Parsec.Utils
 
 import           Control.Applicative ((<|>))
 import qualified Text.Parsec         as Parsec
-import Data.Functor.Identity
 
 
 

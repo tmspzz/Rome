@@ -38,6 +38,8 @@ jobs:
         - brew install bats-core
       script:
         - export PATH=$HOME/.local/bin:$PATH
+        - which hlint
+        - hlint src
         - bundle exec danger
         - stack $ARGS setup -j 2
         - stack $ARGS test --no-terminal --haddock --no-haddock-deps

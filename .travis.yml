@@ -13,7 +13,7 @@ jobs:
     - stage: "Build"
       name: "Build Rome & Test Dymanic Frameworks"
       before_install:
-        - rvm mount http://rubies.travis-ci.org/osx/10.10/x86_64/ruby-2.5.0.tar.bz2
+        - rvm mount http://rubies.travis-ci.org/osx/10.10/x86_64/ruby-2.5.0.tar.bz2 --verify-downloads 2
         # Update Homebrew
         - brew update
         # Run bundler and install the dependencies in vendor/bundle
@@ -49,7 +49,7 @@ jobs:
     - stage: "Build"
       name: "Build Rome & Test Current Frameworks"
       before_install:
-        - rvm mount http://rubies.travis-ci.org/osx/10.10/x86_64/ruby-2.5.0.tar.bz2
+        - rvm mount http://rubies.travis-ci.org/osx/10.10/x86_64/ruby-2.5.0.tar.bz2 --verify-downloads 2
         # Update Homebrew
         - brew update
         # Run bundler and install the dependencies in vendor/bundle
@@ -85,7 +85,7 @@ jobs:
     - stage: "Build"
       name: "Build Rome & Test Static Frameworks"
       before_install:
-        - rvm mount http://rubies.travis-ci.org/osx/10.10/x86_64/ruby-2.5.0.tar.bz2
+        - rvm mount http://rubies.travis-ci.org/osx/10.10/x86_64/ruby-2.5.0.tar.bz2 --verify-downloads 2
         # Update Homebrew
         - brew update
         # Run bundler and install the dependencies in vendor/bundle

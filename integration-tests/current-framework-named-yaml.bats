@@ -92,7 +92,10 @@ myfunc(){
   #rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME} >&3
   run myfunc
   
+  run ls
   echo "# output of file: " `cat out.txt` >&3
+  
+  [ 1 -eq 2 ]
 
   #[ "$status" -eq 0 ]
 

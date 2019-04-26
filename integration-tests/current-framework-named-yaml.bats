@@ -88,7 +88,7 @@ myfunc(){
   MINIO_HTTP_TRACE=output.log minio server minio-buckets &
   sleep 4
 
-  #rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME} >&3
+  echo "# $(rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME})"
   run myfunc
   
   echo "# $(ls)" >&3

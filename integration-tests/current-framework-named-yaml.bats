@@ -75,12 +75,6 @@ teardown() {
   cd $BATS_TEST_DIRNAME
 }
 
-
-myfunc(){
-  rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME} > out.txt
-}
-
-
 @test "rome uploads all named artifacts for current framework (dynamic, yaml)" {
 
   # Test 1
@@ -88,15 +82,8 @@ myfunc(){
   MINIO_HTTP_TRACE=output.log minio server minio-buckets &
   sleep 4
 
-  echo "# $(rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME})"
-  run myfunc
-  
-  echo "# $(ls)" >&3
-  echo "# output of file: $(cat out.txt)" >&3
-  
-  [ 1 -eq 2 ]
-
-  #[ "$status" -eq 0 ]
+  rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME} > out.txt
+  [ "$status" -eq 0 ]
 
   if [ -d "minio-buckets/rome" ]; then
     cp -R minio-buckets/rome/ ../../_rome_bkp
@@ -145,122 +132,122 @@ myfunc(){
 
 }
 
-# @test "rome downloads all named artifacts for current framework skipping local cache (dynamic, yaml)" {
+@test "rome downloads all named artifacts for current framework skipping local cache (dynamic, yaml)" {
 
-#   # Test 2
+  # Test 2
 
-#   if [ -d "../../_rome_bkp" ]; then
-#     echo "# Minio bucket restored" >&3
-#     cp -R ../../_rome_bkp/ minio-buckets/rome
-#   fi
+  if [ -d "../../_rome_bkp" ]; then
+    echo "# Minio bucket restored" >&3
+    cp -R ../../_rome_bkp/ minio-buckets/rome
+  fi
 
-#   MINIO_HTTP_TRACE=output.log minio server minio-buckets &
-#   sleep 4 
+  MINIO_HTTP_TRACE=output.log minio server minio-buckets &
+  sleep 4 
 
-#   rm -rf Carthage/Build
-#   run rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME} 
+  rm -rf Carthage/Build
+  run rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME} 
 
-#   [ "$status" -eq 0 ]
+  [ "$status" -eq 0 ]
 
-#   # Version file
-#   [ -f "Carthage/Build/.${FRAMEWORK_REPO_NAME}.version" ]
+  # Version file
+  [ -f "Carthage/Build/.${FRAMEWORK_REPO_NAME}.version" ]
 
-#   # macOS - No bitcode, No bcsymbolmap
-#   [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
-#   [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
+  # macOS - No bitcode, No bcsymbolmap
+  [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
+  [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
 
-#   # iOS
-#   [ -d "Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
-#   [ -d "Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
-#   [ -f "Carthage/Build/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap" ]
-#   [ -f "Carthage/Build/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap" ]
+  # iOS
+  [ -d "Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
+  [ -d "Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
+  [ -f "Carthage/Build/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap" ]
+  [ -f "Carthage/Build/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap" ]
 
-#   # tvOS
-#   [ -d "Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
-#   [ -d "Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
-#   [ -f "Carthage/Build/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap" ]
+  # tvOS
+  [ -d "Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
+  [ -d "Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
+  [ -f "Carthage/Build/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap" ]
 
-#   # watchOS
-#   [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
-#   [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
-#   [ -f "Carthage/Build/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap" ]
-# }
+  # watchOS
+  [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
+  [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
+  [ -f "Carthage/Build/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap" ]
+}
 
-# @test "rome downloads all named artifacts for current framework from the local cache (dynamic, yaml)" {
+@test "rome downloads all named artifacts for current framework from the local cache (dynamic, yaml)" {
 
-#   # Test 3
+  # Test 3
 
-#   if [ -d "../../_rome-local-cache_bkp" ]; then
-#     echo "# Rome local cache restored" >&3
-#     cp -R ../../_rome-local-cache_bkp/ rome-local-cache
-#   fi
+  if [ -d "../../_rome-local-cache_bkp" ]; then
+    echo "# Rome local cache restored" >&3
+    cp -R ../../_rome-local-cache_bkp/ rome-local-cache
+  fi
   
-#   rm -rf Carthage/Build
-#   run rome download --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME} 
+  rm -rf Carthage/Build
+  run rome download --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME} 
 
-#   [ "$status" -eq 0 ]
+  [ "$status" -eq 0 ]
 
-#   # Version file
-#   [ -f "Carthage/Build/.${FRAMEWORK_REPO_NAME}.version" ]
+  # Version file
+  [ -f "Carthage/Build/.${FRAMEWORK_REPO_NAME}.version" ]
 
-#   # macOS - No bitecode, No bcsymbolmap
-#   [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
-#   [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
+  # macOS - No bitecode, No bcsymbolmap
+  [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
+  [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
 
-#   # iOS
-#   [ -d "Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
-#   [ -d "Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
-#   [ -f "Carthage/Build/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap" ]
-#   [ -f "Carthage/Build/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap" ]
+  # iOS
+  [ -d "Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
+  [ -d "Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
+  [ -f "Carthage/Build/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap" ]
+  [ -f "Carthage/Build/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap" ]
 
-#   # tvOS
-#   [ -d "Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
-#   [ -d "Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
-#   [ -f "Carthage/Build/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap" ]
+  # tvOS
+  [ -d "Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
+  [ -d "Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
+  [ -f "Carthage/Build/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap" ]
 
-#   # watchOS
-#   [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
-#   [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
-#   [ -f "Carthage/Build/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap" ]
-# }
+  # watchOS
+  [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
+  [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
+  [ -f "Carthage/Build/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap" ]
+}
 
-# @test "rome downloads named artifacts for current framework skipping local cache (dynamic, yaml)" {
+@test "rome downloads named artifacts for current framework skipping local cache (dynamic, yaml)" {
 
-#   # Test 4
+  # Test 4
 
-#   if [ -d "../../_rome_bkp" ]; then
-#     echo "# Minio bucket restored" >&3
-#     cp -R ../../_rome_bkp/ minio-buckets/rome
-#   fi
+  if [ -d "../../_rome_bkp" ]; then
+    echo "# Minio bucket restored" >&3
+    cp -R ../../_rome_bkp/ minio-buckets/rome
+  fi
 
-#   MINIO_HTTP_TRACE=output.log minio server minio-buckets &
-#   sleep 4 
+  MINIO_HTTP_TRACE=output.log minio server minio-buckets &
+  sleep 4 
 
-#   rm -rf Carthage/Build
-#   run rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME}
+  rm -rf Carthage/Build
+  run rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME}
 
-#   [ "$status" -eq 0 ]
+  [ "$status" -eq 0 ]
 
-#   # Version file
-#   [ -f "Carthage/Build/.${FRAMEWORK_REPO_NAME}.version" ]
+  # Version file
+  [ -f "Carthage/Build/.${FRAMEWORK_REPO_NAME}.version" ]
 
-#   # macOS - No bitcode, No bcsymbolmap
-#   [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
-#   [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
+  # macOS - No bitcode, No bcsymbolmap
+  [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
+  [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
 
-#   # iOS
-#   [ -d "Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
-#   [ -d "Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
-#   [ -f "Carthage/Build/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap" ]
-#   [ -f "Carthage/Build/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap" ]
+  # iOS
+  [ -d "Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
+  [ -d "Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
+  [ -f "Carthage/Build/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap" ]
+  [ -f "Carthage/Build/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap" ]
 
-#   # tvOS
-#   [ -d "Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
-#   [ -d "Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
-#   [ -f "Carthage/Build/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap" ]
+  # tvOS
+  [ -d "Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
+  [ -d "Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
+  [ -f "Carthage/Build/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap" ]
 
-#   # watchOS
-#   [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
-#   [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
-#   [ -f "Carthage/Build/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap" ]
-# }
+  # watchOS
+  [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
+  [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
+  [ -f "Carthage/Build/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap" ]
+}

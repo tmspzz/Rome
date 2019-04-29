@@ -92,7 +92,7 @@ getAWSEnv = do
   profile     <- T.pack . fromMaybe "default" <$> liftIO
     (lookupEnv (T.unpack "AWS_PROFILE"))
   credentials <-
-    runExceptT $ AWS.credentialsFromFile =<< getAWSCredentialsFilePath
+    runExceptT $ (AWS.credentialsFromFile =<< getAWSCredentialsFilePath) `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
   (auth, _) <-
     AWS.catching AWS._MissingEnvError AWS.fromEnv $ \envError -> either
       throwError

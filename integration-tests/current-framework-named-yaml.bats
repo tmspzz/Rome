@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 setup() {
-  
+
   export FRAMEWORK_VERSION=0.4.0
   export FRAMEWORK_REPO_NAME=swift-tagged
   export FRAMEWORK_ARTIFACT_NAME=Tagged
@@ -82,7 +82,7 @@ teardown() {
   MINIO_HTTP_TRACE=output.log minio server minio-buckets &
   sleep 4
 
-  rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME} > out.txt
+  run rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME}
   [ "$status" -eq 0 ]
 
   if [ -d "minio-buckets/rome" ]; then
@@ -124,7 +124,7 @@ teardown() {
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
-  
+
   #save the local cache for later
 
   rm -rf ../../_rome-local-cache_bkp

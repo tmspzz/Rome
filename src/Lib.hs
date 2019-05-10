@@ -18,6 +18,9 @@ import           Caches.Local.Uploading
 import           Caches.S3.Downloading
 import           Caches.S3.Probing
 import           Caches.S3.Uploading
+import           Engine.Downloading
+import           Engine.Probing
+import           Engine.Uploading
 import           Configuration
 import           Control.Applicative          ((<|>))
 import           Control.Concurrent.Async.Lifted.Safe (mapConcurrently_, mapConcurrently, concurrently_)
@@ -537,8 +540,17 @@ getProjectAvailabilityFromCaches Nothing (Just lCacheDir) Nothing reverseReposit
       reverseRepositoryMap
       availabilities
 
-getProjectAvailabilityFromCaches Nothing lCacheDir (Just ePath) _ _ _ =
-  undefined-- runEngineList ePath lCacheDir reverseRepositoryMap frameworkVersions platforms
+getProjectAvailabilityFromCaches Nothing Nothing (Just ePath) reverseRepositoryMap frameworkVersions platforms
+  = do
+    let sayFunc = sayLnWithTime
+    sayFunc $ "Engine path: " <> ePath
+    availabilities <- probeEngineForFrameworks ePath
+                                               reverseRepositoryMap
+                                               frameworkVersions
+                                               platforms
+    return $ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities
+      reverseRepositoryMap
+      availabilities
 getProjectAvailabilityFromCaches (Just _) _ (Just _) _ _ _ =
   throwError conflictingCachesMessage
 getProjectAvailabilityFromCaches Nothing Nothing Nothing _ _ _ =
@@ -565,7 +577,7 @@ downloadArtifacts
        ()
 downloadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap frameworkVersions platforms
   = do
-    (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), conconrrentlyFlag@(ConcurrentlyFlag performConcurrently), verbose) <-
+    (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), concurrentlyFlag@(ConcurrentlyFlag performConcurrently), verbose) <-
       ask
 
     let sayFunc :: MonadIO m => String -> m ()
@@ -576,7 +588,7 @@ downloadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap fram
       (Just s3BucketName, lCacheDir, Nothing) -> do
         env <- lift getAWSEnv
         let uploadDownloadEnv =
-              (env, cachePrefix, skipLocalCacheFlag, conconrrentlyFlag, verbose)
+              (env, cachePrefix, skipLocalCacheFlag, concurrentlyFlag, verbose)
         let action1 = runReaderT
               (downloadFrameworksAndArtifactsFromCaches s3BucketName
                                                         lCacheDir
@@ -622,7 +634,27 @@ downloadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap fram
             )
             readerEnv
       -- Use engine
-      (Nothing, lCacheDir, Just ePath) -> undefined
+      (Nothing, lCacheDir, Just ePath) -> do        
+        let readerEnv = (cachePrefix, verbose)
+        env <- lift getAWSEnv
+        let uploadDownloadEnv =
+              (env, cachePrefix, skipLocalCacheFlag, concurrentlyFlag, verbose)
+        liftIO $ do
+          runReaderT
+            (downloadFrameworksAndArtifactsWithEngine ePath
+                                                      reverseRepositoryMap
+                                                      frameworkVersions
+                                                      platforms
+            )
+            uploadDownloadEnv
+          -- putStrLn (show frameworkVersions)
+          -- runReaderT
+          --   (do 
+          --     exitCode <- Turtle.shell "./ciao.sh" Turtle.empty
+          --     thing <- putStrLn (show exitCode)
+          --     undefined
+          --   )
+          --   readerEnv
       -- Misconfigured
       (Nothing, Nothing, Nothing) -> throwError allCacheKeysMissingMessage
       -- Misconfigured
@@ -1290,8 +1322,6 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRom
   dSYMName                = fwn <> ".dSYM"
   frameworkExecutablePath = frameworkBuildBundleForPlatform platform f </> fwn
 
-
-
 downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVersion@(FrameworkVersion (Framework fwn _ _) _) platform
   = do
     (env, cachePrefix, _, _, verbose) <- ask
@@ -1327,6 +1357,30 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVer
         sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
       (FailedDwarfUUIDs dwardUUIDsAndErrors) ->
         mapM_ (sayFunc . snd) dwardUUIDsAndErrors
+
+
+
+-- | NEW
+downloadFrameworksAndArtifactsWithEngine
+  :: FilePath -- ^ Just the path to the local cache or Nothing.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
+  -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying the Frameworks and dSYMs
+  -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
+  -> ReaderT UploadDownloadCmdEnv IO ()
+downloadFrameworksAndArtifactsWithEngine mlCacheDir reverseRomeMap fvs platforms
+  = undefined
+
+
+
+-- | NEW
+downloadFrameworkAndArtifactsWithEngine
+  :: FilePath -- ^ Just the path to the local cache or Nothing.
+  -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
+  -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and dSYM
+  -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
+  -> ReaderT UploadDownloadCmdEnv IO ()
+downloadFrameworkAndArtifactsWithEngine lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform
+  = undefined
 
 
 

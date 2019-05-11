@@ -539,11 +539,9 @@ getProjectAvailabilityFromCaches Nothing (Just lCacheDir) Nothing reverseReposit
     return $ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities
       reverseRepositoryMap
       availabilities
-
-getProjectAvailabilityFromCaches Nothing Nothing (Just ePath) reverseRepositoryMap frameworkVersions platforms
+-- TODO: check how to deal with lCacheDir together with enginePath
+getProjectAvailabilityFromCaches Nothing lCacheDir (Just ePath) reverseRepositoryMap frameworkVersions platforms
   = do
-    let sayFunc = sayLnWithTime
-    sayFunc $ "Engine path: " <> ePath
     availabilities <- probeEngineForFrameworks ePath
                                                reverseRepositoryMap
                                                frameworkVersions
@@ -635,26 +633,16 @@ downloadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap fram
             readerEnv
       -- Use engine
       (Nothing, lCacheDir, Just ePath) -> do        
-        let readerEnv = (cachePrefix, verbose)
-        env <- lift getAWSEnv
-        let uploadDownloadEnv =
-              (env, cachePrefix, skipLocalCacheFlag, concurrentlyFlag, verbose)
+        let engineEnv = (cachePrefix, skipLocalCacheFlag, concurrentlyFlag, verbose)
         liftIO $ do
           runReaderT
             (downloadFrameworksAndArtifactsWithEngine ePath
+                                                      lCacheDir
                                                       reverseRepositoryMap
                                                       frameworkVersions
                                                       platforms
             )
-            uploadDownloadEnv
-          -- putStrLn (show frameworkVersions)
-          -- runReaderT
-          --   (do 
-          --     exitCode <- Turtle.shell "./ciao.sh" Turtle.empty
-          --     thing <- putStrLn (show exitCode)
-          --     undefined
-          --   )
-          --   readerEnv
+            engineEnv
       -- Misconfigured
       (Nothing, Nothing, Nothing) -> throwError allCacheKeysMissingMessage
       -- Misconfigured
@@ -1177,7 +1165,7 @@ downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap 
 
 -- | Downloads a Framework and it's relative dSYM from and S3 Bucket or a local cache.
 -- | If the Framework and dSYM are not found in the local cache then they are downloaded from S3.
--- | If SkipLocalCache is specified, th local cache is ignored.
+-- | If SkipLocalCache is specified, the local cache is ignored.
 downloadFrameworkAndArtifactsFromCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
@@ -1360,29 +1348,84 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVer
 
 
 
--- | NEW
+-- | Downloads a list of Frameworks and relative dSYMs with the engine or a local cache.
 downloadFrameworksAndArtifactsWithEngine
-  :: FilePath -- ^ Just the path to the local cache or Nothing.
+  :: FilePath -- ^ The path to the engine.
+  -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying the Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
-  -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworksAndArtifactsWithEngine mlCacheDir reverseRomeMap fvs platforms
-  = undefined
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) IO ()
+downloadFrameworksAndArtifactsWithEngine enginePath lCacheDir reverseRomeMap fvs platforms
+  = do
+    (_, _, ConcurrentlyFlag performConcurrently, _) <- ask
+    if performConcurrently
+      then mapConcurrently_ downloadConcurrently fvs
+      else mapM_ (sequence . download) platforms
+ where
+  downloadConcurrently f = mapConcurrently
+    (downloadFrameworkAndArtifactsWithEngine enginePath
+                                             lCacheDir
+                                             reverseRomeMap
+                                             f
+    )
+    platforms
+  download = mapM
+    (downloadFrameworkAndArtifactsWithEngine enginePath
+                                             lCacheDir
+                                             reverseRomeMap
+    )
+    fvs
 
 
-
--- | NEW
+-- | Downloads a Framework and it's relative dSYM with the engine or a local cache.
+-- | If the Framework and dSYM are not found in the local cache then they are downloaded using the engine.
+-- | If SkipLocalCache is specified, the local cache is ignored.
 downloadFrameworkAndArtifactsWithEngine
-  :: FilePath -- ^ Just the path to the local cache or Nothing.
+  :: FilePath -- ^ The path to the engine.
+  -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and dSYM
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
-  -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworkAndArtifactsWithEngine lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) IO ()
+downloadFrameworkAndArtifactsWithEngine enginePath (Just lCacheDir) reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform
   = undefined
 
+downloadFrameworkAndArtifactsWithEngine enginePath Nothing reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform
+  = do
+    (cachePrefix, _, _, verbose) <- ask
 
+    let readerEnv = (cachePrefix, verbose)
+
+    let sayFunc   = if verbose then sayLnWithTime else sayLn
+    eitherError <- liftIO $ runReaderT
+      (runExceptT $ getAndUnzipFrameworkWithEngine enginePath
+                                                   reverseRomeMap
+                                                   fVersion
+                                                   platform
+      )
+      readerEnv
+    whenLeft sayFunc eitherError
+
+    eitherDSYMError <- liftIO $ runReaderT
+      ( runExceptT
+      $ getAndUnzipDSYMWithEngine enginePath reverseRomeMap fVersion platform
+      )
+      readerEnv
+    whenLeft sayFunc eitherDSYMError
+
+    eitherSymbolmapsOrErrors <- liftIO $ runReaderT
+      (runExceptT $ getAndUnzipBcsymbolmapsWithEngine' enginePath
+                                                       reverseRomeMap
+                                                       fVersion
+                                                       platform
+      )
+      readerEnv
+    flip whenLeft eitherSymbolmapsOrErrors $ \e -> case e of
+      ErrorGettingDwarfUUIDs ->
+        sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
+      (FailedDwarfUUIDs dwardUUIDsAndErrors) ->
+        mapM_ (sayFunc . snd) dwardUUIDsAndErrors
 
 -- | Given a `ListMode` and a `ProjectAvailability` produces a `String`
 -- describing the `ProjectAvailability` for a given `ListMode`.

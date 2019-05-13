@@ -5,22 +5,15 @@ module Engine.Downloading where
 import           Caches.Common
 import           Configuration                (carthageArtifactsBuildDirectoryForPlatform)
 import           Control.Exception            (try)
-import           Control.Lens                 (view)
 import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.Reader         (ReaderT, ask, runReaderT,
                                                withReaderT)
-import qualified Data.ByteString              as BS
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.TargetPlatform
-import qualified Data.Conduit                 as C (ConduitT, await, yield,
-                                                    (.|))
-import qualified Data.Conduit.Binary          as C (sinkLbs)
 import           Data.Either                  (lefts)
-import           Data.Maybe                   (fromMaybe)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile                (Framework (..))
-import qualified Data.Text                    as T
 import           System.FilePath              ((</>))
 import           Types                        hiding (version)
 import           Utils
@@ -270,3 +263,4 @@ downloadBinaryWithEngine enginePath objectRemotePath objectName = do
         Turtle.ExitFailure n -> Turtle.die (cmd <> " failed with exit code: " <> Turtle.repr n)
     -- undefined
     liftIO $ LBS.readFile objectRemotePath
+

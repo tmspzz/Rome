@@ -634,15 +634,23 @@ downloadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap fram
       -- Use engine
       (Nothing, lCacheDir, Just ePath) -> do        
         let engineEnv = (cachePrefix, skipLocalCacheFlag, concurrentlyFlag, verbose)
-        liftIO $ do
-          runReaderT
-            (downloadFrameworksAndArtifactsWithEngine ePath
-                                                      lCacheDir
-                                                      reverseRepositoryMap
-                                                      frameworkVersions
-                                                      platforms
-            )
-            engineEnv
+        let action1 = runReaderT
+              (downloadFrameworksAndArtifactsWithEngine ePath
+                                                        lCacheDir
+                                                        reverseRepositoryMap
+                                                        frameworkVersions
+                                                        platforms
+              )
+              engineEnv
+        let action2 = runReaderT
+              (downloadVersionFilesWithEngine ePath
+                                              lCacheDir
+                                              gitRepoNamesAndVersions
+              )
+              engineEnv
+        if performConcurrently
+          then liftIO $ concurrently_ action1 action2
+          else liftIO $ action1 >> action2
       -- Misconfigured
       (Nothing, Nothing, Nothing) -> throwError allCacheKeysMissingMessage
       -- Misconfigured
@@ -1426,6 +1434,91 @@ downloadFrameworkAndArtifactsWithEngine enginePath Nothing reverseRomeMap fVersi
         sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
       (FailedDwarfUUIDs dwardUUIDsAndErrors) ->
         mapM_ (sayFunc . snd) dwardUUIDsAndErrors
+
+-- | Downloads a list of .version files with the engine or a local cache.
+downloadVersionFilesWithEngine
+  :: FilePath -- ^ The engine definition.
+  -> Maybe FilePath  -- ^ Just the local cache path or Nothing
+  -> [ProjectNameAndVersion] -- ^ A list of `ProjectName`s and `Version`s information.
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) IO ()
+downloadVersionFilesWithEngine enginePath lDir =
+  mapM_ (downloadVersionFileWithEngine enginePath lDir)
+
+
+
+-- | Downloads one .version file with the engine or a local cache.
+-- | If the .version file is not found in the local cache, it is downloaded with the engine.
+-- | If SkipLocalCache is specified, the local cache is ignored.
+downloadVersionFileWithEngine
+  :: FilePath -- ^ The engine definition.
+  -> Maybe FilePath -- ^ Just the local cache path or Nothing
+  -> ProjectNameAndVersion -- ^ The `ProjectName` and `Version` information.
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) IO ()
+downloadVersionFileWithEngine enginePath (Just lCacheDir) projectNameAndVersion
+  = do
+    (cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, _, verbose) <-
+      ask
+
+    when skipLocalCache $ downloadVersionFileWithEngine enginePath
+                                                        Nothing
+                                                        projectNameAndVersion
+
+    unless skipLocalCache $ do
+      eitherSuccess <- runReaderT
+        (runExceptT $ getAndSaveVersionFileFromLocalCache
+          lCacheDir
+          projectNameAndVersion
+        )
+        (cachePrefix, verbose)
+      case eitherSuccess of
+        Right _ -> return ()
+        Left  e -> liftIO $ do
+          let sayFunc :: MonadIO m => String -> m ()
+              sayFunc = if verbose then sayLnWithTime else sayLn
+          sayFunc e
+          runReaderT
+            (do
+              e2 <- runExceptT $ do
+                versionFileBinary <- getVersionFileFromEngine
+                  enginePath
+                  projectNameAndVersion
+                saveBinaryToLocalCache lCacheDir
+                                       versionFileBinary
+                                       (prefix </> versionFileRemotePath)
+                                       versionFileName
+                                       verbose
+                liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
+                sayFunc
+                  $  "Copied "
+                  <> versionFileName
+                  <> " to: "
+                  <> versionFileLocalPath
+              whenLeft sayFunc e2
+            )
+            (cachePrefix, verbose)
+ where
+  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
+  versionFileLocalPath = carthageBuildDirectory </> versionFileName
+  versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
+
+downloadVersionFileWithEngine enginePath Nothing projectNameAndVersion = do
+  (cachePrefix, _, _, verbose) <- ask
+  let sayFunc :: MonadIO m => String -> m ()
+      sayFunc = if verbose then sayLnWithTime else sayLn
+  eitherError <- liftIO $ runReaderT
+    (runExceptT $ do
+      versionFileBinary <- getVersionFileFromEngine enginePath
+                                                    projectNameAndVersion
+      liftIO $ saveBinaryToFile versionFileBinary versionFileLocalPath
+      sayFunc $ "Copied " <> versionFileName <> " to: " <> versionFileLocalPath
+    )
+    (cachePrefix, verbose)
+  whenLeft sayFunc eitherError
+ where
+  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
+  versionFileLocalPath = carthageBuildDirectory </> versionFileName
+
+
 
 -- | Given a `ListMode` and a `ProjectAvailability` produces a `String`
 -- describing the `ProjectAvailability` for a given `ListMode`.

@@ -116,6 +116,7 @@ uploadBinary enginePath binaryZip destinationPath objectName =
   do
     (verbose) <- ask
     let cmd = Turtle.fromString $ enginePath
+    liftIO $ saveBinaryToFile binaryZip destinationPath
     sayLn
       $  "Executing script "
       <> (show enginePath)
@@ -130,4 +131,3 @@ uploadBinary enginePath binaryZip destinationPath objectName =
     case exitCode of
         Turtle.ExitSuccess   -> return ()
         Turtle.ExitFailure n -> Turtle.die (cmd <> " failed with exit code: " <> Turtle.repr n)
-    liftIO $ saveBinaryToFile binaryZip destinationPath

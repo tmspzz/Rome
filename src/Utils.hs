@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 
+
 module Utils where
 
 import qualified Codec.Archive.Zip            as Zip
@@ -19,13 +20,14 @@ import qualified Data.ByteString.Char8        as BS
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
+import           Data.Carthage.VersionFile
 import           Data.Char                    (isNumber)
 import qualified Data.Conduit                 as C (runConduit, (.|))
 import qualified Data.Conduit.Binary          as C (sinkFile, sourceLbs)
 import           Data.Function                (on)
 import           Data.List
 import qualified Data.Map.Strict              as M
-import           Data.Maybe                   (fromJust, fromMaybe)
+import           Data.Maybe                   (fromJust, fromMaybe, isNothing)
 import           Data.Romefile
 import qualified Data.Text                    as T
 import           Data.Text.Encoding
@@ -112,9 +114,10 @@ checkIfRomeLatestVersionIs currentRomeVersion = do
 awsErrorToString :: AWS.Error -> Bool -> String
 awsErrorToString e verbose = if verbose
   then show e
-  else AWS.showText $ fromMaybe (AWS.ErrorMessage "Unexpected Error") maybeServiceError
-  where
-    maybeServiceError = view AWS.serviceMessage =<< (e ^? AWS._ServiceError)
+  else AWS.showText
+    $ fromMaybe (AWS.ErrorMessage "Unexpected Error") maybeServiceError
+ where
+  maybeServiceError = view AWS.serviceMessage =<< (e ^? AWS._ServiceError)
 
 
 
@@ -389,7 +392,7 @@ romeFileEntryToTuple RomefileEntry {..} = (_projectName, _frameworks)
 -- | in case the lookup fails.
 repoNameForFrameworkName :: InvertedRepositoryMap -> Framework -> ProjectName
 repoNameForFrameworkName reverseRomeMap framework = fromMaybe
-  (ProjectName . _frameworkName $ framework)
+  (ProjectName . Data.Romefile._frameworkName $ framework)
   (M.lookup framework reverseRomeMap)
 
 
@@ -750,3 +753,54 @@ fromFile
 fromFile f action = do
   file <- liftIO (T.readFile f)
   withExceptT (("Could not parse " <> f <> ": ") <>) (action file)
+
+-- | Given a `VersionFileEntry` produces a list of `FrameworkIntermediate`
+toFrameworkIntermediates :: VersionFileEntry -> [FrameworkIntermediate]
+toFrameworkIntermediates v =
+  let
+    fName = Data.Carthage.VersionFile._frameworkName
+    iosIntermediates =
+      map (flip FrameworkIntermediate [IOS] . fName) <$> iOSFramewoksInfo v
+    tvOSIntermediates =
+      map (flip FrameworkIntermediate [TVOS] . fName) <$> tvOSFrameworksInfo v
+    watchOSIntermediates = map (flip FrameworkIntermediate [WatchOS] . fName)
+      <$> watchOSFrameworksInfo v
+    macOSIntermediates =
+      map (flip FrameworkIntermediate [MacOS] . fName) <$> macOSFrameworksInfo v
+    allIntermediates =
+      fromMaybe []
+        $  iosIntermediates
+        <> tvOSIntermediates
+        <> watchOSIntermediates
+        <> macOSIntermediates
+  in
+    foldr squashPlatforms [] allIntermediates
+ where
+  squashPlatforms frameworkIntermediate acc =
+    case find (\i -> _iName frameworkIntermediate == _iName i) acc of
+      Nothing -> frameworkIntermediate : acc
+      Just info ->
+        FrameworkIntermediate
+            (_iName info)
+            (_iPlatforms info `union` _iPlatforms frameworkIntermediate)
+          : delete info acc
+
+-- | Filters a list of `FrameworkVersion` by a list of `(Version, FrameworkIntermediate)`.
+-- | If the `version`, the `name` match and the intersection of `TargetPlatfrom`s is not null,
+-- | then the `FrameworkVersion` is removed from output list.
+filteredByIntermediates
+  :: [FrameworkVersion]
+  -> [(Version, FrameworkIntermediate)]
+  -> [FrameworkVersion]
+filteredByIntermediates versions tuplesOfVersionAndIntermediates = filter
+  (\(FrameworkVersion (Framework name _ platforms) v) -> isNothing $ find
+    (\(iVersion, iFramework) ->
+      iVersion
+        == v
+        && _iName iFramework
+        == name
+        && (not . null $ (_iPlatforms iFramework `intersect` platforms))
+    )
+    tuplesOfVersionAndIntermediates
+  )
+  versions

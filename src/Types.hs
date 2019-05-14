@@ -26,7 +26,6 @@ type ProjectNameAndVersion = (ProjectName, Version)
 
 -- | A wrapper around `String` used to specify what prefix to user
 -- | when determining remote paths of artifacts
-
 newtype CachePrefix = CachePrefix { _unCachePrefix :: String }
                                   deriving (Show, Eq)
 
@@ -64,8 +63,11 @@ data RepoJSON = RepoJSON { name    :: String
                          }
                          deriving (Show, Eq, Generic)
 
-instance ToJSON RepoJSON where
+instance ToJSON RepoJSON
 
 newtype ReposJSON = ReposJSON [RepoJSON] deriving (Show, Eq, Generic)
 
-instance ToJSON ReposJSON where
+instance ToJSON ReposJSON
+
+-- | An intemediate representation of the information collected from .version files
+data FrameworkIntermediate = FrameworkIntermediate { _iName :: String, _iPlatforms :: [TargetPlatform] } deriving (Show, Eq)

@@ -27,25 +27,25 @@ import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.Reader         (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans.Maybe    (exceptToMaybeT, runMaybeT)
+import qualified Data.Aeson                   as Aeson (decodeFileStrict)
 import qualified Data.ByteString.Char8        as BS (pack)
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Yaml                    (encodeFile)
 import           Data.IORef                   (newIORef)
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
-import           Data.Either.Extra            (maybeToEither, eitherToMaybe, isRight, mapLeft)
-import           Data.Either.Utils            (fromLeft)
-import           Data.Maybe                   (fromMaybe, maybe)
+import           Data.Carthage.VersionFile
+import           Data.Either                  (fromRight)
+import           Data.Either.Extra            (maybeToEither, eitherToMaybe, mapLeft)
+import           Data.Maybe                   (fromMaybe, maybe, catMaybes)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import qualified Data.Map.Strict              as M (empty)
 import qualified Data.Text                    as T
-import qualified Data.Text.Encoding           as T (encodeUtf8)
 import qualified Network.AWS                  as AWS
 import qualified Network.AWS.Auth             as AWS (fromEnv)
 import qualified Network.AWS.Env              as AWS (Env (..), retryConnectionFailure)
 import qualified Network.AWS.Data             as AWS (fromText)
-import qualified Network.AWS.Data.Sensitive   as AWS (Sensitive (..))
 import qualified Network.AWS.S3               as S3
 import qualified Network.AWS.STS.AssumeRole   as STS (assumeRole, arrsCredentials)
 import qualified Network.AWS.Utils            as AWS
@@ -92,11 +92,13 @@ getAWSEnv = do
   profile     <- T.pack . fromMaybe "default" <$> liftIO
     (lookupEnv (T.unpack "AWS_PROFILE"))
   credentials <-
-    runExceptT $ (AWS.credentialsFromFile =<< getAWSCredentialsFilePath) `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
+    runExceptT
+    $       (AWS.credentialsFromFile =<< getAWSCredentialsFilePath)
+    `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
   (auth, _) <-
     AWS.catching AWS._MissingEnvError AWS.fromEnv $ \envError -> either
       throwError
-      (\cred -> do
+      (\_ -> do
         let finalProfile = fromMaybe
               profile
               (eitherToMaybe $ AWS.sourceProfileOf profile =<< credentials)
@@ -174,20 +176,17 @@ runRomeWithOptions
 runRomeWithOptions (RomeOptions options romefilePath verbose) romeVersion = do
   absoluteRomefilePath <- liftIO $ absolutizePath romefilePath
   case options of
-    Utils _ ->
-      runUtilsCommand options absoluteRomefilePath verbose romeVersion
-    _ ->
-      runUDCCommand options absoluteRomefilePath verbose romeVersion
+    Utils _ -> runUtilsCommand options absoluteRomefilePath verbose romeVersion
+    _       -> runUDCCommand options absoluteRomefilePath verbose romeVersion
 
 -- | Runs one of the Utility commands
 runUtilsCommand
   :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
-runUtilsCommand command absoluteRomefilePath _ _ =
-  case command of
-    Utils _ -> do
-      romeFileEntries <- getRomefileEntries absoluteRomefilePath
-      lift $ encodeFile absoluteRomefilePath romeFileEntries
-    _ -> throwError "Error: Programming Error. Only Utils command supported."
+runUtilsCommand command absoluteRomefilePath _ _ = case command of
+  Utils _ -> do
+    romeFileEntries <- getRomefileEntries absoluteRomefilePath
+    lift $ encodeFile absoluteRomefilePath romeFileEntries
+  _ -> throwError "Error: Programming Error. Only Utils command supported."
 
 -- | Runs a command containing a `UDCPayload`   
 runUDCCommand :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
@@ -207,7 +206,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
 
   case command of
 
-    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg)
+    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFlag optimisticFlag)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              uploadArtifacts
@@ -215,7 +214,8 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
              , noIgnoreFlag
              , skipLocalCache
              , noSkipCurrentFlag
-             , concurrentlyFalg
+             , concurrentlyFlag
+             , optimisticFlag
              )
              (repositoryMapEntries, ignoreMapEntries, currentMapEntries)
              gitRepoNames
@@ -225,7 +225,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
              mlCacheDir
              platforms
 
-    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg)
+    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFlag optimisticFlag)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              downloadArtifacts
@@ -233,7 +233,8 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
              , noIgnoreFlag
              , skipLocalCache
              , noSkipCurrentFlag
-             , concurrentlyFalg
+             , concurrentlyFlag
+             , optimisticFlag
              )
              (repositoryMapEntries, ignoreMapEntries, currentMapEntries)
              gitRepoNames
@@ -320,8 +321,7 @@ type FlowFunction  = Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
-  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) RomeMonad ()
-
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, OptimisticFlag, Bool) RomeMonad ()
 
 -- | Convenience function wrapping the regular sequence of events
 -- | in case of Download or Upload commands
@@ -331,7 +331,8 @@ performWithDefaultFlow
      , NoIgnoreFlag  {- noIgnoreFlag -}
      , SkipLocalCacheFlag {- skipLocalCache -}
      , NoSkipCurrentFlag {- noSkipCurrentFlag -}
-     , ConcurrentlyFlag
+     , ConcurrentlyFlag  {- concurrentlyFlag -}
+     , OptimisticFlag {- optimisticFlag -}
      ) {- concurrentlyFlag -}
   -> ([RomefileEntry] {- repositoryMapEntries -}
                      , [RomefileEntry] {- ignoreMapEntries -}
@@ -343,7 +344,7 @@ performWithDefaultFlow
   -> Maybe String -- mlCacheDir
   -> [TargetPlatform] -- platforms
   -> RomeMonad ()
-performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFlag) (repositoryMapEntries, ignoreMapEntries, currentMapEntries) gitRepoNames cartfileEntries cachePrefixString mS3BucketName mlCacheDir platforms
+performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFlag, optimisticFlag) (repositoryMapEntries, ignoreMapEntries, currentMapEntries) gitRepoNames cartfileEntries cachePrefixString mS3BucketName mlCacheDir platforms
   = do
 
     let ignoreFrameworks = concatMap _frameworks ignoreMapEntries
@@ -376,11 +377,11 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
                 mlCacheDir
                 reverseRepositoryMap
                 (derivedFrameworkVersions
-                `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
+                 `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames
                 )
                 platforms
               )
-              (cachePrefix, skipLocalCache, concurrentlyFlag, verbose)
+              (cachePrefix, skipLocalCache, concurrentlyFlag, optimisticFlag, verbose)
             when (_noSkipCurrent noSkipCurrentFlag) $ do
               currentVersion <- deriveCurrentVersion
               let filteredCurrentMapEntries =
@@ -403,7 +404,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
                   )
                   platforms
                 )
-                (cachePrefix, skipLocalCache, concurrentlyFlag, verbose)
+                (cachePrefix, skipLocalCache, concurrentlyFlag, optimisticFlag, verbose)
       else do
         currentVersion <- deriveCurrentVersion
         let filteredCurrentMapEntries =
@@ -432,7 +433,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
                     frameworkVersions
                     platforms
           )
-          (cachePrefix, skipLocalCache, concurrentlyFlag, verbose)
+          (cachePrefix, skipLocalCache, concurrentlyFlag, optimisticFlag, verbose)
 
 -- | Lists Frameworks in the caches.
 listArtifacts
@@ -521,13 +522,31 @@ downloadArtifacts
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to.
   -> ReaderT
-       (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool)
+       (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, OptimisticFlag, Bool)
        RomeMonad
        ()
 downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
   = do
-    (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), conconrrentlyFlag@(ConcurrentlyFlag performConcurrently), verbose) <-
+    (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), conconrrentlyFlag@(ConcurrentlyFlag performConcurrently), (OptimisticFlag optimistic), verbose) <-
       ask
+      
+    versionIntermediates <- if optimistic 
+        then runExceptT $ do
+                versionFiles <-
+                  liftIO $ filter (isExtensionOf ".version") <$> listDirectory
+                    "Carthage/Build"
+                let versionFilesWithPaths = map ("Carthage/Build/" <>) versionFiles
+                versionFilesInfo :: [VersionFileEntry] <-
+                  liftIO
+                  $   catMaybes
+                  <$> mapM (\v -> Aeson.decodeFileStrict v `catch` \(_ :: IOError) -> return Nothing) versionFilesWithPaths
+                return $ zip (map commitish versionFilesInfo)
+                              (concatMap toFrameworkIntermediates versionFilesInfo)
+                `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
+        else return $ Right []
+
+    let finalFrameworkVersions = frameworkVersions `filteredByIntermediates` fromRight [] versionIntermediates
+    let gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVersions reverseRepositoryMap finalFrameworkVersions
 
     let sayFunc :: MonadIO m => String -> m ()
         sayFunc = if verbose then sayLnWithTime else sayLn
@@ -536,13 +555,14 @@ downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersion
 
       (Just s3BucketName, lCacheDir) -> do
         env <- lift getAWSEnv
+
         let uploadDownloadEnv =
               (env, cachePrefix, skipLocalCacheFlag, conconrrentlyFlag, verbose)
         let action1 = runReaderT
               (downloadFrameworksAndArtifactsFromCaches s3BucketName
                                                         lCacheDir
                                                         reverseRepositoryMap
-                                                        frameworkVersions
+                                                        finalFrameworkVersions
                                                         platforms
               )
               uploadDownloadEnv
@@ -569,7 +589,7 @@ downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersion
                   $ getAndUnzipFrameworksAndArtifactsFromLocalCache
                       lCacheDir
                       reverseRepositoryMap
-                      frameworkVersions
+                      finalFrameworkVersions
                       platforms
               mapM_ (whenLeft sayFunc) errors
             )
@@ -584,12 +604,6 @@ downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersion
             readerEnv
 
       (Nothing, Nothing) -> throwError bothCacheKeysMissingMessage
- where
-
-  gitRepoNamesAndVersions :: [ProjectNameAndVersion]
-  gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVersions
-    reverseRepositoryMap
-    frameworkVersions
 
 
 
@@ -601,12 +615,12 @@ uploadArtifacts
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
   -> ReaderT
-       (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool)
+       (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, OptimisticFlag, Bool)
        RomeMonad
        ()
 uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions platforms
   = do
-    (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), concurrentlyFlag@(ConcurrentlyFlag performConcurrently), verbose) <-
+    (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), concurrentlyFlag@(ConcurrentlyFlag performConcurrently), _ , verbose) <-
       ask
     case (mS3BucketName, mlCacheDir) of
       (Just s3BucketName, lCacheDir) -> do

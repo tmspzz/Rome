@@ -1538,16 +1538,21 @@ downloadFrameworkAndArtifactsWithEngine enginePath Nothing reverseRomeMap fVersi
     (cachePrefix, _, _, verbose) <- ask
 
     let readerEnv = (cachePrefix, verbose)
-
     let sayFunc   = if verbose then sayLnWithTime else sayLn
-    eitherError <- liftIO $ runReaderT
-      (runExceptT $ getAndUnzipFrameworkWithEngine enginePath
-                                                   reverseRomeMap
-                                                   fVersion
-                                                   platform
-      )
-      readerEnv
-    whenLeft sayFunc eitherError
+
+    liftIO $ do
+      runReaderT
+        (do
+          errors <-
+            mapM runExceptT
+              $ getAndUnzipFrameworkWithEngine
+                  enginePath
+                  reverseRomeMap
+                  fVersion
+                  platform
+          mapM_ (whenLeft sayFunc) errors
+        )
+        readerEnv
 
     eitherDSYMError <- liftIO $ runReaderT
       ( runExceptT

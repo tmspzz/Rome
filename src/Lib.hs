@@ -222,26 +222,27 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
 
   case command of
 
-    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg)
-      -> sayVersionWarning romeVersion verbose
+    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFlag)
+      -> do
+        sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              uploadArtifacts
              ( verbose
              , noIgnoreFlag
              , skipLocalCache
              , noSkipCurrentFlag
-             , concurrentlyFalg
+             , concurrentlyFlag
              )
              (repositoryMapEntries, ignoreMapEntries, currentMapEntries)
              gitRepoNames
              cartfileEntries
              cachePrefixString
              mS3BucketName
-             mEnginePath
              mlCacheDir
+             mEnginePath
              platforms
 
-    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFalg)
+    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFlag)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              downloadArtifacts
@@ -249,7 +250,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
              , noIgnoreFlag
              , skipLocalCache
              , noSkipCurrentFlag
-             , concurrentlyFalg
+             , concurrentlyFlag
              )
              (repositoryMapEntries, ignoreMapEntries, currentMapEntries)
              gitRepoNames
@@ -727,7 +728,31 @@ uploadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap framew
           >> runReaderT
                (saveVersionFilesToLocalCache lCacheDir gitRepoNamesAndVersions)
                readerEnv
-
+      -- Engine, maybe Cache 
+      (Nothing, lCacheDir, Just enginePath) -> do
+          let engineEnv =
+                ( cachePrefix
+                , skipLocalCacheFlag
+                , concurrentlyFlag
+                , verbose
+                )
+          let action1 = runReaderT
+                (uploadFrameworksAndArtifactsToEngine enginePath
+                                                      lCacheDir
+                                                      reverseRepositoryMap
+                                                      frameworkVersions
+                                                      platforms
+                )
+                engineEnv
+          let action2 = runReaderT
+                (uploadVersionFilesToEngine enginePath
+                                            lCacheDir
+                                            gitRepoNamesAndVersions
+                )
+                engineEnv
+          if performConcurrently
+            then liftIO $ concurrently_ action1 action2
+            else liftIO $ action1 >> action2
       (Nothing, Nothing, Nothing) -> throwError allCacheKeysMissingMessage
  where
   gitRepoNamesAndVersions :: [ProjectNameAndVersion]
@@ -736,6 +761,47 @@ uploadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap framew
     frameworkVersions
 
 
+-- | Uploads a lest of .version files to the engine.
+uploadVersionFilesToEngine
+  :: FilePath -- ^ The engine definition.
+  -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
+  -> [ProjectNameAndVersion] -- ^ A list of `ProjectName` and `Version` information.
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) IO ()
+uploadVersionFilesToEngine enginePath mlCacheDir =
+  mapM_ (uploadVersionFileToEngine enginePath mlCacheDir)
+
+
+-- | Uploads a .version file to the engine.
+uploadVersionFileToEngine
+  :: FilePath -- ^ The engine definition.
+  -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
+  -> ProjectNameAndVersion -- ^ The information used to derive the name and path for the .version file.
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) IO ()
+uploadVersionFileToEngine enginePath mlCacheDir projectNameAndVersion = do
+  (cachePrefix, SkipLocalCacheFlag skipLocalCache, _, verbose) <- ask
+
+  versionFileExists <- liftIO $ doesFileExist versionFileLocalPath
+
+  when versionFileExists $ do
+    versionFileContent <- liftIO $ LBS.readFile versionFileLocalPath
+    unless skipLocalCache
+      $   maybe (return ()) liftIO
+      $   saveVersionFileBinaryToLocalCache
+      <$> mlCacheDir
+      <*> Just cachePrefix
+      <*> Just versionFileContent
+      <*> Just projectNameAndVersion
+      <*> Just verbose
+    liftIO $ runReaderT
+      (uploadVersionFileToEngine' enginePath
+                                  versionFileContent
+                                  projectNameAndVersion
+      )
+      (cachePrefix, verbose)
+ where
+
+  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
+  versionFileLocalPath = carthageBuildDirectory </> versionFileName
 
 -- | Uploads a lest of .version files to the caches.
 uploadVersionFilesToCaches
@@ -996,18 +1062,28 @@ saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(Framewo
 
 
 
-uploadFrameworksAndArtifactsWithEngine
+uploadFrameworksAndArtifactsToEngine
   :: FilePath -- ^ The path to the engine or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .verison files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
-  -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
-uploadFrameworksAndArtifactsWithEngine engine mlCacheDir reverseRomeMap fvs =
-  mapM_ (sequence . upload)
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) IO ()
+uploadFrameworksAndArtifactsToEngine enginePath mlCacheDir reverseRomeMap fvs platforms = do
+    (_, _, ConcurrentlyFlag performConcurrently, _) <- ask
+    if performConcurrently
+      then mapConcurrently_ uploadConcurrently fvs
+      else mapM_ (sequence . upload) platforms
  where
+  uploadConcurrently f = mapConcurrently
+    (uploadFrameworkAndArtifactsWithEngine enginePath
+                                           mlCacheDir
+                                           reverseRomeMap
+                                           f
+    )
+    platforms
   upload = mapM
-    (uploadFrameworkAndArtifactsWithEngine engine mlCacheDir reverseRomeMap)
+    (uploadFrameworkAndArtifactsWithEngine enginePath mlCacheDir reverseRomeMap)
     fvs
 
 
@@ -1017,10 +1093,11 @@ uploadFrameworkAndArtifactsWithEngine
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVersion -- ^ A`FrameworkVersion` from which to derive Frameworks, dSYMs and .verison files
   -> TargetPlatform -- ^ A `TargetPlatform` to restrict this operation to.
-  -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
-uploadFrameworkAndArtifactsWithEngine engine mlCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) IO ()
+uploadFrameworkAndArtifactsWithEngine enginePath mlCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
   = do
-    (cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
+    (cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), ConcurrentlyFlag performConcurrently, verbose) <- ask
+    let readerEnv = (cachePrefix, verbose)
     void . runExceptT $ do
       frameworkArchive <- createZipArchive frameworkDirectory verbose
       unless skipLocalCache
@@ -1035,17 +1112,73 @@ uploadFrameworkAndArtifactsWithEngine engine mlCacheDir reverseRomeMap fVersion@
             )
         <*> Just (cachePrefix, s, verbose)
 
-      liftIO $ saveBinaryToFile
-        (Zip.fromArchive frameworkArchive)
-        ("/tmp/" <> frameworkNameWithFrameworkExtension <> ".zip")
+      liftIO $ runReaderT
+        (uploadFrameworkToEngine frameworkArchive
+                                 enginePath
+                                 reverseRomeMap
+                                 fVersion
+                                 platform
+        )
+        readerEnv
 
-    -- (env, cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), verbose) <- ask
+    void . runExceptT $ do
+      dSYMArchive <- createZipArchive dSYMdirectory verbose
+      unless skipLocalCache
+        $   maybe (return ()) liftIO
+        $   runReaderT
+        <$> (   saveDsymToLocalCache
+            <$> mlCacheDir
+            <*> Just dSYMArchive
+            <*> Just reverseRomeMap
+            <*> Just fVersion
+            <*> Just platform
+            )
+        <*> Just (cachePrefix, s, verbose)
+      liftIO $ runReaderT
+        (uploadDsymToEngine dSYMArchive
+                            enginePath
+                            reverseRomeMap
+                            fVersion
+                            platform
+        )
+        readerEnv
 
-    -- let uploadDownloadEnv = (env, cachePrefix, verbose)
+    void . runExceptT $ do
+      dwarfUUIDs         <- dwarfUUIDsFrom (frameworkDirectory </> fwn)
+      maybeUUIDsArchives <- liftIO $ forM dwarfUUIDs $ \dwarfUUID ->
+        runMaybeT $ do
+          dwarfArchive <- exceptToMaybeT
+            $ createZipArchive (bcSymbolMapPath dwarfUUID) verbose
+          return (dwarfUUID, dwarfArchive)
 
-    -- void . runExceptT $ do
-    --   frameworkArchive <- createZipArchive frameworkDirectory verbose
+      unless skipLocalCache
+        $ forM_ maybeUUIDsArchives
+        $ mapM
+        $ \(dwarfUUID, dwarfArchive) ->
+            maybe (return ()) liftIO
+              $   runReaderT
+              <$> (   saveBcsymbolmapToLocalCache
+                  <$> mlCacheDir
+                  <*> Just dwarfUUID
+                  <*> Just dwarfArchive
+                  <*> Just reverseRomeMap
+                  <*> Just fVersion
+                  <*> Just platform
+                  )
+              <*> Just (cachePrefix, s, verbose)
+
+      forM_ maybeUUIDsArchives $ mapM $ \(dwarfUUID, dwarfArchive) ->
+        liftIO $ runReaderT
+          (uploadBcsymbolmapToEngine dwarfUUID
+                                     dwarfArchive
+                                     enginePath
+                                     reverseRomeMap
+                                     fVersion
+                                     platform
+          )
+          readerEnv
  where
+
   frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
   platformBuildDirectory =
     carthageArtifactsBuildDirectoryForPlatform platform f
@@ -1053,7 +1186,9 @@ uploadFrameworkAndArtifactsWithEngine engine mlCacheDir reverseRomeMap fVersion@
     platformBuildDirectory </> frameworkNameWithFrameworkExtension
   dSYMNameWithDSYMExtension = frameworkNameWithFrameworkExtension <> ".dSYM"
   dSYMdirectory = platformBuildDirectory </> dSYMNameWithDSYMExtension
-  bcSybolMapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
+  bcSymbolMapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
+
+
 
 -- | Downloads a list of .version files from an S3 Bucket or a local cache.
 downloadVersionFilesFromCaches

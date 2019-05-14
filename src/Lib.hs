@@ -1531,7 +1531,7 @@ downloadFrameworkAndArtifactsWithEngine
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) IO ()
 downloadFrameworkAndArtifactsWithEngine enginePath (Just lCacheDir) reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform
-  = undefined
+  = undefined -- TODO: implement cache retrieval
 
 downloadFrameworkAndArtifactsWithEngine enginePath Nothing reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform
   = do
@@ -1540,39 +1540,36 @@ downloadFrameworkAndArtifactsWithEngine enginePath Nothing reverseRomeMap fVersi
     let readerEnv = (cachePrefix, verbose)
     let sayFunc   = if verbose then sayLnWithTime else sayLn
 
-    liftIO $ do
-      runReaderT
-        (do
-          errors <-
-            mapM runExceptT
-              $ getAndUnzipFrameworkWithEngine
-                  enginePath
-                  reverseRomeMap
-                  fVersion
-                  platform
-          mapM_ (whenLeft sayFunc) errors
-        )
-        readerEnv
-
-    eitherDSYMError <- liftIO $ runReaderT
-      ( runExceptT
-      $ getAndUnzipDSYMWithEngine enginePath reverseRomeMap fVersion platform
-      )
-      readerEnv
-    whenLeft sayFunc eitherDSYMError
-
-    eitherSymbolmapsOrErrors <- liftIO $ runReaderT
-      (runExceptT $ getAndUnzipBcsymbolmapsWithEngine' enginePath
-                                                       reverseRomeMap
-                                                       fVersion
-                                                       platform
-      )
-      readerEnv
-    flip whenLeft eitherSymbolmapsOrErrors $ \e -> case e of
-      ErrorGettingDwarfUUIDs ->
-        sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
-      (FailedDwarfUUIDs dwardUUIDsAndErrors) ->
-        mapM_ (sayFunc . snd) dwardUUIDsAndErrors
+    let a = runReaderT
+                (do
+                    error <-
+                      runExceptT
+                        $ getAndUnzipFrameworkWithEngine
+                            enginePath
+                            reverseRomeMap
+                            fVersion
+                            platform
+                    whenLeft sayFunc error
+                    eitherDSYMError <-
+                      runExceptT
+                        $ getAndUnzipDSYMWithEngine
+                            enginePath
+                            reverseRomeMap
+                            fVersion
+                            platform
+                    whenLeft sayFunc eitherDSYMError
+                    eitherSymbolmapsOrErrors <- runExceptT $ getAndUnzipBcsymbolmapsWithEngine' enginePath
+                                                                          reverseRomeMap
+                                                                          fVersion
+                                                                        platform
+                    flip whenLeft eitherSymbolmapsOrErrors $ \e -> case e of
+                        ErrorGettingDwarfUUIDs ->
+                          sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
+                        (FailedDwarfUUIDs dwardUUIDsAndErrors) ->
+                          mapM_ (sayFunc . snd) dwardUUIDsAndErrors
+                )
+              readerEnv
+    liftIO $ a `catch` \e -> print ("Caught " ++ show (e :: IOError))
 
 -- | Downloads a list of .version files with the engine or a local cache.
 downloadVersionFilesWithEngine

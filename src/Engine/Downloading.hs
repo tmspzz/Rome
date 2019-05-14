@@ -31,8 +31,6 @@ getFrameworkFromEngine
 getFrameworkFromEngine enginePath reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform
   = do
     (CachePrefix cachePrefix, verbose) <- ask
-    -- frameworkExistsInLocalCache <-
-    --   liftIO . doesFileExist $ frameworkLocalCachePath prefix
     let frameworkLocalPath = cachePrefix </> remoteFrameworkUploadPath
     mapExceptT
       (withReaderT (const (verbose)))
@@ -40,27 +38,6 @@ getFrameworkFromEngine enginePath reverseRomeMap (FrameworkVersion f@(Framework 
       )
  where
   remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
-
- --  frameworkExistsInLocalCache <-
- --      liftIO . doesFileExist $ frameworkLocalCachePath prefix
- --    if frameworkExistsInLocalCache
- --      then
- --        liftIO
- --        .    runResourceT
- --        .    C.runConduit
- --        $    C.sourceFile (frameworkLocalCachePath prefix)
- --        C..| C.sinkLbs
- --      else
- --        throwError
- --        $  "Error: could not find "
- --        <> fwn
- --        <> " in local cache at : "
- --        <> frameworkLocalCachePath prefix
- -- where
- --  frameworkLocalCachePath cPrefix =
- --    lCacheDir </> cPrefix </> remoteFrameworkUploadPath
- --  remoteFrameworkUploadPath =
- --    remoteFrameworkPath platform reverseRomeMap f version
 
 
 -- | Retrieves a .version file using the engine
@@ -229,7 +206,6 @@ getAndUnzipDSYMWithEngine
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (CachePrefix, Bool) IO) ()
 getAndUnzipDSYMWithEngine enginePath reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) version) platform
-  -- = undefined
   = when (platform `elem` fwps) $ do
     (_, verbose) <- ask
     dSYMBinary <- getDSYMFromEngine enginePath reverseRomeMap fVersion platform
@@ -255,7 +231,7 @@ getArtifactFromEngine enginePath remotePath localPath artifactName = do
         $  "Error: could not download "
         <> artifactName
         <> " : "
-        <> awsErrorToString e verbose
+        <> awsErrorToString e verbose -- TODO: change it here
     Right artifactBinary -> return artifactBinary
 
 -- | Downloads an artifact stored at a given path using the engine
@@ -288,4 +264,4 @@ downloadBinaryWithEngine enginePath objectRemotePath objectName = do
     binaryExists <- liftIO . doesFileExist $ objectRemotePath
     if binaryExists
       then liftIO $ LBS.readFile objectRemotePath
-      else liftIO . throwIO $ userError "ooops"
+      else fail "ooooooooops"

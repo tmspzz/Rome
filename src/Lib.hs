@@ -1111,7 +1111,6 @@ uploadFrameworkAndArtifactsWithEngine enginePath mlCacheDir reverseRomeMap fVers
             <*> Just platform
             )
         <*> Just (cachePrefix, s, verbose)
-
       liftIO $ runReaderT
         (uploadFrameworkToEngine frameworkArchive
                                  enginePath

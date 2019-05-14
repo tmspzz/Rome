@@ -261,6 +261,5 @@ downloadBinaryWithEngine enginePath objectRemotePath objectName = do
     case exitCode of
         Turtle.ExitSuccess   -> return ()
         Turtle.ExitFailure n -> Turtle.die (cmd <> " failed with exit code: " <> Turtle.repr n)
-    -- undefined
     liftIO $ LBS.readFile objectRemotePath
 

@@ -103,7 +103,7 @@ uploadVersionFileToS3 s3BucketName versionFileContent projectNameAndVersion =
 
 
 
--- | Uploads an artificat to an `S3.BucketName` at a given path in the bucket.
+-- | Uploads an artifact to an `S3.BucketName` at a given path in the bucket.
 uploadBinary
   :: AWS.ToBody a
   => S3.BucketName

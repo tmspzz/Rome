@@ -62,9 +62,9 @@ probeEngineForFrameworkOnPlatform enginePath reverseRomeMap (FrameworkVersion fw
         ["list", (Turtle.fromString remoteFrameworkUploadPath)]
         (return $ Turtle.unsafeTextToLine "")
     case exitCode of
-        Turtle.ExitSuccess   -> return ()
-        Turtle.ExitFailure n -> Turtle.die (cmd <> " failed with exit code: " <> Turtle.repr n)
-    return (PlatformAvailability platform True)
+        -- If script exists with success, we assume the framework exists.
+        Turtle.ExitSuccess   -> return (PlatformAvailability platform True)
+        Turtle.ExitFailure n -> return (PlatformAvailability platform False) --Turtle.die (cmd <> " failed with exit code: " <> Turtle.repr n)
  where
   remoteFrameworkUploadPath =
     remoteFrameworkPath platform reverseRomeMap fwn version

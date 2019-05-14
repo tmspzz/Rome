@@ -117,7 +117,7 @@ uploadBinary enginePath binaryZip destinationPath objectName =
     (verbose) <- ask
     let cmd = Turtle.fromString $ enginePath
     liftIO $ saveBinaryToFile binaryZip destinationPath
-    sayLn
+    sayLn -- TODO: probably remove this debugging log if not verbose, or maybe always?
       $  "Executing script "
       <> (show enginePath)
       <> " to upload "
@@ -130,4 +130,8 @@ uploadBinary enginePath binaryZip destinationPath objectName =
       (return $ Turtle.unsafeTextToLine "")
     case exitCode of
         Turtle.ExitSuccess   -> return ()
-        Turtle.ExitFailure n -> Turtle.die (cmd <> " failed with exit code: " <> Turtle.repr n) -- TODO: print out error and don't crash
+        Turtle.ExitFailure n -> do
+          sayLn
+          $ "Error: could not upload "
+          <> destinationPath
+          

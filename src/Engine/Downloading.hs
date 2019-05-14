@@ -4,7 +4,7 @@ module Engine.Downloading where
 
 import           Caches.Common
 import           Configuration                (carthageArtifactsBuildDirectoryForPlatform)
-import           Control.Exception            (try)
+import           Control.Exception            (try, throwIO)
 import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.Reader         (ReaderT, ask, runReaderT,
@@ -288,4 +288,4 @@ downloadBinaryWithEngine enginePath objectRemotePath objectName = do
     binaryExists <- liftIO . doesFileExist $ objectRemotePath
     if binaryExists
       then liftIO $ LBS.readFile objectRemotePath
-      else liftIO $ LBS.readFile objectRemotePath -- TODO: throwError in some way
+      else liftIO . throwIO $ userError "ooops"

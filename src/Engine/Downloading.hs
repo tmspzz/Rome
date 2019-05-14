@@ -14,6 +14,7 @@ import           Data.Carthage.TargetPlatform
 import           Data.Either                  (lefts)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile                (Framework (..))
+import           System.Directory
 import           System.FilePath              ((</>))
 import           Types                        hiding (version)
 import           Utils
@@ -26,13 +27,12 @@ getFrameworkFromEngine
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
-  -> ExceptT
-       String
-       (ReaderT (CachePrefix, Bool) IO)
-       LBS.ByteString
+  -> ExceptT String (ReaderT (CachePrefix, Bool) IO) LBS.ByteString
 getFrameworkFromEngine enginePath reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform
   = do
     (CachePrefix cachePrefix, verbose) <- ask
+    -- frameworkExistsInLocalCache <-
+    --   liftIO . doesFileExist $ frameworkLocalCachePath prefix
     let frameworkLocalPath = cachePrefix </> remoteFrameworkUploadPath
     mapExceptT
       (withReaderT (const (verbose)))
@@ -40,6 +40,27 @@ getFrameworkFromEngine enginePath reverseRomeMap (FrameworkVersion f@(Framework 
       )
  where
   remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
+
+ --  frameworkExistsInLocalCache <-
+ --      liftIO . doesFileExist $ frameworkLocalCachePath prefix
+ --    if frameworkExistsInLocalCache
+ --      then
+ --        liftIO
+ --        .    runResourceT
+ --        .    C.runConduit
+ --        $    C.sourceFile (frameworkLocalCachePath prefix)
+ --        C..| C.sinkLbs
+ --      else
+ --        throwError
+ --        $  "Error: could not find "
+ --        <> fwn
+ --        <> " in local cache at : "
+ --        <> frameworkLocalCachePath prefix
+ -- where
+ --  frameworkLocalCachePath cPrefix =
+ --    lCacheDir </> cPrefix </> remoteFrameworkUploadPath
+ --  remoteFrameworkUploadPath =
+ --    remoteFrameworkPath platform reverseRomeMap f version
 
 
 -- | Retrieves a .version file using the engine
@@ -78,6 +99,7 @@ getBcsymbolmapWithEngine enginePath reverseRomeMap (FrameworkVersion f@(Framewor
   = do
     (CachePrefix prefix, verbose) <- ask
     let finalRemoteBcsymbolmaploadPath = prefix </> remoteBcSymbolmapUploadPath
+    sayLnWithTime (show dwarfUUID)
     mapExceptT (withReaderT (const (verbose))) $ getArtifactFromEngine
       enginePath
       finalRemoteBcsymbolmaploadPath
@@ -241,7 +263,7 @@ downloadBinaryWithEngine
   :: FilePath
   -> FilePath
   -> FilePath
-  -> ReaderT (Bool) IO LBS.ByteString
+  -> (ReaderT (Bool) IO) LBS.ByteString
 downloadBinaryWithEngine enginePath objectRemotePath objectName = do
     (verbose) <- ask
     let cmd = Turtle.fromString $ enginePath
@@ -260,6 +282,10 @@ downloadBinaryWithEngine enginePath objectRemotePath objectName = do
         (return $ Turtle.unsafeTextToLine "")
     case exitCode of
         Turtle.ExitSuccess   -> return ()
-        Turtle.ExitFailure n -> Turtle.die (cmd <> " failed with exit code: " <> Turtle.repr n)
-    liftIO $ LBS.readFile objectRemotePath
-
+        Turtle.ExitFailure n -> sayFunc 
+          $  "Error: could not download "
+          <> objectRemotePath
+    binaryExists <- liftIO . doesFileExist $ objectRemotePath
+    if binaryExists
+      then liftIO $ LBS.readFile objectRemotePath
+      else liftIO $ LBS.readFile objectRemotePath -- TODO: throwError in some way

@@ -130,4 +130,4 @@ uploadBinary enginePath binaryZip destinationPath objectName =
       (return $ Turtle.unsafeTextToLine "")
     case exitCode of
         Turtle.ExitSuccess   -> return ()
-        Turtle.ExitFailure n -> Turtle.die (cmd <> " failed with exit code: " <> Turtle.repr n)
+        Turtle.ExitFailure n -> Turtle.die (cmd <> " failed with exit code: " <> Turtle.repr n) -- TODO: print out error and don't crash

@@ -77,7 +77,6 @@ getBcsymbolmapWithEngine enginePath reverseRomeMap (FrameworkVersion f@(Framewor
   = do
     (CachePrefix prefix, verbose) <- ask
     let finalRemoteBcsymbolmaploadPath = prefix </> remoteBcSymbolmapUploadPath
-    sayLnWithTime (show dwarfUUID)
     mapExceptT (withReaderT (const (verbose))) $ getArtifactFromEngine
       enginePath
       finalRemoteBcsymbolmaploadPath

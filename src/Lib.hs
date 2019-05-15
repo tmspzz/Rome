@@ -1531,7 +1531,138 @@ downloadFrameworkAndArtifactsWithEngine
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool) IO ()
 downloadFrameworkAndArtifactsWithEngine enginePath (Just lCacheDir) reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform
-  = undefined -- TODO: implement cache retrieval
+  = do
+    (cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, _, verbose) <- ask
+
+    let readerEnv = (cachePrefix, verbose)
+
+    when skipLocalCache $ downloadFrameworkAndArtifactsWithEngine
+      enginePath
+      Nothing
+      reverseRomeMap
+      fVersion
+      platform
+
+    unless skipLocalCache $ do
+      eitherFrameworkSuccess <- runReaderT
+        (runExceptT $ getAndUnzipFrameworkFromLocalCache lCacheDir
+                                                         reverseRomeMap
+                                                         fVersion
+                                                         platform
+        )
+        readerEnv
+      let sayFunc :: MonadIO m => String -> m ()
+          sayFunc = if verbose then sayLnWithTime else sayLn
+      
+      case eitherFrameworkSuccess of
+        Right _ -> return ()
+        Left  e -> liftIO $ do
+          sayFunc e
+          runReaderT
+            (do
+              e2 <- runExceptT $ do
+                frameworkBinary <- getFrameworkFromEngine enginePath
+                                                          reverseRomeMap
+                                                          fVersion
+                                                          platform
+                saveBinaryToLocalCache lCacheDir
+                                       frameworkBinary
+                                       (prefix </> remoteFrameworkUploadPath)
+                                       fwn
+                                       verbose
+                deleteFrameworkDirectory fVersion platform verbose
+                unzipBinary frameworkBinary fwn frameworkZipName verbose
+                  <* ifExists
+                       frameworkExecutablePath
+                       (makeExecutable frameworkExecutablePath)
+              whenLeft sayFunc e2
+            )
+            readerEnv
+
+      eitherBcsymbolmapsOrErrors <- runReaderT
+        (runExceptT $ getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir
+                                                             reverseRomeMap
+                                                             fVersion
+                                                             platform
+        )
+        readerEnv
+      case eitherBcsymbolmapsOrErrors of
+        Right _ -> return ()
+        Left ErrorGettingDwarfUUIDs ->
+          sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
+        Left (FailedDwarfUUIDs dwardUUIDsAndErrors) -> do
+          mapM_ (sayFunc . snd) dwardUUIDsAndErrors
+          forM_ (map fst dwardUUIDsAndErrors)
+            $ \dwarfUUID -> liftIO $ runReaderT
+                (do
+                  e <- runExceptT $ do
+                    let symbolmapLoggingName =
+                          fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
+                    let bcsymbolmapZipName d = bcsymbolmapArchiveName d version
+                    let localBcsymbolmapPathFrom d =
+                          platformBuildDirectory </> bcsymbolmapNameFrom d
+                    symbolmapBinary <- getBcsymbolmapWithEngine enginePath
+                                                                reverseRomeMap
+                                                                fVersion
+                                                                platform
+                                                                dwarfUUID
+                    saveBinaryToLocalCache
+                      lCacheDir
+                      symbolmapBinary
+                      (prefix </> remoteBcSymbolmapUploadPathFromDwarf dwarfUUID
+                      )
+                      fwn
+                      verbose
+                    deleteFile (localBcsymbolmapPathFrom dwarfUUID) verbose
+                    unzipBinary symbolmapBinary
+                                symbolmapLoggingName
+                                (bcsymbolmapZipName dwarfUUID)
+                                verbose
+                  whenLeft sayFunc e
+                )
+                readerEnv
+      
+      eitherDSYMSuccess <- runReaderT
+        (runExceptT $ getAndUnzipDSYMFromLocalCache lCacheDir
+                                                    reverseRomeMap
+                                                    fVersion
+                                                    platform
+        )
+        readerEnv
+      case eitherDSYMSuccess of
+        Right _ -> return ()
+        Left  e -> liftIO $ do
+          sayFunc e
+          runReaderT
+            (do
+              e2 <- runExceptT $ do
+                dSYMBinary <- getDSYMFromEngine enginePath
+                                                reverseRomeMap
+                                                fVersion
+                                                platform
+                saveBinaryToLocalCache lCacheDir
+                                       dSYMBinary
+                                       (prefix </> remotedSYMUploadPath)
+                                       dSYMName
+                                       verbose
+                deleteDSYMDirectory fVersion platform verbose
+                unzipBinary dSYMBinary dSYMName dSYMZipName verbose
+              whenLeft sayFunc e2
+            )
+            readerEnv
+ where
+  frameworkZipName = frameworkArchiveName f version
+  remoteFrameworkUploadPath =
+    remoteFrameworkPath platform reverseRomeMap f version
+  remoteBcSymbolmapUploadPathFromDwarf dwarfUUID =
+    remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
+  dSYMZipName          = dSYMArchiveName f version
+  remotedSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
+  platformBuildDirectory =
+    carthageArtifactsBuildDirectoryForPlatform platform f
+  dSYMName                = fwn <> ".dSYM"
+  frameworkExecutablePath = frameworkBuildBundleForPlatform platform f </> fwn
+
 
 downloadFrameworkAndArtifactsWithEngine enginePath Nothing reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform
   = do
@@ -1570,6 +1701,7 @@ downloadFrameworkAndArtifactsWithEngine enginePath Nothing reverseRomeMap fVersi
                 mapM_ (sayFunc . snd) dwardUUIDsAndErrors
         )
         readerEnv
+
 
 -- | Downloads a list of .version files with the engine or a local cache.
 downloadVersionFilesWithEngine

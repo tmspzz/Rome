@@ -1,6 +1,6 @@
 ![](logo/colosseum.jpg)
 
-# Rome [![Build Status](https://travis-ci.org/blender/Rome.svg?branch=master)](https://travis-ci.org/blender/Rome) [![rome-latest](https://img.shields.io/badge/release-v0.20.0.56-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.20.0.56) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
+# Rome [![Build Status](https://travis-ci.org/blender/Rome.svg?branch=master)](https://travis-ci.org/blender/Rome) [![rome-latest](https://img.shields.io/badge/release-v0.21.0.58-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.21.0.58) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
 
 Rome is a tool that allows developers on Apple platforms to use:
 
@@ -221,6 +221,9 @@ aws_secret_access_key = TedRV2/dFkBr1H3D7xuPsF9+CBHTjK0NKrJuoVs8
 these will be the credentials that Rome will use to access S3 on your behalf.
 To use configurations other than the `default` profile set the `$AWS_PROFILE`
 environment variable to your desired profile.
+
+Since version `0.21.0.58` Rome also supports privilege escalation via [Amazon STS](https://docs.aws.amazon.com/STS/latest/APIReference/Welcome.html)
+by specifying `role_arn` and `source_profile` in `~/.aws/credentials`
 
 ### Selecting the AWS Region
 

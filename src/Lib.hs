@@ -36,19 +36,16 @@ import           Data.Yaml                    (encodeFile)
 import           Data.IORef                   (newIORef)
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
-import           Data.Either.Extra            (maybeToEither, eitherToMaybe, isRight, mapLeft)
-import           Data.Either.Utils            (fromLeft)
+import           Data.Either.Extra            (maybeToEither, eitherToMaybe, mapLeft)
 import           Data.Maybe                   (fromMaybe, maybe)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import qualified Data.Map.Strict              as M (empty)
 import qualified Data.Text                    as T
-import qualified Data.Text.Encoding           as T (encodeUtf8)
 import qualified Network.AWS                  as AWS
 import qualified Network.AWS.Auth             as AWS (fromEnv)
 import qualified Network.AWS.Env              as AWS (Env (..), retryConnectionFailure)
 import qualified Network.AWS.Data             as AWS (fromText)
-import qualified Network.AWS.Data.Sensitive   as AWS (Sensitive (..))
 import qualified Network.AWS.S3               as S3
 import qualified Network.AWS.STS.AssumeRole   as STS (assumeRole, arrsCredentials)
 import qualified Network.AWS.Utils            as AWS
@@ -62,13 +59,6 @@ import           Types
 import           Types.Commands               as Commands
 import           Utils
 import           Xcode.DWARF
-
--- # TODO: clean up
-
-import qualified Codec.Archive.Zip            as Zip
-
--- # 
-
 
 
 s3EndpointOverride :: URL -> AWS.Service
@@ -540,8 +530,8 @@ getProjectAvailabilityFromCaches Nothing (Just lCacheDir) Nothing reverseReposit
     return $ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities
       reverseRepositoryMap
       availabilities
--- TODO: check how to deal with lCacheDir together with enginePath
-getProjectAvailabilityFromCaches Nothing lCacheDir (Just ePath) reverseRepositoryMap frameworkVersions platforms
+
+getProjectAvailabilityFromCaches Nothing _ (Just ePath) reverseRepositoryMap frameworkVersions platforms
   = do
     availabilities <- probeEngineForFrameworks ePath
                                                reverseRepositoryMap
@@ -1621,7 +1611,7 @@ downloadFrameworkAndArtifactsWithEngine enginePath (Just lCacheDir) reverseRomeM
                   whenLeft sayFunc e
                 )
                 readerEnv
-      
+
       eitherDSYMSuccess <- runReaderT
         (runExceptT $ getAndUnzipDSYMFromLocalCache lCacheDir
                                                     reverseRomeMap

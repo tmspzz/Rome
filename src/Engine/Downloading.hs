@@ -5,7 +5,7 @@ module Engine.Downloading where
 
 import           Caches.Common
 import           Configuration                (carthageArtifactsBuildDirectoryForPlatform)
-import           Control.Exception            (try, throwIO)
+import           Control.Exception            (try)
 import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.Reader         (ReaderT, ask, runReaderT,
@@ -35,7 +35,7 @@ getFrameworkFromEngine enginePath reverseRomeMap (FrameworkVersion f@(Framework 
     let frameworkLocalPath = cachePrefix </> remoteFrameworkUploadPath
     mapExceptT
       (withReaderT (const (verbose)))
-      (getArtifactFromEngine enginePath remoteFrameworkUploadPath frameworkLocalPath fwn
+      (getArtifactFromEngine enginePath frameworkLocalPath fwn
       )
  where
   remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
@@ -54,7 +54,6 @@ getVersionFileFromEngine enginePath projectNameAndVersion = do
   let finalVersionFileRemotePath = prefix </> versionFileRemotePath
   mapExceptT (withReaderT (const (verbose))) $ getArtifactFromEngine
     enginePath
-    finalVersionFileRemotePath
     finalVersionFileRemotePath
     versionFileName
  where
@@ -80,7 +79,6 @@ getBcsymbolmapWithEngine enginePath reverseRomeMap (FrameworkVersion f@(Framewor
     mapExceptT (withReaderT (const (verbose))) $ getArtifactFromEngine
       enginePath
       finalRemoteBcsymbolmaploadPath
-      finalRemoteBcsymbolmaploadPath
       symbolmapName
  where
   remoteBcSymbolmapUploadPath =
@@ -103,7 +101,7 @@ getDSYMFromEngine enginePath reverseRomeMap (FrameworkVersion f@(Framework fwn _
     (CachePrefix prefix, verbose) <- ask
     let finalRemoteDSYMUploadPath = prefix </> remoteDSYMUploadPath
     mapExceptT (withReaderT (const (verbose)))
-      $ getArtifactFromEngine enginePath finalRemoteDSYMUploadPath finalRemoteDSYMUploadPath dSYMName -- TODO: pass local DSYM FilePath
+      $ getArtifactFromEngine enginePath finalRemoteDSYMUploadPath dSYMName
  where
   remoteDSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
   dSYMName             = fwn <> ".dSYM"
@@ -217,10 +215,9 @@ getAndUnzipDSYMWithEngine enginePath reverseRomeMap fVersion@(FrameworkVersion f
 getArtifactFromEngine
   :: FilePath -- ^ The engine file path
   -> FilePath -- ^ The remote path 
-  -> FilePath -- ^ The local path
   -> String -- ^ A colloquial name for the artifact
   -> ExceptT String (ReaderT (Bool) IO) LBS.ByteString
-getArtifactFromEngine enginePath remotePath localPath artifactName = do
+getArtifactFromEngine enginePath remotePath artifactName = do
   readerEnv@(verbose)            <- ask
   eitherArtifact :: Either IOError LBS.ByteString <- liftIO $ try $ runReaderT
     (downloadBinaryWithEngine enginePath remotePath artifactName)

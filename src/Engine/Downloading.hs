@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Engine.Downloading where
 
@@ -222,7 +223,7 @@ getArtifactFromEngine
   -> ExceptT String (ReaderT (Bool) IO) LBS.ByteString
 getArtifactFromEngine enginePath remotePath localPath artifactName = do
   readerEnv@(verbose)            <- ask
-  eitherArtifact <- liftIO $ try $ runReaderT
+  eitherArtifact :: Either IOError LBS.ByteString <- liftIO $ try $ runReaderT
     (downloadBinaryWithEngine enginePath remotePath artifactName)
     readerEnv
   case eitherArtifact of
@@ -231,7 +232,7 @@ getArtifactFromEngine enginePath remotePath localPath artifactName = do
         $  "Error: could not download "
         <> artifactName
         <> " : "
-        <> awsErrorToString e verbose -- TODO: change it here
+        <> show e
     Right artifactBinary -> return artifactBinary
 
 -- | Downloads an artifact stored at a given path using the engine
@@ -264,4 +265,4 @@ downloadBinaryWithEngine enginePath objectRemotePath objectName = do
     binaryExists <- liftIO . doesFileExist $ objectRemotePath
     if binaryExists
       then liftIO $ LBS.readFile objectRemotePath
-      else fail "ooooooooops"
+      else fail "Binary was not downloaded by engine"

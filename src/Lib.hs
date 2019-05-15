@@ -30,18 +30,27 @@ import           Control.Monad.Trans.Maybe    (exceptToMaybeT, runMaybeT)
 import qualified Data.ByteString.Char8        as BS (pack)
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.Yaml                    (encodeFile)
+import           Data.IORef                   (newIORef)
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
-import           Data.Either.Extra            (maybeToEither)
+import           Data.Either.Extra            (maybeToEither, eitherToMaybe, isRight, mapLeft)
+import           Data.Either.Utils            (fromLeft)
 import           Data.Maybe                   (fromMaybe, maybe)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import qualified Data.Map.Strict              as M (empty)
-import qualified Data.S3Config                as S3Config
 import qualified Data.Text                    as T
+import qualified Data.Text.Encoding           as T (encodeUtf8)
 import qualified Network.AWS                  as AWS
+import qualified Network.AWS.Auth             as AWS (fromEnv)
+import qualified Network.AWS.Env              as AWS (Env (..), retryConnectionFailure)
 import qualified Network.AWS.Data             as AWS (fromText)
+import qualified Network.AWS.Data.Sensitive   as AWS (Sensitive (..))
 import qualified Network.AWS.S3               as S3
+import qualified Network.AWS.STS.AssumeRole   as STS (assumeRole, arrsCredentials)
+import qualified Network.AWS.Utils            as AWS
+import qualified Network.HTTP.Conduit         as Conduit
+
 import           Network.URL
 import           System.Directory
 import           System.Environment
@@ -63,6 +72,79 @@ s3EndpointOverride (URL (Absolute h) _ _) =
                       (maybe 9000 fromInteger port')
                       S3.s3
 s3EndpointOverride _ = S3.s3
+
+-- | Tries to get authentication details and region to perform
+-- | requests to AWS. 
+-- | The `AWS_PROFILE` is read from the environment
+-- | or falls back to `default`. 
+-- | The `AWS_REGION` is first read from the environment, if not found
+-- | it is read from `~/.aws/config` based on the profile discovered in the previous step.
+-- | The `AWS_ACCESS_KEY_ID` & `AWS_SECRET_ACCESS_KEY` are first
+-- | read from the environment. If not found, then the `~/.aws/crendetilas`
+-- | file is read. If `source_profile` key is present the reading of the
+-- | authentication details happens from this profile rather then the `AWS_PROFILE`.
+-- | Finally, if `role_arn` is specified, the crendials gathered up to now are used
+-- | to obtain new credentials with STS esclated to `role_arn`.
+getAWSEnv :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
+getAWSEnv = do
+  region      <- discoverRegion
+  endpointURL <- runMaybeT . exceptToMaybeT $ discoverEndpoint
+  profile     <- T.pack . fromMaybe "default" <$> liftIO
+    (lookupEnv (T.unpack "AWS_PROFILE"))
+  credentials <-
+    runExceptT $ (AWS.credentialsFromFile =<< getAWSCredentialsFilePath) `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
+  (auth, _) <-
+    AWS.catching AWS._MissingEnvError AWS.fromEnv $ \envError -> either
+      throwError
+      (\cred -> do
+        let finalProfile = fromMaybe
+              profile
+              (eitherToMaybe $ AWS.sourceProfileOf profile =<< credentials)
+        let
+          authAndRegion =
+            (,)
+              <$> mapLeft
+                    (\e ->
+                      T.unpack envError
+                        ++ ". "
+                        ++ e
+                        ++ " in file ~/.aws/credentilas"
+                    )
+                    (AWS.authFromCredentilas finalProfile =<< credentials)
+              <*> pure (pure region)
+        liftEither authAndRegion
+      )
+      credentials
+  manager <- liftIO (Conduit.newManager Conduit.tlsManagerSettings)
+  ref     <- liftIO (newIORef Nothing)
+  let roleARN = eitherToMaybe $ AWS.roleARNOf profile =<< credentials
+  let curerntEnv = AWS.Env region
+                           (\_ _ -> pure ())
+                           (AWS.retryConnectionFailure 3)
+                           mempty
+                           manager
+                           ref
+                           auth
+  case roleARN of
+    Just role -> newEnvFromRole role curerntEnv
+    Nothing   -> return
+      $ AWS.configure (maybe S3.s3 s3EndpointOverride endpointURL) curerntEnv
+
+newEnvFromRole :: MonadIO m => T.Text -> AWS.Env -> ExceptT String m AWS.Env
+newEnvFromRole roleARN currentEnv = do
+  assumeRoleResult <-
+    liftIO
+    $ AWS.runResourceT
+    . AWS.runAWS currentEnv
+    $ AWS.send
+    $ STS.assumeRole roleARN "rome-cache-operation"
+  let maybeAuth = AWS.Auth <$> assumeRoleResult ^. STS.arrsCredentials
+  case maybeAuth of
+    Nothing ->
+      throwError
+        $  "Could not create AWS Auth from STS response: "
+        ++ show assumeRoleResult
+    Just newAuth -> return $ currentEnv & AWS.envAuth .~ newAuth
 
 getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSRegion = do
@@ -398,7 +480,7 @@ getProjectAvailabilityFromCaches
        [ProjectAvailability]
 getProjectAvailabilityFromCaches (Just s3BucketName) _ reverseRepositoryMap frameworkVersions platforms
   = do
-    env                       <- lift getAWSRegion
+    env                       <- lift getAWSEnv
     (cachePrefix, _, verbose) <- ask
     let readerEnv = (env, cachePrefix, verbose)
     availabilities <- liftIO $ runReaderT
@@ -453,7 +535,7 @@ downloadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersion
     case (mS3BucketName, mlCacheDir) of
 
       (Just s3BucketName, lCacheDir) -> do
-        env <- lift getAWSRegion
+        env <- lift getAWSEnv
         let uploadDownloadEnv =
               (env, cachePrefix, skipLocalCacheFlag, conconrrentlyFlag, verbose)
         let action1 = runReaderT
@@ -528,7 +610,7 @@ uploadArtifacts mS3BucketName mlCacheDir reverseRepositoryMap frameworkVersions 
       ask
     case (mS3BucketName, mlCacheDir) of
       (Just s3BucketName, lCacheDir) -> do
-        awsEnv <- lift getAWSRegion
+        awsEnv <- lift getAWSEnv
         let uploadDownloadEnv =
               ( awsEnv
               , cachePrefix
@@ -1195,7 +1277,9 @@ discoverRegion = do
   let eitherEnvRegion = ExceptT . return $ envRegion >>= AWS.fromText . T.pack
   let
     eitherFileRegion =
-      (getS3ConfigFile >>= flip getRegionFromFile (fromMaybe "default" profile))
+      (   getAWSConfigFilePath
+        >>= flip getRegionFromFile (fromMaybe "default" profile)
+        )
         `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
   eitherEnvRegion <|> eitherFileRegion
 
@@ -1207,9 +1291,10 @@ getRegionFromFile
   => FilePath -- ^ The path to the file containing the `AWS.Region`
   -> String -- ^ The name of the profile to use
   -> ExceptT String m AWS.Region
-getRegionFromFile f profile = fromFile f $ \file -> ExceptT . return $ do
-  config <- S3Config.parseS3Config file
-  S3Config.regionOf (T.pack profile) config
+getRegionFromFile f profile =
+  fromFile f $ \fileContents -> ExceptT . return $ do
+    config <- AWS.parseConfigFile fileContents
+    AWS.regionOf (T.pack profile) config
 
 
 
@@ -1225,12 +1310,11 @@ discoverEndpoint = do
           $   maybeString
           >>= importURL
   profile <- liftIO $ lookupEnv "AWS_PROFILE"
-  let
-    fileEndPointURL =
-      (   getS3ConfigFile
-        >>= flip getEndpointFromFile (fromMaybe "default" profile)
-        )
-        `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
+  let fileEndPointURL =
+        (   getAWSConfigFilePath
+          >>= flip getEndpointFromFile (fromMaybe "default" profile)
+          )
+          `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
   (ExceptT . return $ envEndpointURL) <|> fileEndPointURL
 
 
@@ -1239,10 +1323,10 @@ discoverEndpoint = do
 -- | Reads an `URL` from a file for a given profile
 getEndpointFromFile
   :: MonadIO m
-  => FilePath -- ^ The path to the file containing the `AWS.Region`
-  -> String -- ^ The name of the profile to use
+  => String -- ^ The name of the profile to use
+  -> FilePath -- ^ The path to the file containing the `AWS.Region`
   -> ExceptT String m URL
-getEndpointFromFile f profile = fromFile f $ \file -> ExceptT . return $ do
-  config <- S3Config.parseS3Config file
-  S3Config.endPointOf (T.pack profile) config
-
+getEndpointFromFile profile f =
+  fromFile f $ \fileContents -> ExceptT . return $ do
+    config <- AWS.parseConfigFile fileContents
+    AWS.endPointOf (T.pack profile) config

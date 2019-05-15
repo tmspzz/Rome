@@ -8,7 +8,7 @@ namespace :hlint do
   task :install, :version do |task, args|
     REPO = "https://github.com/ndmitchell/hlint"
     VERSION = args[:version].to_s
-    ASSET = "hlint-#{VERSION}-x86_64-linux.tar.gz"
+    ASSET = "hlint-#{VERSION}-x86_64-osx.tar.gz"
     URL = "#{REPO}/releases/download/v#{VERSION}/#{ASSET}"
     DESTINATION_BASE = File.expand_path(File.join(File.dirname(__FILE__), 'bin'))
     DESTINATION_TMP = File.join("#{DESTINATION_BASE}", 'tmp')

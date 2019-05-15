@@ -2,8 +2,8 @@
 
 setup() {
   
-  export STATICFIRE_COMMIT="c9cc8ccafbb715700fc350266cdb60553e282ffb"
-  export RESULT_VERSION="4.0.0"
+  export STATICFIRE_COMMIT="ada9256edf4b6dfb63bd1f6d13441b1ab7fd6ffd"
+  export RESULT_VERSION="4.1.0"
 
   cd $BATS_TMPDIR
 

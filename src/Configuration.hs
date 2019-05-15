@@ -32,9 +32,13 @@ getRomefileEntries absoluteRomefilePath =
   in  withExceptT toErr $ fromYaml <|> fromIni
   where toErr e = "Error while parsing " <> absoluteRomefilePath <> ": " <> e
 
-getS3ConfigFile :: MonadIO m => m FilePath
-getS3ConfigFile = (</> awsConfigFilePath) `liftM` liftIO getHomeDirectory
+getAWSConfigFilePath :: MonadIO m => m FilePath
+getAWSConfigFilePath = (</> awsConfigFilePath) `liftM` liftIO getHomeDirectory
   where awsConfigFilePath = ".aws/config"
+
+getAWSCredentialsFilePath:: MonadIO m => m FilePath
+getAWSCredentialsFilePath = (</> awsCredentialsFilePath) `liftM` liftIO getHomeDirectory
+  where awsCredentialsFilePath = ".aws/credentials"
 
 carthageBuildDirectory :: FilePath
 carthageBuildDirectory = "Carthage" </> "Build"

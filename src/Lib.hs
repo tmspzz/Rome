@@ -36,16 +36,19 @@ import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
 import           Data.Carthage.VersionFile
 import           Data.Either                  (fromRight)
-import           Data.Either.Extra            (maybeToEither, eitherToMaybe, mapLeft)
+import           Data.Either.Extra            (maybeToEither, eitherToMaybe, isRight, mapLeft)
+import           Data.Either.Utils            (fromLeft)
 import           Data.Maybe                   (fromMaybe, maybe, catMaybes)
 import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import qualified Data.Map.Strict              as M (empty)
 import qualified Data.Text                    as T
+import qualified Data.Text.Encoding           as T (encodeUtf8)
 import qualified Network.AWS                  as AWS
 import qualified Network.AWS.Auth             as AWS (fromEnv)
 import qualified Network.AWS.Env              as AWS (Env (..), retryConnectionFailure)
 import qualified Network.AWS.Data             as AWS (fromText)
+import qualified Network.AWS.Data.Sensitive   as AWS (Sensitive (..))
 import qualified Network.AWS.S3               as S3
 import qualified Network.AWS.STS.AssumeRole   as STS (assumeRole, arrsCredentials)
 import qualified Network.AWS.Utils            as AWS

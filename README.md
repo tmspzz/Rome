@@ -192,7 +192,7 @@ same level where the `Cartfile` is.
 If you just want to use only a local folder as a cache then:
 
 - You need a [Romefile](#romefile) in the project where you want to use Rome. At the
-same level where the `Cartfile` is. Since `0.17.1.49`, if you want to place the Romefile elsewhere or name it dirrentely
+same level where the `Cartfile` is. Since `0.17.1.49`, if you want to place the Romefile elsewhere or name it differently
 use `--romefile <path-to-romefile>` when running `rome <COMMAND>`.
 
 ### Setting up AWS credentials

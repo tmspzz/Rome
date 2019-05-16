@@ -6,8 +6,11 @@ setup() {
   export RESULT_VERSION="4.0.0"
 
   rm -rf $BATS_TMPDIR/Rome-Tests
+
   mkdir -p $BATS_TMPDIR/Rome-Tests
+
   cp engine.sh $BATS_TMPDIR/Rome-Tests/
+
   cd $BATS_TMPDIR/Rome-Tests
 
   if [ "$BATS_TEST_NUMBER" -eq 1 ]; then
@@ -65,6 +68,7 @@ EOF
   echo "# BATS_TMPDIR: ${BATS_TMPDIR}" >&3
   
 }
+
 
 teardown() {
   cd $BATS_TEST_DIRNAME
@@ -163,7 +167,6 @@ teardown() {
   if [ -d "../_server-cache_bkp" ]; then
     echo "# Server cache restored" >&3
     cp -R ../_server-cache_bkp server-cache/
-    # echo "# $(ls)" >&3
   fi
 
   # restore local cache (even though it will be skipped, we want it to be there to simulate a real scenario)

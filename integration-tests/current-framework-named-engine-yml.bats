@@ -6,11 +6,13 @@ setup() {
   export FRAMEWORK_REPO_NAME=swift-tagged
   export FRAMEWORK_ARTIFACT_NAME=Tagged
 
-  cd $BATS_TMPDIR
+  rm -rf $BATS_TMPDIR/Rome-Tests
 
-  rm -rf Rome-Tests
+  mkdir -p $BATS_TMPDIR/Rome-Tests
 
-  mkdir Rome-Tests && cd Rome-Tests
+  cp engine.sh $BATS_TMPDIR/Rome-Tests/
+
+  cd $BATS_TMPDIR/Rome-Tests
 
   git clone https://github.com/pointfreeco/swift-tagged.git
   cd swift-tagged
@@ -21,7 +23,7 @@ setup() {
     # carthage build --no-use-binaries --no-skip-current --cache-builds
     mkdir -p Carthage/Build
     cp -R /Users/balestrapatrick/Desktop/integration-named/swift-tagged/Carthage/Build/ Carthage/Build
-
+    
     rm -rf ../../_Carthage_build_bkp
     cp -R Carthage/Build/ ../../_Carthage_build_bkp
 
@@ -33,7 +35,7 @@ setup() {
   cat >> Romefile << EOF
 cache:
   local: rome-local-cache
-  s3Bucket: rome
+  engine: ../engine.sh
 ignoreMap:
   - swift-tagged:
     - name: Tagged
@@ -42,13 +44,6 @@ currentMap:
   - swift-tagged:
     - name: Tagged
 EOF
-
-  mkdir -p ~/.aws
-  printf "[default]\n region = us-east-1" >> ~/.aws/config
-
-  # minio
-
-  mkdir -p minio-buckets/rome
 
   IOS_DWARFDUMP_OUT=($(dwarfdump -u Carthage/Build/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework/${FRAMEWORK_ARTIFACT_NAME}))
   TVOS_DWARFDUMP_OUT=($(dwarfdump -u Carthage/Build/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework/${FRAMEWORK_ARTIFACT_NAME}))
@@ -59,95 +54,74 @@ EOF
   export TVOS_ARM64_DWARF_UUID=${TVOS_DWARFDUMP_OUT[5]}
   export WATCHOS_ARMV7K_DWARF_UUID=${WATCHOS_DWARFDUMP_OUT[5]}
 
-  export AWS_ACCESS_KEY_ID=Q3AM3UQ867SPQQA43P2F
-  export AWS_SECRET_ACCESS_KEY=zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
-  export MINIO_ACCESS_KEY=Q3AM3UQ867SPQQA43P2F
-  export MINIO_SECRET_KEY=zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
-  export AWS_ENDPOINT=http://127.0.0.1:9000 
-
   echo "# BATS_TMPDIR: ${BATS_TMPDIR}" >&3
 
 }
 
 teardown() {
-
-  if [ ! "$BATS_TEST_NUMBER" -eq 3 ]; then
-    killall minio
-  fi
   cd $BATS_TEST_DIRNAME
 }
 
-@test "rome uploads all named artifacts for current framework (dynamic, yaml)" {
-
-  # Test 1
-
-  MINIO_HTTP_TRACE=output.log minio server minio-buckets &
-  sleep 4
-
-  run rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME}
+@test "rome uploads all named artifacts for current framework with engine (dynamic, yaml)" {
+  echo "# $(pwd)" >&3
+  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME}
   [ "$status" -eq 0 ]
 
-  if [ -d "minio-buckets/rome" ]; then
-    cp -R minio-buckets/rome/ ../../_rome_bkp
-  fi
-
   # Version file
-  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/.${FRAMEWORK_REPO_NAME}.version-${FRAMEWORK_VERSION}" ]
+  [ -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/.${FRAMEWORK_REPO_NAME}.version-${FRAMEWORK_VERSION}" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/.${FRAMEWORK_REPO_NAME}.version-${FRAMEWORK_VERSION}" ]
 
   # macOS - No bitecode, No bcsymbolmap
-  [ ! -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
-  [ ! -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ ! -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ ! -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ ! -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
   [ ! -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
 
   # iOS
-  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/iOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
 
   # tvOS
-  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/tvOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
 
   # watchOS
-  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/${FRAMEWORK_REPO_NAME}/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
 
-  #save the local cache for later
+  # save the server cache for later
+  rm -rf ../../_server-cache_bkp
+  cp -R server-cache/ ../../_server-cache_bkp
 
+  # save the local cache for later
   rm -rf ../../_rome-local-cache_bkp
   cp -R rome-local-cache/ ../../_rome-local-cache_bkp
-
 }
 
-@test "rome downloads all named artifacts for current framework skipping local cache (dynamic, yaml)" {
+@test "rome downloads all named artifacts for current framework with engine skipping local cache (dynamic, yaml)" {
 
-  # Test 2
-
-  if [ -d "../../_rome_bkp" ]; then
-    echo "# Minio bucket restored" >&3
-    cp -R ../../_rome_bkp/ minio-buckets/rome
+  # restore server cache
+  if [ -d "../../_server-cache_bkp" ]; then
+    echo "# Server cache restored" >&3
+    cp -R ../../_server-cache_bkp server-cache/
   fi
 
-  MINIO_HTTP_TRACE=output.log minio server minio-buckets &
-  sleep 4 
-
   rm -rf Carthage/Build
-  run rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME} 
+  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME} 
 
   [ "$status" -eq 0 ]
 
@@ -175,17 +149,16 @@ teardown() {
   [ -f "Carthage/Build/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap" ]
 }
 
-@test "rome downloads all named artifacts for current framework from the local cache (dynamic, yaml)" {
+@test "rome downloads all named artifacts for current framework with engine from the local cache (dynamic, yaml)" {
 
-  # Test 3
-
+  # restore local cache
   if [ -d "../../_rome-local-cache_bkp" ]; then
-    echo "# Rome local cache restored" >&3
-    cp -R ../../_rome-local-cache_bkp/ rome-local-cache
+    echo "# Local cache restored" >&3
+    cp -R ../../_rome-local-cache_bkp rome-local-cache/
   fi
   
   rm -rf Carthage/Build
-  run rome download --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME} 
+  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME}
 
   [ "$status" -eq 0 ]
 
@@ -213,20 +186,16 @@ teardown() {
   [ -f "Carthage/Build/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap" ]
 }
 
-@test "rome downloads named artifacts for current framework skipping local cache (dynamic, yaml)" {
+@test "rome downloads named artifacts for current framework with engine skipping local cache (dynamic, yaml)" {
 
-  # Test 4
-
-  if [ -d "../../_rome_bkp" ]; then
-    echo "# Minio bucket restored" >&3
-    cp -R ../../_rome_bkp/ minio-buckets/rome
+  # restore server cache
+  if [ -d "../../_server-cache_bkp" ]; then
+    echo "# Server cache restored" >&3
+    cp -R ../../_server-cache_bkp server-cache/
   fi
 
-  MINIO_HTTP_TRACE=output.log minio server minio-buckets &
-  sleep 4 
-
   rm -rf Carthage/Build
-  run rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME}
+  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME}
 
   [ "$status" -eq 0 ]
 

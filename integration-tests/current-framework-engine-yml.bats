@@ -3,19 +3,25 @@
 setup() {
 
   export FRAMEWORK_VERSION=4.8.2
+  
+  rm -rf $BATS_TMPDIR/Rome-Tests
 
-  cd $BATS_TMPDIR
+  mkdir -p $BATS_TMPDIR/Rome-Tests
 
-  rm -rf Rome-Tests
-
-  mkdir Rome-Tests && cd Rome-Tests
-
+  cp engine.sh $BATS_TMPDIR/Rome-Tests/
+  
+  cd $BATS_TMPDIR/Rome-Tests
+  
   git clone https://github.com/Alamofire/Alamofire.git
   cd Alamofire
   git checkout ${FRAMEWORK_VERSION}
 
+  # cp ../engine.sh .
+  # cd ..
+
   if [ "$BATS_TEST_NUMBER" -eq 1 ]; then
 
+    # TODO: uncomment following line
     # carthage build --no-use-binaries --no-skip-current --cache-builds
     mkdir -p Carthage/Build
     cp -R /Users/balestrapatrick/Desktop/integration-test-alamofire/Alamofire/Carthage/Build/ Carthage/Build
@@ -31,7 +37,7 @@ setup() {
   cat >> Romefile << EOF
 cache:
   local: rome-local-cache
-  s3Bucket: rome
+  engine: ../engine.sh
 ignoreMap:
   - Alamofire:
     - name: Alamofire
@@ -41,13 +47,6 @@ currentMap:
     - name: Alamofire
 EOF
 
-  mkdir -p ~/.aws
-  printf "[default]\n region = us-east-1" >> ~/.aws/config
-
-  # minio
-
-  mkdir -p minio-buckets/rome
-
   IOS_DWARFDUMP_OUT=($(dwarfdump -u Carthage/Build/iOS/Alamofire.framework/Alamofire))
   TVOS_DWARFDUMP_OUT=($(dwarfdump -u Carthage/Build/tvOS/Alamofire.framework/Alamofire))
   WATCHOS_DWARFDUMP_OUT=($(dwarfdump -u Carthage/Build/watchOS/Alamofire.framework/Alamofire))
@@ -56,101 +55,82 @@ EOF
   export IOS_ARM64_DWARF_UUID=${IOS_DWARFDUMP_OUT[13]}
   export TVOS_ARM64_DWARF_UUID=${TVOS_DWARFDUMP_OUT[5]}
   export WATCHOS_ARMV7K_DWARF_UUID=${WATCHOS_DWARFDUMP_OUT[5]}
-
-  export AWS_ACCESS_KEY_ID=Q3AM3UQ867SPQQA43P2F
-  export AWS_SECRET_ACCESS_KEY=zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
-  export MINIO_ACCESS_KEY=Q3AM3UQ867SPQQA43P2F
-  export MINIO_SECRET_KEY=zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
-  export AWS_ENDPOINT=http://127.0.0.1:9000 
   
   echo "# BATS_TMPDIR: ${BATS_TMPDIR}" >&3
 
 }
 
 teardown() {
-  
-  if [ ! "$BATS_TEST_NUMBER" -eq 3 ]; then
-    killall minio
-  fi
   cd $BATS_TEST_DIRNAME
 }
 
+@test "rome uploads all artifacts for current framework with engine (dynamic, yaml)" {
 
-@test "rome uploads all artifacts for current framework (dynamic, yaml)" {
-
-  # Test 1
-
-  MINIO_HTTP_TRACE=output.log minio server minio-buckets &
-  sleep 4 
-
-  ls
-  echo `pwd`
-
-  run rome upload --concurrently --cache-prefix travis --no-skip-current
+  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome upload --concurrently --cache-prefix travis --no-skip-current
 
   [ "$status" -eq 0 ]
-
-  if [ -d "minio-buckets/rome" ]; then
-    cp -R minio-buckets/rome/ ../../_rome_bkp
-  fi
-
+  
   # Version file
-  [ -f "minio-buckets/rome/travis/Alamofire/.Alamofire.version-${FRAMEWORK_VERSION}" ]
+  [ -f "server-cache/travis/Alamofire/.Alamofire.version-${FRAMEWORK_VERSION}" ]
   [ -f "rome-local-cache/travis/Alamofire/.Alamofire.version-${FRAMEWORK_VERSION}" ]
 
   # macOS - No bitecode, No bcsymbolmap
-  [ ! -f "minio-buckets/rome/travis/Alamofire/Mac/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
-  [ ! -f "minio-buckets/rome/travis/Alamofire/Mac/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ ! -f "server-cache/travis/Alamofire/Mac/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ ! -f "server-cache/travis/Alamofire/Mac/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ ! -f "rome-local-cache/travis/Alamofire/Mac/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
   [ ! -f "rome-local-cache/travis/Alamofire/Mac/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
 
   # iOS
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/iOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/iOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/iOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/iOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
 
   # tvOS
-  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/tvOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/tvOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/tvOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/tvOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
 
   # watchOS
-  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/watchOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/watchOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/watchOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/watchOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   
-  #save the local cache for later
+  # save the server cache for later
+  rm -rf ../../_server-cache_bkp
+  cp -R server-cache/ ../../_server-cache_bkp
 
+  # save the local cache for later
   rm -rf ../../_rome-local-cache_bkp
   cp -R rome-local-cache/ ../../_rome-local-cache_bkp
-
 }
 
-@test "rome downloads all artifacts for current framework skipping local cache (dynamic, yaml)" {
+@test "rome downloads all artifacts for current framework with engine skipping local cache (dynamic, yaml)" {
 
-  # Test 2
-
-  if [ -d "../../_rome_bkp" ]; then
-    echo "# Minio bucket restored" >&3
-    cp -R ../../_rome_bkp/ minio-buckets/rome
+  # restore server cache
+  if [ -d "../../_server-cache_bkp" ]; then
+    echo "# Server cache restored" >&3
+    cp -R ../../_server-cache_bkp server-cache/
   fi
 
-  MINIO_HTTP_TRACE=output.log minio server minio-buckets &
-  sleep 4 
+  # restore local cache (even though it will be skipped, we want it to be there to simulate a real scenario)
+  if [ -d "../../_rome-local-cache_bkp" ]; then
+    echo "# Local cache restored" >&3
+    cp -R ../../_rome-local-cache_bkp rome-local-cache/
+  fi
 
   rm -rf Carthage/Build
-  run rome download --concurrently --cache-prefix travis --skip-local-cache --no-skip-current
+  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis --skip-local-cache --no-skip-current
 
   [ "$status" -eq 0 ]
 
@@ -178,17 +158,16 @@ teardown() {
   [ -f "Carthage/Build/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap" ]
 }
 
-@test "rome downloads all artifacts for current framework from the local cache (dynamic, yaml)" {
+@test "rome downloads all artifacts for current framework with engine from the local cache (dynamic, yaml)" {
 
-  # Test 3
-
+  # restore local cache
   if [ -d "../../_rome-local-cache_bkp" ]; then
-    echo "# Rome local cache restored" >&3
-    cp -R ../../_rome-local-cache_bkp/ rome-local-cache
+    echo "# Local cache restored" >&3
+    cp -R ../../_rome-local-cache_bkp rome-local-cache/
   fi
-  
+
   rm -rf Carthage/Build
-  run rome download --concurrently --cache-prefix travis --no-skip-current
+  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis --no-skip-current
 
   [ "$status" -eq 0 ]
 
@@ -216,81 +195,63 @@ teardown() {
   [ -f "Carthage/Build/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap" ]
 }
 
-@test "rome uploads named artifacts for current framework (dynamic, yaml)" {
+@test "rome uploads named artifacts for current framework with engine (dynamic, yaml)" {
   
-  # Test 4
-
-  MINIO_HTTP_TRACE=output.log minio server minio-buckets &
-  sleep 4 
-
-  ls
-  echo `pwd`
-
-  run rome upload --concurrently --cache-prefix travis --no-skip-current Alamofire
+  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome upload --concurrently --cache-prefix travis --no-skip-current Alamofire
 
   [ "$status" -eq 0 ]
 
-  if [ -d "minio-buckets/rome" ]; then
-    cp -R minio-buckets/rome/ ../../_rome_bkp
-  fi
-
   # Version file
-  [ -f "minio-buckets/rome/travis/Alamofire/.Alamofire.version-${FRAMEWORK_VERSION}" ]
+  [ -f "server-cache/travis/Alamofire/.Alamofire.version-${FRAMEWORK_VERSION}" ]
   [ -f "rome-local-cache/travis/Alamofire/.Alamofire.version-${FRAMEWORK_VERSION}" ]
 
   # macOS - No bitecode, No bcsymbolmap
-  [ ! -f "minio-buckets/rome/travis/Alamofire/Mac/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
-  [ ! -f "minio-buckets/rome/travis/Alamofire/Mac/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ ! -f "server-cache/travis/Alamofire/Mac/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ ! -f "server-cache/travis/Alamofire/Mac/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ ! -f "rome-local-cache/travis/Alamofire/Mac/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
   [ ! -f "rome-local-cache/travis/Alamofire/Mac/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
 
   # iOS
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/iOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/iOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/iOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/iOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/iOS/${IOS_ARMV7_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/iOS/${IOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
 
   # tvOS
-  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/tvOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/tvOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/tvOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/tvOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/tvOS/${TVOS_ARM64_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
 
   # watchOS
-  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
-  [ -f "minio-buckets/rome/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/watchOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/watchOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
+  [ -f "server-cache/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/watchOS/Alamofire.framework-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/watchOS/Alamofire.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/Alamofire/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
   
-  #save the local cache for later
-
+  # save the local cache for later
   rm -rf ../../_rome-local-cache_bkp
   cp -R rome-local-cache/ ../../_rome-local-cache_bkp
-
 }
 
-@test "rome downloads named artifacts for current framework skipping local cache (dynamic, yaml)" {
+@test "rome downloads named artifacts for current framework with engine skipping local cache (dynamic, yaml)" {
 
-  # Test 5
-
-  if [ -d "../../_rome_bkp" ]; then
-    echo "# Minio bucket restored" >&3
-    cp -R ../../_rome_bkp/ minio-buckets/rome
+  # restore server cache
+  if [ -d "../../_server-cache_bkp" ]; then
+    echo "# Server cache restored" >&3
+    cp -R ../../_server-cache_bkp server-cache/
   fi
 
-  MINIO_HTTP_TRACE=output.log minio server minio-buckets &
-  sleep 4 
-
   rm -rf Carthage/Build
-  run rome download --concurrently --cache-prefix travis --skip-local-cache --no-skip-current Alamofire
+  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis --skip-local-cache --no-skip-current Alamofire
 
   [ "$status" -eq 0 ]
 

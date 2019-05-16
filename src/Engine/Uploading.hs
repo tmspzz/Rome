@@ -10,9 +10,6 @@ import qualified Data.ByteString.Lazy         as LBS
 import           Data.Carthage.TargetPlatform
 import           Data.Monoid                  ((<>))
 import           Data.Romefile                (Framework (..))
-import qualified Data.Text                    as T
-import qualified Network.AWS                  as AWS
-import qualified Network.AWS.S3               as S3
 import           System.FilePath              ((</>))
 import           Types                        hiding (version)
 import           Utils
@@ -84,9 +81,9 @@ uploadBcsymbolmapToEngine dwarfUUID dwarfArchive enginePath reverseRomeMap (Fram
     remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
 
 
--- | Uploads a .version file to an engine
+-- | Uploads a .version file using an engine
 uploadVersionFileToEngine'
-  :: FilePath -- ^ The engine definition.
+  :: FilePath -- ^ The engine path.
   -> LBS.ByteString -- ^ The contents of the .version file.
   -> ProjectNameAndVersion -- ^ The information used to derive the name and path for the .version file.
   -> ReaderT (CachePrefix, Bool) IO ()
@@ -104,10 +101,10 @@ uploadVersionFileToEngine' enginePath versionFileContent projectNameAndVersion =
 
 
 
--- | Uploads an artifact to an engine
+-- | Uploads an artifact using an engine
 uploadBinary
   :: MonadIO a
-  => FilePath
+  => FilePath -- ^ The engine path.
   -> LBS.ByteString
   -> FilePath
   -> FilePath
@@ -117,12 +114,11 @@ uploadBinary enginePath binaryZip destinationPath objectName =
     (verbose) <- ask
     let cmd = Turtle.fromString $ enginePath
     liftIO $ saveBinaryToFile binaryZip destinationPath
-    sayLn -- TODO: probably remove this debugging log if not verbose, or maybe always?
-      $  "Executing script "
+    when verbose
+      $ sayLn
+      $  "Invoking engine "
       <> (show enginePath)
       <> " to upload "
-      <> objectName
-      <> " from: "
       <> destinationPath
     (exitCode) <- Turtle.proc
       cmd
@@ -132,6 +128,8 @@ uploadBinary enginePath binaryZip destinationPath objectName =
         Turtle.ExitSuccess   -> return ()
         Turtle.ExitFailure n -> do
           sayLn
-          $ "Error: could not upload "
+          $ "Error "
+          <> (show n)
+          <> ": could not upload "
           <> destinationPath
           

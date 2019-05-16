@@ -27,7 +27,7 @@ probeEngineForFrameworks lCacheDir reverseRomeMap frameworkVersions
     frameworkVersions
 
 
--- | Probes a `FilePath` to check if a `FrameworkVersion` exists for each `TargetPlatform`
+-- | Probes the engine at `FilePath` to check if a `FrameworkVersion` exists for each `TargetPlatform`
 probeEngineForFramework
   :: MonadIO m
   => FilePath -- ^ The engine path.
@@ -46,7 +46,7 @@ probeEngineForFramework lCacheDir reverseRomeMap frameworkVersion platforms
     (platforms `intersect` (_frameworkPlatforms . _framework $ frameworkVersion))
 
 
--- | Probes a `FilePath` to check if a `FrameworkVersion` exists for a given `TargetPlatform`
+-- | Probes the engine at `FilePath` to check if a `FrameworkVersion` exists for a given `TargetPlatform`
 probeEngineForFrameworkOnPlatform
   :: MonadIO m
   => FilePath -- ^ The engine path.

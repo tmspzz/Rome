@@ -24,7 +24,7 @@ import qualified Turtle
 
 -- | Retrieves a Framework using the engine and unzip the contents
 getFrameworkFromEngine
-  :: FilePath -- ^ The engine file path
+  :: FilePath -- ^ The `FilePath` to the engine
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
@@ -43,7 +43,7 @@ getFrameworkFromEngine enginePath reverseRomeMap (FrameworkVersion f@(Framework 
 
 -- | Retrieves a .version file using the engine
 getVersionFileFromEngine
-  :: FilePath
+  :: FilePath -- ^ The `FilePath` to the engine
   -> ProjectNameAndVersion
   -> ExceptT
        String
@@ -61,9 +61,9 @@ getVersionFileFromEngine enginePath projectNameAndVersion = do
   versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
 
 
--- | Retrieves a bcsymbolmap with the engine
+-- | Retrieves a bcsymbolmap using the engine
 getBcsymbolmapWithEngine
-  :: FilePath -- ^ The cache definition
+  :: FilePath -- ^ The `FilePath` to the engine
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
@@ -88,7 +88,7 @@ getBcsymbolmapWithEngine enginePath reverseRomeMap (FrameworkVersion f@(Framewor
 
 -- | Retrieves a dSYM using the engine
 getDSYMFromEngine
-  :: FilePath -- ^ The cache definition
+  :: FilePath -- ^ The `FilePath` to the engine
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
@@ -109,7 +109,7 @@ getDSYMFromEngine enginePath reverseRomeMap (FrameworkVersion f@(Framework fwn _
 
 -- | Retrieves a bcsymbolmap using the engine and unzip the contents
 getAndUnzipBcsymbolmapWithEngine
-  :: FilePath -- ^ The engine path
+  :: FilePath -- ^ The `FilePath` to the engine
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
@@ -135,7 +135,7 @@ getAndUnzipBcsymbolmapWithEngine enginePath reverseRomeMap fVersion@(FrameworkVe
 
 -- | Retrieves all the bcsymbolmap files using the engine and unzip the contents
 getAndUnzipBcsymbolmapsWithEngine'
-  :: FilePath -- ^ The cache definition
+  :: FilePath -- ^ The `FilePath` to the engine
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
@@ -144,7 +144,6 @@ getAndUnzipBcsymbolmapsWithEngine'
        (ReaderT (CachePrefix, Bool) IO)
        ()
 getAndUnzipBcsymbolmapsWithEngine' enginePath reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) _) platform
-  -- = undefined
   = when (platform `elem` fwps) $ do
 
     dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs)
@@ -174,7 +173,7 @@ getAndUnzipBcsymbolmapsWithEngine' enginePath reverseRomeMap fVersion@(Framework
 
 -- | Retrieves a Framework using the engine and unzip the contents
 getAndUnzipFrameworkWithEngine
-  :: FilePath -- ^ The path to the engine
+  :: FilePath -- ^ The `FilePath` to the engine
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
@@ -198,7 +197,7 @@ getAndUnzipFrameworkWithEngine enginePath reverseRomeMap fVersion@(FrameworkVers
 
 -- | Retrieves a dSYM using the engine and unzip the contents
 getAndUnzipDSYMWithEngine
-  :: FilePath -- ^ The cache definition
+  :: FilePath -- ^ The `FilePath` to the engine
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
@@ -213,7 +212,7 @@ getAndUnzipDSYMWithEngine enginePath reverseRomeMap fVersion@(FrameworkVersion f
 
 -- | Retrieves an artifact using the engine
 getArtifactFromEngine
-  :: FilePath -- ^ The engine file path
+  :: FilePath -- ^ The `FilePath` to the engine
   -> FilePath -- ^ The remote path 
   -> String -- ^ A colloquial name for the artifact
   -> ExceptT String (ReaderT (Bool) IO) LBS.ByteString
@@ -233,7 +232,7 @@ getArtifactFromEngine enginePath remotePath artifactName = do
 
 -- | Downloads an artifact stored at a given path using the engine
 downloadBinaryWithEngine
-  :: FilePath
+  :: FilePath -- ^ The `FilePath` to the engine
   -> FilePath
   -> FilePath
   -> (ReaderT (Bool) IO) LBS.ByteString

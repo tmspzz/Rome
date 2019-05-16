@@ -16,9 +16,7 @@ setup() {
 
   if [ "$BATS_TEST_NUMBER" -eq 1 ]; then
 
-    # carthage build --no-use-binaries --no-skip-current --cache-builds
-    mkdir -p Carthage/Build
-    cp -R /Users/balestrapatrick/Desktop/integration-test-alamofire/Alamofire/Carthage/Build/ Carthage/Build
+    carthage build --no-use-binaries --no-skip-current --cache-builds
 
     rm -rf ../../_Carthage_build_bkp
     cp -R Carthage/Build/ ../../_Carthage_build_bkp

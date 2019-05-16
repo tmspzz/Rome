@@ -241,8 +241,8 @@ downloadBinaryWithEngine enginePath objectRemotePath objectName = do
     let cmd = Turtle.fromString $ enginePath
     let sayFunc = if verbose then sayLnWithTime else sayLn
     when verbose
-      $  sayFunc
-      $  "Executing script"
+      $  sayLnWithTime
+      $  "Invoking engine "
       <> (show enginePath)
       <> " to download "
       <> objectName

@@ -115,7 +115,7 @@ uploadBinary enginePath binaryZip destinationPath objectName =
     let cmd = Turtle.fromString $ enginePath
     liftIO $ saveBinaryToFile binaryZip destinationPath
     when verbose
-      $ sayLn
+      $ sayLnWithTime
       $  "Invoking engine "
       <> (show enginePath)
       <> " to upload "

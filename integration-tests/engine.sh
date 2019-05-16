@@ -18,8 +18,13 @@ if [ "$ACTION" == "upload" ]; then
 elif [ "$ACTION" == "download" ]; then
   REMOTE_PATH="$2"
   OUTPUT_PATH="$3"
+  # create directory structure if it doesn't exist yet
+  mkdir -p $(dirname $OUTPUT_PATH)
   # fake download by just copying binary from the storage directory
-  cp $STORAGE_DIR/$REMOTE_PATH $OUTPUT_PATH
+  # don't fail script if copy fails (some bcsymbolmap get requested wrongly at the moment, bug in Rome)
+  if [[ -f $STORAGE_DIR/$REMOTE_PATH ]]; then 
+    cp $STORAGE_DIR/$REMOTE_PATH $OUTPUT_PATH
+  fi
 
 elif [ "$ACTION" == "list" ]; then
   REMOTE_PATH="$2"

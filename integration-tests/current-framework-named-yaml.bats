@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 
 setup() {
-  
-  export FRAMEWORK_VERSION=0.2.0
+
+  export FRAMEWORK_VERSION=0.4.0
   export FRAMEWORK_REPO_NAME=swift-tagged
   export FRAMEWORK_ARTIFACT_NAME=Tagged
 
@@ -62,32 +62,27 @@ EOF
   export MINIO_ACCESS_KEY=Q3AM3UQ867SPQQA43P2F
   export MINIO_SECRET_KEY=zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
   export AWS_ENDPOINT=http://127.0.0.1:9000 
-  
+
   echo "# BATS_TMPDIR: ${BATS_TMPDIR}" >&3
 
 }
 
 teardown() {
-  
+
   if [ ! "$BATS_TEST_NUMBER" -eq 3 ]; then
     killall minio
   fi
   cd $BATS_TEST_DIRNAME
 }
 
-
 @test "rome uploads all named artifacts for current framework (dynamic, yaml)" {
 
   # Test 1
 
   MINIO_HTTP_TRACE=output.log minio server minio-buckets &
-  sleep 4 
-
-  ls
-  echo `pwd`
+  sleep 4
 
   run rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME}
-
   [ "$status" -eq 0 ]
 
   if [ -d "minio-buckets/rome" ]; then
@@ -95,8 +90,8 @@ teardown() {
   fi
 
   # Version file
-  # [ -f "minio-buckets/rome/travis/Alamofire/.Alamofire.version-4.7.3" ]
-  # [ -f "rome-local-cache/travis/Alamofire/.Alamofire.version-4.7.3" ]
+  [ -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/.${FRAMEWORK_REPO_NAME}.version-${FRAMEWORK_VERSION}" ]
+  [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/.${FRAMEWORK_REPO_NAME}.version-${FRAMEWORK_VERSION}" ]
 
   # macOS - No bitecode, No bcsymbolmap
   [ ! -f "minio-buckets/rome/travis/${FRAMEWORK_REPO_NAME}/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
@@ -129,7 +124,7 @@ teardown() {
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM-${FRAMEWORK_VERSION}.zip" ]
   [ -f "rome-local-cache/travis/${FRAMEWORK_REPO_NAME}/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap-${FRAMEWORK_VERSION}.zip" ]
-  
+
   #save the local cache for later
 
   rm -rf ../../_rome-local-cache_bkp
@@ -155,7 +150,7 @@ teardown() {
   [ "$status" -eq 0 ]
 
   # Version file
-  # [ -f "Carthage/Build/.Alamofire.version" ]
+  [ -f "Carthage/Build/.${FRAMEWORK_REPO_NAME}.version" ]
 
   # macOS - No bitcode, No bcsymbolmap
   [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
@@ -193,7 +188,7 @@ teardown() {
   [ "$status" -eq 0 ]
 
   # Version file
-  # [ -e "Carthage/Build/.Alamofire.version" ]
+  [ -f "Carthage/Build/.${FRAMEWORK_REPO_NAME}.version" ]
 
   # macOS - No bitecode, No bcsymbolmap
   [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework" ]
@@ -234,7 +229,7 @@ teardown() {
   [ "$status" -eq 0 ]
 
   # Version file
-  # [ -f "Carthage/Build/.Alamofire.version" ]
+  [ -f "Carthage/Build/.${FRAMEWORK_REPO_NAME}.version" ]
 
   # macOS - No bitcode, No bcsymbolmap
   [ ! -d "Carthage/Build/Mac/${FRAMEWORK_ARTIFACT_NAME}.framework" ]

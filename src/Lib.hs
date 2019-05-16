@@ -42,10 +42,12 @@ import           Data.Monoid                  ((<>))
 import           Data.Romefile
 import qualified Data.Map.Strict              as M (empty)
 import qualified Data.Text                    as T
+import qualified Data.Text.Encoding           as T (encodeUtf8)
 import qualified Network.AWS                  as AWS
 import qualified Network.AWS.Auth             as AWS (fromEnv)
 import qualified Network.AWS.Env              as AWS (Env (..), retryConnectionFailure)
 import qualified Network.AWS.Data             as AWS (fromText)
+import qualified Network.AWS.Data.Sensitive   as AWS (Sensitive (..))
 import qualified Network.AWS.S3               as S3
 import qualified Network.AWS.STS.AssumeRole   as STS (assumeRole, arrsCredentials)
 import qualified Network.AWS.Utils            as AWS
@@ -91,7 +93,7 @@ getAWSEnv = do
   profile     <- T.pack . fromMaybe "default" <$> liftIO
     (lookupEnv (T.unpack "AWS_PROFILE"))
   credentials <-
-    runExceptT $ AWS.credentialsFromFile =<< getAWSCredentialsFilePath
+    runExceptT $ (AWS.credentialsFromFile =<< getAWSCredentialsFilePath) `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
   (auth, _) <-
     AWS.catching AWS._MissingEnvError AWS.fromEnv $ \envError -> either
       throwError

@@ -41,7 +41,7 @@ setup() {
   export MINIO_SECRET_KEY=zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
   export AWS_ENDPOINT=http://127.0.0.1:9000 
 
-  export COMMIT=c9cc8ccafbb715700fc350266cdb60553e282ffb
+  export COMMIT=ada9256edf4b6dfb63bd1f6d13441b1ab7fd6ffd
 
   echo "# BATS_TMPDIR: ${BATS_TMPDIR}" >&3
 

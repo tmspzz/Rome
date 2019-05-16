@@ -17,12 +17,9 @@ setup() {
     printf "github \"Alamofire/Alamofire\" == ${ALAMOFIRE_VERSION}\n" > Cartfile
     printf "github \"antitypical/Result\" == ${RESULT_VERSION}\n" >> Cartfile
 
-    # TODO: uncomment following line
-    #carthage bootstrap --cache-builds --no-use-binaries
+    carthage bootstrap --cache-builds --no-use-binaries
     
     rm -rf ../_Carthage_build_bkp
-    # TODO: remove this line that was only for testing purposes
-    cp -R /Users/balestrapatrick/Desktop/integration-test/ .
     cp -R Carthage/Build/ ../_Carthage_build_bkp
 
     rm -f ../_Cartfile_bkp
@@ -76,8 +73,7 @@ teardown() {
 
 @test "rome uploads all artifacts with engine (dynamic, yml)" {
 
-  # TODO: remove custom path and use `rome`
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome upload --concurrently --cache-prefix travis
+  run rome upload --concurrently --cache-prefix travis
   
   [ "$status" -eq 0 ]
 
@@ -176,8 +172,7 @@ teardown() {
   fi
 
   rm -rf Carthage/Build
-  # TODO: remove custom path and use `rome`
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --skip-local-cache --cache-prefix travis
+  run rome download --concurrently --skip-local-cache --cache-prefix travis
   
   [ "$status" -eq 0 ]
 
@@ -236,8 +231,7 @@ teardown() {
   fi
   
   rm -rf Carthage/Build
-  # TODO: remove custom path and use `rome`
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis
+  run rome download --concurrently --cache-prefix travis
 
   [ "$status" -eq 0 ]
 

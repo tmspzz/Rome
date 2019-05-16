@@ -16,15 +16,9 @@ setup() {
   cd Alamofire
   git checkout ${FRAMEWORK_VERSION}
 
-  # cp ../engine.sh .
-  # cd ..
-
   if [ "$BATS_TEST_NUMBER" -eq 1 ]; then
 
-    # TODO: uncomment following line
-    # carthage build --no-use-binaries --no-skip-current --cache-builds
-    mkdir -p Carthage/Build
-    cp -R /Users/balestrapatrick/Desktop/integration-test-alamofire/Alamofire/Carthage/Build/ Carthage/Build
+    carthage build --no-use-binaries --no-skip-current --cache-builds
 
     rm -rf ../../_Carthage_build_bkp
     cp -R Carthage/Build/ ../../_Carthage_build_bkp
@@ -66,7 +60,7 @@ teardown() {
 
 @test "rome uploads all artifacts for current framework with engine (dynamic, yaml)" {
 
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome upload --concurrently --cache-prefix travis --no-skip-current
+  run rome upload --concurrently --cache-prefix travis --no-skip-current
 
   [ "$status" -eq 0 ]
   
@@ -130,7 +124,7 @@ teardown() {
   fi
 
   rm -rf Carthage/Build
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis --skip-local-cache --no-skip-current
+  run rome download --concurrently --cache-prefix travis --skip-local-cache --no-skip-current
 
   [ "$status" -eq 0 ]
 
@@ -167,7 +161,7 @@ teardown() {
   fi
 
   rm -rf Carthage/Build
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis --no-skip-current
+  run rome download --concurrently --cache-prefix travis --no-skip-current
 
   [ "$status" -eq 0 ]
 
@@ -197,7 +191,7 @@ teardown() {
 
 @test "rome uploads named artifacts for current framework with engine (dynamic, yaml)" {
   
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome upload --concurrently --cache-prefix travis --no-skip-current Alamofire
+  run rome upload --concurrently --cache-prefix travis --no-skip-current Alamofire
 
   [ "$status" -eq 0 ]
 
@@ -251,7 +245,7 @@ teardown() {
   fi
 
   rm -rf Carthage/Build
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis --skip-local-cache --no-skip-current Alamofire
+  run rome download --concurrently --cache-prefix travis --skip-local-cache --no-skip-current Alamofire
 
   [ "$status" -eq 0 ]
 

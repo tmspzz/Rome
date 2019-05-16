@@ -20,9 +20,7 @@ setup() {
 
   if [ "$BATS_TEST_NUMBER" -eq 1 ]; then
 
-    # carthage build --no-use-binaries --no-skip-current --cache-builds
-    mkdir -p Carthage/Build
-    cp -R /Users/balestrapatrick/Desktop/integration-named/swift-tagged/Carthage/Build/ Carthage/Build
+    carthage build --no-use-binaries --no-skip-current --cache-builds
     
     rm -rf ../../_Carthage_build_bkp
     cp -R Carthage/Build/ ../../_Carthage_build_bkp
@@ -63,8 +61,9 @@ teardown() {
 }
 
 @test "rome uploads all named artifacts for current framework with engine (dynamic, yaml)" {
-  echo "# $(pwd)" >&3
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME}
+  
+  run rome upload --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME}
+
   [ "$status" -eq 0 ]
 
   # Version file
@@ -121,7 +120,7 @@ teardown() {
   fi
 
   rm -rf Carthage/Build
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME} 
+  run rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME} 
 
   [ "$status" -eq 0 ]
 
@@ -158,7 +157,7 @@ teardown() {
   fi
   
   rm -rf Carthage/Build
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME}
+  run rome download --concurrently --cache-prefix travis ${FRAMEWORK_REPO_NAME}
 
   [ "$status" -eq 0 ]
 
@@ -195,7 +194,7 @@ teardown() {
   fi
 
   rm -rf Carthage/Build
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME}
+  run rome download --concurrently --cache-prefix travis --skip-local-cache ${FRAMEWORK_REPO_NAME}
 
   [ "$status" -eq 0 ]
 

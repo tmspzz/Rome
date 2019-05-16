@@ -17,11 +17,9 @@ setup() {
     printf "github \"blender/Staticfire\" \"master\"\n" > Cartfile
     printf "github \"antitypical/Result\" == ${RESULT_VERSION}\n" >> Cartfile
     
-    # carthage bootstrap --cache-builds --no-use-binaries
+    carthage bootstrap --cache-builds --no-use-binaries
     
     rm -rf ../_Carthage_build_bkp
-    # TODO: remove this line that was only for testing purposes
-    cp -R /Users/balestrapatrick/Desktop/integration-test-static/ .
     cp -R Carthage/Build/ ../_Carthage_build_bkp
 
     rm -f ../_Cartfile_bkp
@@ -53,8 +51,6 @@ ignoreMap:
   - name: Result
     platforms: [iOS,Mac,tvOS,watchOS]
 EOF
-  
-  # mkdir -p server-cache
 
   echo "# BATS_TMPDIR: ${BATS_TMPDIR}" >&3
 
@@ -69,7 +65,7 @@ teardown() {
 
   # No dSYMs nor bcsymbolmaps for Static Frameworks
 
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome upload --concurrently --cache-prefix travis --romefile ../Romefile.yaml
+  run rome upload --concurrently --cache-prefix travis --romefile ../Romefile.yaml
 
   [ "$status" -eq 0 ]
 
@@ -127,7 +123,7 @@ teardown() {
   fi
 
   rm -rf Carthage/Build
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis --skip-local-cache --romefile ../Romefile.yaml
+  run rome download --concurrently --cache-prefix travis --skip-local-cache --romefile ../Romefile.yaml
 
   [ "$status" -eq 0 ]
 
@@ -169,7 +165,7 @@ teardown() {
   fi
   
   rm -rf Carthage/Build
-  run /Users/balestrapatrick/GitHub/Rome/.stack-work/install/x86_64-osx/lts-13.10/8.6.3/bin/rome download --concurrently --cache-prefix travis --romefile ../Romefile.yaml
+  run rome download --concurrently --cache-prefix travis --romefile ../Romefile.yaml
 
   [ "$status" -eq 0 ]
 

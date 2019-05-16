@@ -14,7 +14,7 @@ import qualified Turtle
 -- | Probes a `FilePath` to check if each `FrameworkVersion` exists for each `TargetPlatform`
 probeEngineForFrameworks
   :: MonadIO m
-  => FilePath -- ^ The engine path.
+  => FilePath -- ^ The `FilePath` to the engine
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` to probe for.
   -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
@@ -30,7 +30,7 @@ probeEngineForFrameworks lCacheDir reverseRomeMap frameworkVersions
 -- | Probes the engine at `FilePath` to check if a `FrameworkVersion` exists for each `TargetPlatform`
 probeEngineForFramework
   :: MonadIO m
-  => FilePath -- ^ The engine path.
+  => FilePath -- ^ The `FilePath` to the engine
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
   -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
@@ -49,7 +49,7 @@ probeEngineForFramework lCacheDir reverseRomeMap frameworkVersion platforms
 -- | Probes the engine at `FilePath` to check if a `FrameworkVersion` exists for a given `TargetPlatform`
 probeEngineForFrameworkOnPlatform
   :: MonadIO m
-  => FilePath -- ^ The engine path.
+  => FilePath -- ^ The `FilePath` to the engine
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
@@ -62,7 +62,7 @@ probeEngineForFrameworkOnPlatform enginePath reverseRomeMap (FrameworkVersion fw
         ["list", (Turtle.fromString remoteFrameworkUploadPath)]
         (return $ Turtle.unsafeTextToLine "")
     case exitCode of
-        -- If script exits with success, we assume the framework exists.
+        -- If engine exits with success, we assume the framework exists.
         Turtle.ExitSuccess   -> return (PlatformAvailability platform True)
         Turtle.ExitFailure n -> return (PlatformAvailability platform False)
  where

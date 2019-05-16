@@ -20,7 +20,7 @@ import qualified Turtle
 -- | Uploads a Framework `Zip.Archive` to an engine.
 uploadFrameworkToEngine
   :: Zip.Archive -- ^ The `Zip.Archive` of the Framework.
-  -> FilePath -- ^ The engine definition.
+  -> FilePath -- ^ The `FilePath` to the engine.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework.
   -> TargetPlatform -- ^ A `TargetPlatform`s restricting the scope of this action.
@@ -42,7 +42,7 @@ uploadFrameworkToEngine frameworkArchive enginePath reverseRomeMap (FrameworkVer
 -- | Uploads a dSYM `Zip.Archive` to an engine.
 uploadDsymToEngine
   :: Zip.Archive -- ^ The `Zip.Archive` of the dSYM.
-  -> FilePath -- ^ The engine definition.
+  -> FilePath -- ^ The `FilePath` to the engine.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
@@ -63,7 +63,7 @@ uploadDsymToEngine dSYMArchive enginePath reverseRomeMap (FrameworkVersion f@(Fr
 uploadBcsymbolmapToEngine
   :: DwarfUUID -- ^ The UUID of the bcsymbolmap
   -> Zip.Archive -- ^ The `Zip.Archive` of the dSYM.
-  -> FilePath -- ^ The engine definition.
+  -> FilePath -- ^ The `FilePath` to the engine.
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
@@ -81,9 +81,10 @@ uploadBcsymbolmapToEngine dwarfUUID dwarfArchive enginePath reverseRomeMap (Fram
     remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
 
 
+
 -- | Uploads a .version file using an engine
 uploadVersionFileToEngine'
-  :: FilePath -- ^ The engine path.
+  :: FilePath -- ^ The `FilePath` to the engine.
   -> LBS.ByteString -- ^ The contents of the .version file.
   -> ProjectNameAndVersion -- ^ The information used to derive the name and path for the .version file.
   -> ReaderT (CachePrefix, Bool) IO ()
@@ -104,7 +105,7 @@ uploadVersionFileToEngine' enginePath versionFileContent projectNameAndVersion =
 -- | Uploads an artifact using an engine
 uploadBinary
   :: MonadIO a
-  => FilePath -- ^ The engine path.
+  => FilePath -- ^ The `FilePath` to the engine.
   -> LBS.ByteString
   -> FilePath
   -> FilePath

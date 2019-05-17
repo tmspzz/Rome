@@ -168,7 +168,7 @@ conflictingCachesMessage
 
 conflictingSkipLocalCacheOptionMessage :: String
 conflictingSkipLocalCacheOptionMessage
-  = "Error: only \"local\" defined as cache\
+  = "Error: only \"local\" defined as cache \
   \in your Romefile, but you have asked Rome to skip \
   \this cache."
 

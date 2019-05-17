@@ -237,6 +237,7 @@ toRomefile ini = do
   let _engine = Nothing -- Engines are not supported in INI 
   let _repositoryMapEntries = getRepositoryMapEntries ini
       _ignoreMapEntries     = getIgnoreMapEntries ini
+      _enginePath           = _engine
       _cacheInfo            = RomeCacheInfo {..}
   Romefile
     <$> Right _cacheInfo

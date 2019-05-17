@@ -10,7 +10,7 @@ setup() {
 
   mkdir -p $BATS_TMPDIR/Rome-Tests
 
-  cp engine.sh $BATS_TMPDIR/Rome-Tests/
+  cp integration-tests/engine.sh $BATS_TMPDIR/Rome-Tests/
 
   cd $BATS_TMPDIR/Rome-Tests
 

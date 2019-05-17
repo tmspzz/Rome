@@ -2,14 +2,14 @@
 
 setup() {
   
-  export ALAMOFIRE_VERSION="4.7.3"
+  export ALAMOFIRE_VERSION="4.8.2"
   export RESULT_VERSION="4.0.0"
 
   rm -rf $BATS_TMPDIR/Rome-Tests
 
   mkdir -p $BATS_TMPDIR/Rome-Tests
 
-  cp engine.sh $BATS_TMPDIR/Rome-Tests/
+  cp integration-tests/engine.sh $BATS_TMPDIR/Rome-Tests/
 
   cd $BATS_TMPDIR/Rome-Tests
 

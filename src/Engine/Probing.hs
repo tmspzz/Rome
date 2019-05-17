@@ -56,15 +56,15 @@ probeEngineForFrameworkOnPlatform
   -> m PlatformAvailability
 probeEngineForFrameworkOnPlatform enginePath reverseRomeMap (FrameworkVersion fwn version) platform
   = do
-    let cmd = Turtle.fromString $ enginePath
-    (exitCode) <- Turtle.proc
+    let cmd = Turtle.fromString enginePath
+    exitCode <- Turtle.proc
         cmd
-        ["list", (Turtle.fromString remoteFrameworkUploadPath)]
+        ["list", Turtle.fromString remoteFrameworkUploadPath]
         (return $ Turtle.unsafeTextToLine "")
     case exitCode of
         -- If engine exits with success, we assume the framework exists.
         Turtle.ExitSuccess   -> return (PlatformAvailability platform True)
-        Turtle.ExitFailure n -> return (PlatformAvailability platform False)
+        Turtle.ExitFailure _ -> return (PlatformAvailability platform False)
  where
   remoteFrameworkUploadPath =
     remoteFrameworkPath platform reverseRomeMap fwn version

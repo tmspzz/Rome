@@ -28,7 +28,7 @@ uploadFrameworkToEngine
 uploadFrameworkToEngine frameworkArchive enginePath reverseRomeMap (FrameworkVersion f@(Framework fwn _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (CachePrefix prefix, verbose) <- ask
-    withReaderT (const (verbose)) $ uploadBinary
+    withReaderT (const verbose) $ uploadBinary
       enginePath
       (Zip.fromArchive frameworkArchive)
       (prefix </> remoteFrameworkUploadPath)
@@ -50,7 +50,7 @@ uploadDsymToEngine
 uploadDsymToEngine dSYMArchive enginePath reverseRomeMap (FrameworkVersion f@(Framework fwn _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (CachePrefix prefix, verbose) <- ask
-    withReaderT (const (verbose)) $ uploadBinary
+    withReaderT (const verbose) $ uploadBinary
       enginePath
       (Zip.fromArchive dSYMArchive)
       (prefix </> remoteDsymUploadPath)
@@ -71,7 +71,7 @@ uploadBcsymbolmapToEngine
 uploadBcsymbolmapToEngine dwarfUUID dwarfArchive enginePath reverseRomeMap (FrameworkVersion f@(Framework fwn _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (CachePrefix prefix, verbose) <- ask
-    withReaderT (const (verbose)) $ uploadBinary
+    withReaderT (const verbose) $ uploadBinary
       enginePath
       (Zip.fromArchive dwarfArchive)
       (prefix </> remoteBcsymbolmapUploadPath)
@@ -91,7 +91,7 @@ uploadVersionFileToEngine'
 uploadVersionFileToEngine' enginePath versionFileContent projectNameAndVersion =
   do
     (CachePrefix prefix, verbose) <- ask
-    withReaderT (const (verbose)) $ uploadBinary
+    withReaderT (const verbose) $ uploadBinary
       enginePath
       versionFileContent
       (prefix </> versionFileRemotePath)
@@ -109,28 +109,27 @@ uploadBinary
   -> LBS.ByteString
   -> FilePath
   -> FilePath
-  -> ReaderT (Bool) a ()
+  -> ReaderT Bool a ()
 uploadBinary enginePath binaryZip destinationPath objectName = 
   do
-    (verbose) <- ask
-    let cmd = Turtle.fromString $ enginePath
+    verbose <- ask
+    let cmd = Turtle.fromString enginePath
     liftIO $ saveBinaryToFile binaryZip destinationPath
     when verbose
       $ sayLnWithTime
       $  "Invoking engine "
-      <> (show enginePath)
+      <> show enginePath
       <> " to upload "
       <> destinationPath
-    (exitCode) <- Turtle.proc
+    exitCode <- Turtle.proc
       cmd
-      ["upload", (Turtle.fromString destinationPath), (Turtle.fromString destinationPath)]
+      ["upload", Turtle.fromString destinationPath, Turtle.fromString destinationPath]
       (return $ Turtle.unsafeTextToLine "")
     case exitCode of
         Turtle.ExitSuccess   -> return ()
-        Turtle.ExitFailure n -> do
-          sayLn
+        Turtle.ExitFailure n -> sayLn
           $ "Error "
-          <> (show n)
+          <> show n
           <> ": could not upload "
           <> destinationPath
           

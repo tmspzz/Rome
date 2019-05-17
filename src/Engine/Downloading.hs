@@ -34,7 +34,7 @@ getFrameworkFromEngine enginePath reverseRomeMap (FrameworkVersion f@(Framework 
     (CachePrefix cachePrefix, verbose) <- ask
     let frameworkLocalPath = cachePrefix </> remoteFrameworkUploadPath
     mapExceptT
-      (withReaderT (const (verbose)))
+      (withReaderT (const verbose))
       (getArtifactFromEngine enginePath frameworkLocalPath fwn
       )
  where
@@ -52,7 +52,7 @@ getVersionFileFromEngine
 getVersionFileFromEngine enginePath projectNameAndVersion = do
   (CachePrefix prefix, verbose) <- ask
   let finalVersionFileRemotePath = prefix </> versionFileRemotePath
-  mapExceptT (withReaderT (const (verbose))) $ getArtifactFromEngine
+  mapExceptT (withReaderT (const verbose)) $ getArtifactFromEngine
     enginePath
     finalVersionFileRemotePath
     versionFileName
@@ -76,7 +76,7 @@ getBcsymbolmapWithEngine enginePath reverseRomeMap (FrameworkVersion f@(Framewor
   = do
     (CachePrefix prefix, verbose) <- ask
     let finalRemoteBcsymbolmaploadPath = prefix </> remoteBcSymbolmapUploadPath
-    mapExceptT (withReaderT (const (verbose))) $ getArtifactFromEngine
+    mapExceptT (withReaderT (const verbose)) $ getArtifactFromEngine
       enginePath
       finalRemoteBcsymbolmaploadPath
       symbolmapName
@@ -100,7 +100,7 @@ getDSYMFromEngine enginePath reverseRomeMap (FrameworkVersion f@(Framework fwn _
   = do
     (CachePrefix prefix, verbose) <- ask
     let finalRemoteDSYMUploadPath = prefix </> remoteDSYMUploadPath
-    mapExceptT (withReaderT (const (verbose)))
+    mapExceptT (withReaderT (const verbose))
       $ getArtifactFromEngine enginePath finalRemoteDSYMUploadPath dSYMName
  where
   remoteDSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
@@ -215,7 +215,7 @@ getArtifactFromEngine
   :: FilePath -- ^ The `FilePath` to the engine
   -> FilePath -- ^ The remote path 
   -> String -- ^ A colloquial name for the artifact
-  -> ExceptT String (ReaderT (Bool) IO) LBS.ByteString
+  -> ExceptT String (ReaderT Bool IO) LBS.ByteString
 getArtifactFromEngine enginePath remotePath artifactName = do
   readerEnv@(verbose)            <- ask
   eitherArtifact :: Either IOError LBS.ByteString <- liftIO $ try $ runReaderT
@@ -235,22 +235,22 @@ downloadBinaryWithEngine
   :: FilePath -- ^ The `FilePath` to the engine
   -> FilePath
   -> FilePath
-  -> (ReaderT (Bool) IO) LBS.ByteString
+  -> (ReaderT Bool IO) LBS.ByteString
 downloadBinaryWithEngine enginePath objectRemotePath objectName = do
-    (verbose) <- ask
-    let cmd = Turtle.fromString $ enginePath
+    verbose <- ask
+    let cmd = Turtle.fromString enginePath
     let sayFunc = if verbose then sayLnWithTime else sayLn
     when verbose
       $  sayLnWithTime
       $  "Invoking engine "
-      <> (show enginePath)
+      <> show enginePath
       <> " to download "
       <> objectName
       <> " from: "
       <> objectRemotePath
-    (exitCode) <- Turtle.proc
+    exitCode <- Turtle.proc
         cmd
-        ["download", (Turtle.fromString objectRemotePath), (Turtle.fromString objectRemotePath)]
+        ["download", Turtle.fromString objectRemotePath, Turtle.fromString objectRemotePath]
         (return $ Turtle.unsafeTextToLine "")
     case exitCode of
         Turtle.ExitSuccess   -> return ()

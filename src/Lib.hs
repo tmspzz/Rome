@@ -215,8 +215,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
   case command of
 
     Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFlag)
-      -> do
-        sayVersionWarning romeVersion verbose
+      -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow
              uploadArtifacts
              ( verbose
@@ -325,12 +324,6 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
       <> "You are currently on: "
       <> romeVersionToString vers
       <> noColorControlSequence
-
-  -- case (mS3BucketName, mEnginePath) of
-  --   (Nothing, Nothing) -> undefined -- Proceed donw regular path
-  --   (Just _, Nothing) -> undefined -- Proceed donw regular path
-  --   (Just b , Just e) -> throwError $ "Cannot specify both bucket \"" ++ show b ++ "\" and engine at " ++ e ++ " at the same time."
-  --   (Nothing, Just e) -> undefined -- run command with all info
 
 type FlowFunction  = Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing

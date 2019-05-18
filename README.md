@@ -9,7 +9,7 @@ Rome is a tool that allows developers on Apple platforms to use:
 - [Ceph](https://ceph.com/ceph-storage/object-storage/)
 - other S3 compatible object stores
 - or/and a local folder
-- your own custom engine
+- [your own custom engine](#customengine)
 
 as a shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
 

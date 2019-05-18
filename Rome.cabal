@@ -36,6 +36,9 @@ library
                        , Caches.Local.Downloading
                        , Caches.Common
                        , Network.AWS.Utils
+                       , Engine.Probing
+                       , Engine.Uploading
+                       , Engine.Downloading
 
   build-depends:       base >= 4.7 && < 5
                        , amazonka >= 1.6.1

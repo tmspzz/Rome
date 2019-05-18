@@ -96,7 +96,7 @@ saveBinaryToLocalCache
   -> LBS.ByteString -- ^ The `ByteString` to save.
   -> FilePath -- ^ The destination path inside the base directory.
   -> String -- ^ A colloquial name for the artifact printed when verbose is `True`.
-  -> Bool -- ^ A verbostiry flag.
+  -> Bool -- ^ A verbosity flag.
   -> m ()
 saveBinaryToLocalCache cachePath binaryZip destinationPath objectName verbose =
   do

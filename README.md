@@ -9,6 +9,7 @@ Rome is a tool that allows developers on Apple platforms to use:
 - [Ceph](https://ceph.com/ceph-storage/object-storage/)
 - other S3 compatible object stores
 - or/and a local folder
+- [your own custom engine](#custom-engine)
 
 as a shared cache for frameworks built with [Carthage](https://github.com/Carthage/Carthage).
 
@@ -34,6 +35,7 @@ Trusted by:
 	- [Setting up AWS credentials](#setting-up-aws-credentials)
 	- [Selecting the AWS Region](#selecting-the-aws-region)
 	- [Setting up endpoint override for Minio, Ceph, or other S3 compatible stores](#setting-up-endpoint-override)
+  - [Custom Engine](#customengine)
 	- [Romefile](#romefile)
 		- [Cache](#cache)
 		- [RepositoryMap](#repositorymap)
@@ -257,6 +259,25 @@ Default port for `http` endpoints is __9000__ if the port is left unspecified.
 
 Alternatively the endpoint can also be specified by setting an `AWS_ENDPOINT` environment variable.
 
+### Custom Engine
+You can write your own script that Rome will use as engine to execute upload/download/list commands. You start by specifying the path to a script or executable in your [Romefile](#romefile) as shown in the example [structure](#structure).
+Rome will invoke the specified script or executable with three commands and different parameters based on the action to perform:
+
+- `./script.sh upload local-path remote-path`
+- `./script.sh download remote-path local-path`
+- `./script.sh list remote-path`
+
+For example, if your [Romefile](#romefile) specifies `engine: script.sh`, Rome will execute the following command when uploading/downloading/listing a framework:
+```sh
+./script.sh upload Alamofire/iOS/Alamofire.framework-4.8.2.zip Alamofire/iOS/Alamofire.framework-4.8.2.zip
+./script.sh download Alamofire/iOS/Alamofire.framework-4.8.2.zip Alamofire/iOS/Alamofire.framework-4.8.2.zip
+./script.sh list Alamofire/iOS/Alamofire.framework-4.8.2.zip
+```
+
+The script should take the given `remote-path`, carry out its logic to retrieve the artifact and place it at `local-path`. Please refer to the [cache structure](#cachestructure) definition for more information on the cache is constructed.
+
+For an example of a custom engine, take a look at [engine.sh](https://github.com/blender/Rome/blob/master/integration-tests/engine.sh) which is used in the integration tests to simply copy artifacts in a different directory. Infinite uses cases are opened by using a custom engine, such as uploading artifacts to any non-compatible S3 storage system.
+
 ### Romefile
 
 #### About the format
@@ -299,10 +320,11 @@ A Romefile looks like this:
 
 ```yaml
 cache: # required
-  local: ~/Library/Caches/Rome # optional
-                               # at least one between `local` and `s3Bucket` is required
-  s3Bucket: ios-dev-bucket # optional
-                           # at least one between `local` and `s3Bucket` is required 
+  # at least one of the following is required:
+  local: ~/Library/Caches/Rome # optional and can be combined with either a `s3Bucket` or `engine`
+  s3Bucket: ios-dev-bucket # optional and can be combined with `local`
+  engine: script.sh # optional and can be combined with `local`
+                    
 repositoryMap: # optional
 - better-dog-names: # entry that does not follow
                     # the "Organization/FrameworkName" convention.
@@ -326,13 +348,16 @@ currentMap:
 The cache __must__ contain __at least one__ between:
 - the name of the S3 Bucket to upload/download to/from. The key `s3Bucket` is __optional__.
 - the path to local directory to use as an additional cache. The key `local` is __optional__.
+- the path to a custom engine to use as an additional cache. The key `engine` is __optional__.
 
 ```yaml
 cache: # required
   local: ~/Library/Caches/Rome # optional
-                               # at least one between `local` and `s3Bucket` is required
+                               # at least one between `local`, `s3bucket` and `engine` is required
   s3Bucket: ios-dev-bucket # optional
-                           # at least one between `local` and `s3Bucket` is required 
+                           # at least one between `local`, `s3bucket` and `engine` is required
+  engine: script.sh        # optional
+                           # at least one between `local`, `s3bucket` and `engine` is required
 ```
 
 This is already a viable Romefile.
@@ -490,7 +515,6 @@ repositoryMap:
 The above means that `t1` is only available for `iOS` and `Mac`.
 The `--platforms` command line options can be used to futher limit the Rome command to a
 specific subset of the supported platfroms.
-
 
 ### Cache Structure
 

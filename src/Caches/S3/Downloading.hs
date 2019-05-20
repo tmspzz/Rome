@@ -250,7 +250,7 @@ getArtifactFromS3 s3BucketName remotePath artifactName = do
 
 
 
--- | Downloads an artificat stored at a given path from an `S3.BucketName`.
+-- | Downloads an artifact stored at a given path from an `S3.BucketName`.
 downloadBinary
   :: S3.BucketName
   -> FilePath

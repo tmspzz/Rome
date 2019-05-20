@@ -744,7 +744,7 @@ whenLeft _ (Right _) = return ()
 
 
 
--- | Read a file as `Text` and pefrom an action
+-- | Read a file as `Text` and perform an action
 fromFile
   :: MonadIO m
   => FilePath -- ^ The `FilePath` to the file to read

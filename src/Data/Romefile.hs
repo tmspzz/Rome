@@ -19,6 +19,7 @@ module Data.Romefile
     , cacheInfo
     , bucket
     , localCacheDir
+    , enginePath
     , frameworkName
     , frameworkType
     , FrameworkType (..)
@@ -174,7 +175,8 @@ cacheInfo :: Lens' Romefile RomeCacheInfo
 cacheInfo = lens _cacheInfo (\parseResult n -> parseResult { _cacheInfo = n })
 
 data RomeCacheInfo = RomeCacheInfo { _bucket        :: Maybe T.Text
-                                   , _localCacheDir :: Maybe FilePath -- relative path
+                                   , _localCacheDir :: Maybe FilePath -- relative or absolue path
+                                   , _enginePath    :: Maybe FilePath -- relative or absolue path
                                    }
                                    deriving (Eq, Show, Generic)
 
@@ -182,17 +184,23 @@ instance FromJSON RomeCacheInfo where
   parseJSON = withObject "RomeCacheInfo" $ \v -> RomeCacheInfo
     <$> v .:? "s3Bucket"
     <*> v .:? "local"
+    <*> v .:? "engine"
 
 instance ToJSON RomeCacheInfo where
-  toJSON (RomeCacheInfo b l) = object fields
+  toJSON (RomeCacheInfo b l e) = object fields
     where
-      fields = [T.pack "s3Bucket" .= b | isJust b] ++ [T.pack "local" .= l | isJust l]
+      fields = [T.pack "s3Bucket" .= b | isJust b] 
+               ++ [T.pack "local" .= l | isJust l]
+               ++ [T.pack "engine" .= e| isJust e]
 
 bucket :: Lens' RomeCacheInfo (Maybe T.Text)
 bucket = lens _bucket (\cInfo n -> cInfo { _bucket = n })
 
 localCacheDir :: Lens' RomeCacheInfo (Maybe FilePath)
 localCacheDir = lens _localCacheDir (\cInfo n -> cInfo { _localCacheDir = n })
+
+enginePath :: Lens' RomeCacheInfo (Maybe FilePath)
+enginePath = lens _enginePath (\cInfo n -> cInfo { _enginePath = n })
 
 -- |The canonical name of the Romefile
 canonicalRomefileName :: String
@@ -226,8 +234,10 @@ toRomefile :: INI.Ini -> Either T.Text Romefile
 toRomefile ini = do
   _bucket        <- getBucket ini
   _localCacheDir <- getLocalCacheDir ini
+  let _engine = Nothing -- Engines are not supported in INI 
   let _repositoryMapEntries = getRepositoryMapEntries ini
       _ignoreMapEntries     = getIgnoreMapEntries ini
+      _enginePath           = _engine
       _cacheInfo            = RomeCacheInfo {..}
   Romefile
     <$> Right _cacheInfo

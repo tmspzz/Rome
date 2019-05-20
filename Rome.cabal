@@ -1,5 +1,5 @@
 name:                Rome
-version:             0.21.0.58
+version:             0.22.0.59
 synopsis:            A cache for Carthage
 description:         Please see README.md
 homepage:            https://github.com/blender/Rome
@@ -36,6 +36,9 @@ library
                        , Caches.Local.Downloading
                        , Caches.Common
                        , Network.AWS.Utils
+                       , Engine.Probing
+                       , Engine.Uploading
+                       , Engine.Downloading
 
   build-depends:       base >= 4.7 && < 5
                        , amazonka >= 1.6.1

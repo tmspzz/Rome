@@ -75,17 +75,17 @@ s3EndpointOverride (URL (Absolute h) _ _) =
 s3EndpointOverride _ = S3.s3
 
 -- | Tries to get authentication details and region to perform
--- | requests to AWS. 
+-- | requests to AWS.
 -- | The `AWS_PROFILE` is read from the environment
--- | or falls back to `default`. 
+-- | or falls back to `default`.
 -- | The `AWS_REGION` is first read from the environment, if not found
 -- | it is read from `~/.aws/config` based on the profile discovered in the previous step.
 -- | The `AWS_ACCESS_KEY_ID` & `AWS_SECRET_ACCESS_KEY` are first
--- | read from the environment. If not found, then the `~/.aws/crendetilas`
+-- | read from the environment. If not found, then the `~/.aws/credentials`
 -- | file is read. If `source_profile` key is present the reading of the
 -- | authentication details happens from this profile rather then the `AWS_PROFILE`.
--- | Finally, if `role_arn` is specified, the crendials gathered up to now are used
--- | to obtain new credentials with STS esclated to `role_arn`.
+-- | Finally, if `role_arn` is specified, the credentials gathered up to now are used
+-- | to obtain new credentials with STS escalated to `role_arn`.
 getAWSEnv :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSEnv = do
   region      <- discoverRegion
@@ -109,7 +109,7 @@ getAWSEnv = do
                       T.unpack envError
                         ++ ". "
                         ++ e
-                        ++ " in file ~/.aws/credentilas"
+                        ++ " in file ~/.aws/credentials"
                     )
                     (AWS.authFromCredentilas finalProfile =<< credentials)
               <*> pure (pure region)
@@ -195,7 +195,7 @@ runUtilsCommand command absoluteRomefilePath _ _ =
       lift $ encodeFile absoluteRomefilePath romeFileEntries
     _ -> throwError "Error: Programming Error. Only Utils command supported."
 
--- | Runs a command containing a `UDCPayload`   
+-- | Runs a command containing a `UDCPayload`
 runUDCCommand :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
 runUDCCommand command absoluteRomefilePath verbose romeVersion = do
   cartfileEntries <- getCartfileEntries
@@ -618,7 +618,7 @@ downloadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap fram
             )
             readerEnv
       -- Use engine
-      (Nothing, lCacheDir, Just ePath) -> do        
+      (Nothing, lCacheDir, Just ePath) -> do
         let engineEnv = (cachePrefix, skipLocalCacheFlag, concurrentlyFlag, verbose)
         let action1 = runReaderT
               (downloadFrameworksAndArtifactsWithEngine ePath
@@ -713,7 +713,7 @@ uploadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap framew
           >> runReaderT
                (saveVersionFilesToLocalCache lCacheDir gitRepoNamesAndVersions)
                readerEnv
-      -- Engine, maybe Cache 
+      -- Engine, maybe Cache
       (Nothing, lCacheDir, Just enginePath) -> do
           let engineEnv =
                 ( cachePrefix
@@ -1538,7 +1538,7 @@ downloadFrameworkAndArtifactsWithEngine enginePath (Just lCacheDir) reverseRomeM
         readerEnv
       let sayFunc :: MonadIO m => String -> m ()
           sayFunc = if verbose then sayLnWithTime else sayLn
-      
+
       case eitherFrameworkSuccess of
         Right _ -> return ()
         Left  e -> liftIO $ do

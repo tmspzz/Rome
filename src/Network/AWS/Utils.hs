@@ -90,14 +90,19 @@ getPropertyFromCredentials
 getPropertyFromCredentials profile property =
   lookupValue profile property . asIni
 
-sourceProfileOf :: T.Text -> CredentialsFile -> Either String T.Text
+getPropertyFromConfig
+  :: T.Text -> T.Text -> ConfigFile -> Either String T.Text
+  getPropertyFromConfig profile property =
+  lookupValue profile property . asIni
+
+sourceProfileOf :: T.Text -> ConfigFile -> Either String T.Text
 sourceProfileOf profile credFile =
-  getPropertyFromCredentials profile "source_profile" credFile
+  getPropertyFromConfig profile "source_profile" credFile
     `withError` const (missingKeyError key profile)
   where key = "source_profile"
 
-roleARNOf :: T.Text -> CredentialsFile -> Either String T.Text
-roleARNOf profile credFile = getPropertyFromCredentials profile key credFile
+roleARNOf :: T.Text -> ConfigFile -> Either String T.Text
+roleARNOf profile credFile = getPropertyFromConfig profile key credFile
   `withError` const (missingKeyError key profile)
   where key = "role_arn"
 

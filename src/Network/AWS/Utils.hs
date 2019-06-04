@@ -23,7 +23,7 @@ import           Control.Monad     ((<=<))
 import           Data.Either.Utils (maybeToEither)
 import           Data.Either.Extra (mapLeft)
 import           Data.Ini          (Ini, lookupValue, parseIni)
-import qualified Data.Text         as T (Text, null, unpack)
+import qualified Data.Text         as T (Text, null, pack, unpack)
 import qualified Data.Text.Encoding           as T (encodeUtf8)
 import qualified Data.Text.IO      as T (readFile)
 import qualified Network.AWS       as AWS
@@ -108,14 +108,26 @@ getPropertyFromConfig profile property =
 
 sourceProfileOf :: T.Text -> ConfigFile -> Either String T.Text
 sourceProfileOf profile configFile =
-  getPropertyFromConfig profile key configFile
+  getPropertyFromConfig finalProfile key configFile
     `withError` const (missingKeyError key profile)
-  where key = "source_profile"
+  where 
+    key = "source_profile"
+    finalProfile = 
+      if profile == "default" then 
+        profile 
+      else 
+        T.pack "profile " <> profile
 
 roleARNOf :: T.Text -> ConfigFile -> Either String T.Text
-roleARNOf profile configFile = getPropertyFromConfig profile key configFile
+roleARNOf profile configFile = getPropertyFromConfig finalProfile key configFile
   `withError` const (missingKeyError key profile)
-  where key = "role_arn"
+  where 
+    key = "role_arn"
+    finalProfile = 
+      if profile == "default" then 
+        profile 
+      else 
+        T.pack "profile " <> profile
 
 accessKeyIdOf :: T.Text -> CredentialsFile -> Either String T.Text
 accessKeyIdOf profile credFile =

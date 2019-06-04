@@ -58,7 +58,7 @@ credentialsFromFile filePath = do
 -- | Reads `ConfigFile` from a file at a given path
 configFromFile
   :: MonadIO m
-  => FilePath -- ^ The path to the file containing the credentials. Usually `~/.aws/config`
+  => FilePath -- ^ The path to the file containing the config. Usually `~/.aws/config`
   -> ExceptT String m ConfigFile
 configFromFile filePath = do
   file <- liftIO (T.readFile filePath)
@@ -107,13 +107,13 @@ getPropertyFromConfig profile property =
   lookupValue profile property . asIni
 
 sourceProfileOf :: T.Text -> ConfigFile -> Either String T.Text
-sourceProfileOf profile credFile =
-  getPropertyFromConfig profile "source_profile" credFile
+sourceProfileOf profile configFile =
+  getPropertyFromConfig profile key configFile
     `withError` const (missingKeyError key profile)
   where key = "source_profile"
 
 roleARNOf :: T.Text -> ConfigFile -> Either String T.Text
-roleARNOf profile credFile = getPropertyFromConfig profile key credFile
+roleARNOf profile configFile = getPropertyFromConfig profile key configFile
   `withError` const (missingKeyError key profile)
   where key = "role_arn"
 

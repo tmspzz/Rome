@@ -225,7 +225,7 @@ To use configurations other than the `default` profile set the `$AWS_PROFILE`
 environment variable to your desired profile.
 
 Since version `0.21.0.58` Rome also supports privilege escalation via [Amazon STS](https://docs.aws.amazon.com/STS/latest/APIReference/Welcome.html)
-by specifying `role_arn` and `source_profile` in `~/.aws/credentials`
+by specifying `role_arn` and `source_profile` in `~/.aws/config`
 
 ### Selecting the AWS Region
 

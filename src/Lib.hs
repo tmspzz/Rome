@@ -94,13 +94,15 @@ getAWSEnv = do
     (lookupEnv (T.unpack "AWS_PROFILE"))
   credentials <-
     runExceptT $ (AWS.credentialsFromFile =<< getAWSCredentialsFilePath) `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
+  config <-
+    runExceptT $ (AWS.configFromFile =<< getAWSConfigFilePath) `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
   (auth, _) <-
     AWS.catching AWS._MissingEnvError AWS.fromEnv $ \envError -> either
       throwError
       (\cred -> do
         let finalProfile = fromMaybe
               profile
-              (eitherToMaybe $ AWS.sourceProfileOf profile =<< credentials)
+              (eitherToMaybe $ AWS.sourceProfileOf profile =<< config)
         let
           authAndRegion =
             (,)
@@ -118,7 +120,7 @@ getAWSEnv = do
       credentials
   manager <- liftIO (Conduit.newManager Conduit.tlsManagerSettings)
   ref     <- liftIO (newIORef Nothing)
-  let roleARN = eitherToMaybe $ AWS.roleARNOf profile =<< credentials
+  let roleARN = eitherToMaybe $ AWS.roleARNOf profile =<< config
   let curerntEnv = AWS.Env region
                            (\_ _ -> pure ())
                            (AWS.retryConnectionFailure 3)

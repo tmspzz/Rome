@@ -10,7 +10,7 @@ import           System.Exit
 
 
 romeVersion :: RomeVersion
-romeVersion = (0, 22, 0, 59)
+romeVersion = (0, 23, 0, 60)
 
 
 

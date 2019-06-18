@@ -33,8 +33,8 @@ import           Network.URL
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Except (ExceptT (..), withExceptT)
 
-newtype ConfigFile = ConfigFile { _awsConfigIni :: Ini }
-newtype CredentialsFile = CredentialsFile { _awsCredentialsIni :: Ini }
+newtype ConfigFile = ConfigFile { _awsConfigIni :: Ini } deriving Show
+newtype CredentialsFile = CredentialsFile { _awsCredentialsIni :: Ini } deriving Show
 
 class FromIni a where
   asIni :: a -> Ini

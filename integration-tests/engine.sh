@@ -9,7 +9,6 @@ STORAGE_DIR="server-cache"
 if [ "$ACTION" == "upload" ]; then
   LOCAL_PATH="$2"
   REMOTE_PATH="$3"
-  # POST request to upload file to remote path
   # create directory structure if it doesn't exist yet
   mkdir -p $STORAGE_DIR/$(dirname $REMOTE_PATH)
   # fake the upload of a file by just copying binary to the storage directory
@@ -28,8 +27,14 @@ elif [ "$ACTION" == "download" ]; then
 
 elif [ "$ACTION" == "list" ]; then
   REMOTE_PATH="$2"
+
+  # verify that the list command contains the cache prefix
+  if [[ ! "$REMOTE_PATH" =~ "travis" ]]; then
+    exit 1
+  fi
+
   # fake list command by just checking if file exists
-  if [ ! -f "$STORAGE_DIR/$REMOTE_PATH" ]; then
+  if [[ ! -f "$STORAGE_DIR/$REMOTE_PATH" ]]; then
     exit 1
   fi
   

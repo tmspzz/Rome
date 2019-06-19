@@ -521,7 +521,9 @@ getProjectAvailabilityFromCaches Nothing (Just lCacheDir) Nothing reverseReposit
 
 getProjectAvailabilityFromCaches Nothing _ (Just ePath) reverseRepositoryMap frameworkVersions platforms
   = do
+    (cachePrefix, _, _) <- ask
     availabilities <- probeEngineForFrameworks ePath
+                                               cachePrefix
                                                reverseRepositoryMap
                                                frameworkVersions
                                                platforms

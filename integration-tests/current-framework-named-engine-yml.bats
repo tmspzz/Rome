@@ -221,3 +221,16 @@ teardown() {
   [ -d "Carthage/Build/watchOS/${FRAMEWORK_ARTIFACT_NAME}.framework.dSYM" ]
   [ -f "Carthage/Build/watchOS/${WATCHOS_ARMV7K_DWARF_UUID}.bcsymbolmap" ]
 }
+
+@test "rome list named artifacts for current framework with engine skipping local cache (dynamic, yaml)" {
+
+  # restore server cache
+  if [ -d "../../_server-cache_bkp" ]; then
+    echo "# Server cache restored" >&3
+    cp -R ../../_server-cache_bkp server-cache/
+  fi
+
+  run rome list --cache-prefix travis
+
+  [ "$status" -eq 0 ]
+}

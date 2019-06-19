@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name           = 'Rome'
-  s.version        = '0.23.0.60'
+  s.version        = '0.23.1.61'
   s.summary        = 'A cache tool for Carthage'
   s.homepage       = 'https://github.com/blender/Rome'
   s.source         = { :http => "#{s.homepage}/releases/download/v#{s.version}/rome.zip" }

@@ -79,17 +79,17 @@ s3EndpointOverride (URL (Absolute h) _ _) =
 s3EndpointOverride _ = S3.s3
 
 -- | Tries to get authentication details and region to perform
--- | requests to AWS. 
+-- | requests to AWS.
 -- | The `AWS_PROFILE` is read from the environment
--- | or falls back to `default`. 
+-- | or falls back to `default`.
 -- | The `AWS_REGION` is first read from the environment, if not found
 -- | it is read from `~/.aws/config` based on the profile discovered in the previous step.
 -- | The `AWS_ACCESS_KEY_ID` & `AWS_SECRET_ACCESS_KEY` are first
--- | read from the environment. If not found, then the `~/.aws/crendetilas`
+-- | read from the environment. If not found, then the `~/.aws/credentials`
 -- | file is read. If `source_profile` key is present the reading of the
 -- | authentication details happens from this profile rather then the `AWS_PROFILE`.
--- | Finally, if `role_arn` is specified, the crendials gathered up to now are used
--- | to obtain new credentials with STS esclated to `role_arn`.
+-- | Finally, if `role_arn` is specified, the credentials gathered up to now are used
+-- | to obtain new credentials with STS escalated to `role_arn`.
 getAWSEnv :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
 getAWSEnv = do
   region      <- discoverRegion
@@ -97,16 +97,16 @@ getAWSEnv = do
   profile     <- T.pack . fromMaybe "default" <$> liftIO
     (lookupEnv (T.unpack "AWS_PROFILE"))
   credentials <-
-    runExceptT
-    $       (AWS.credentialsFromFile =<< getAWSCredentialsFilePath)
-    `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
+    runExceptT $ (AWS.credentialsFromFile =<< getAWSCredentialsFilePath) `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
+  config <-
+    runExceptT $ (AWS.configFromFile =<< getAWSConfigFilePath) `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
   (auth, _) <-
     AWS.catching AWS._MissingEnvError AWS.fromEnv $ \envError -> either
       throwError
       (\_ -> do
         let finalProfile = fromMaybe
               profile
-              (eitherToMaybe $ AWS.sourceProfileOf profile =<< credentials)
+              (eitherToMaybe $ AWS.sourceProfileOf profile =<< config)
         let
           authAndRegion =
             (,)
@@ -115,7 +115,7 @@ getAWSEnv = do
                       T.unpack envError
                         ++ ". "
                         ++ e
-                        ++ " in file ~/.aws/credentilas"
+                        ++ " in file ~/.aws/credentials"
                     )
                     (AWS.authFromCredentilas finalProfile =<< credentials)
               <*> pure (pure region)
@@ -124,8 +124,8 @@ getAWSEnv = do
       credentials
   manager <- liftIO (Conduit.newManager Conduit.tlsManagerSettings)
   ref     <- liftIO (newIORef Nothing)
-  let roleARN = eitherToMaybe $ AWS.roleARNOf profile =<< credentials
-  let curerntEnv = AWS.Env region
+  let roleARN = eitherToMaybe $ AWS.roleARNOf profile =<< config
+  let currentEnv = AWS.Env region
                            (\_ _ -> pure ())
                            (AWS.retryConnectionFailure 3)
                            mempty
@@ -133,9 +133,9 @@ getAWSEnv = do
                            ref
                            auth
   case roleARN of
-    Just role -> newEnvFromRole role curerntEnv
+    Just role -> newEnvFromRole role currentEnv
     Nothing   -> return
-      $ AWS.configure (maybe S3.s3 s3EndpointOverride endpointURL) curerntEnv
+      $ AWS.configure (maybe S3.s3 s3EndpointOverride endpointURL) currentEnv
 
 newEnvFromRole :: MonadIO m => T.Text -> AWS.Env -> ExceptT String m AWS.Env
 newEnvFromRole roleARN currentEnv = do
@@ -152,15 +152,6 @@ newEnvFromRole roleARN currentEnv = do
         $  "Could not create AWS Auth from STS response: "
         ++ show assumeRoleResult
     Just newAuth -> return $ currentEnv & AWS.envAuth .~ newAuth
-
-getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
-getAWSRegion = do
-  region      <- discoverRegion
-  endpointURL <- runMaybeT . exceptToMaybeT $ discoverEndpoint
-  set AWS.envRegion region
-    <$> (   AWS.newEnv AWS.Discover
-        <&> AWS.configure (maybe S3.s3 s3EndpointOverride endpointURL)
-        )
 
 allCacheKeysMissingMessage :: String
 allCacheKeysMissingMessage
@@ -198,7 +189,7 @@ runUtilsCommand command absoluteRomefilePath _ _ = case command of
     lift $ encodeFile absoluteRomefilePath romeFileEntries
   _ -> throwError "Error: Programming Error. Only Utils command supported."
 
--- | Runs a command containing a `UDCPayload`   
+-- | Runs a command containing a `UDCPayload`
 runUDCCommand :: RomeCommand -> FilePath -> Bool -> RomeVersion -> RomeMonad ()
 runUDCCommand command absoluteRomefilePath verbose romeVersion = do
   cartfileEntries <- getCartfileEntries
@@ -548,7 +539,9 @@ getProjectAvailabilityFromCaches Nothing (Just lCacheDir) Nothing reverseReposit
 
 getProjectAvailabilityFromCaches Nothing _ (Just ePath) reverseRepositoryMap frameworkVersions platforms
   = do
+    (cachePrefix, _, _) <- ask
     availabilities <- probeEngineForFrameworks ePath
+                                               cachePrefix
                                                reverseRepositoryMap
                                                frameworkVersions
                                                platforms
@@ -673,8 +666,7 @@ downloadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap fram
             readerEnv
       -- Use engine
       (Nothing, lCacheDir, Just ePath) -> do
-        let engineEnv =
-              (cachePrefix, skipLocalCacheFlag, concurrentlyFlag, verbose)
+        let engineEnv = (cachePrefix, skipLocalCacheFlag, concurrentlyFlag, verbose)
         let action1 = runReaderT
               (downloadFrameworksAndArtifactsWithEngine ePath
                                                         lCacheDir
@@ -769,7 +761,7 @@ uploadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap framew
           >> runReaderT
                (saveVersionFilesToLocalCache lCacheDir gitRepoNamesAndVersions)
                readerEnv
-      -- Engine, maybe Cache 
+      -- Engine, maybe Cache
       (Nothing, lCacheDir, Just enginePath) -> do
         let engineEnv =
               (cachePrefix, skipLocalCacheFlag, concurrentlyFlag, verbose)
@@ -1935,7 +1927,7 @@ discoverEndpoint = do
   profile <- liftIO $ lookupEnv "AWS_PROFILE"
   let fileEndPointURL =
         (   getAWSConfigFilePath
-          >>= flip getEndpointFromFile (fromMaybe "default" profile)
+          >>= getEndpointFromFile (fromMaybe "default" profile)
           )
           `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
   (ExceptT . return $ envEndpointURL) <|> fileEndPointURL

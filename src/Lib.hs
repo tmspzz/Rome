@@ -121,7 +121,7 @@ getAWSEnv = do
   manager <- liftIO (Conduit.newManager Conduit.tlsManagerSettings)
   ref     <- liftIO (newIORef Nothing)
   let roleARN = eitherToMaybe $ AWS.roleARNOf profile =<< config
-  let curerntEnv = AWS.Env region
+  let currentEnv = AWS.Env region
                            (\_ _ -> pure ())
                            (AWS.retryConnectionFailure 3)
                            mempty
@@ -129,9 +129,9 @@ getAWSEnv = do
                            ref
                            auth
   case roleARN of
-    Just role -> newEnvFromRole role curerntEnv
+    Just role -> newEnvFromRole role currentEnv
     Nothing   -> return
-      $ AWS.configure (maybe S3.s3 s3EndpointOverride endpointURL) curerntEnv
+      $ AWS.configure (maybe S3.s3 s3EndpointOverride endpointURL) currentEnv
 
 newEnvFromRole :: MonadIO m => T.Text -> AWS.Env -> ExceptT String m AWS.Env
 newEnvFromRole roleARN currentEnv = do
@@ -148,15 +148,6 @@ newEnvFromRole roleARN currentEnv = do
         $  "Could not create AWS Auth from STS response: "
         ++ show assumeRoleResult
     Just newAuth -> return $ currentEnv & AWS.envAuth .~ newAuth
-
-getAWSRegion :: (MonadIO m, MonadCatch m) => ExceptT String m AWS.Env
-getAWSRegion = do
-  region      <- discoverRegion
-  endpointURL <- runMaybeT . exceptToMaybeT $ discoverEndpoint
-  set AWS.envRegion region
-    <$> (   AWS.newEnv AWS.Discover
-        <&> AWS.configure (maybe S3.s3 s3EndpointOverride endpointURL)
-        )
 
 allCacheKeysMissingMessage :: String
 allCacheKeysMissingMessage
@@ -1868,7 +1859,7 @@ discoverEndpoint = do
   profile <- liftIO $ lookupEnv "AWS_PROFILE"
   let fileEndPointURL =
         (   getAWSConfigFilePath
-          >>= flip getEndpointFromFile (fromMaybe "default" profile)
+          >>= getEndpointFromFile (fromMaybe "default" profile)
           )
           `catch` \(e :: IOError) -> ExceptT . return . Left . show $ e
   (ExceptT . return $ envEndpointURL) <|> fileEndPointURL

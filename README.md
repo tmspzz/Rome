@@ -278,6 +278,10 @@ The script should take the given `remote-path`, carry out its logic to retrieve 
 
 For an example of a custom engine, take a look at [engine.sh](https://github.com/blender/Rome/blob/master/integration-tests/engine.sh) which is used in the integration tests to simply copy artifacts in a different directory. Infinite uses cases are opened by using a custom engine, such as uploading artifacts to any non-compatible S3 storage system.
 
+Other example engines:
+
+- [Google Storage](https://github.com/blender/Rome/blob/master/example-engines/google.py) 
+
 ### Romefile
 
 #### About the format

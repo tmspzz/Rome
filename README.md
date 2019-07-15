@@ -62,7 +62,7 @@ Trusted by:
 ## Get Rome
 ### Using Homebrew
 ```
-$ brew tap blender/tap https://github.com/tmspzz/homebrew-tap.git
+$ brew tap tmspzz/tap https://github.com/tmspzz/homebrew-tap.git
 $ brew install tmspzz/homebrew-tap/rome
 ```
 ### Using CocoaPods
@@ -276,7 +276,7 @@ For example, if your [Romefile](#romefile) specifies `engine: script.sh`, Rome w
 
 The script should take the given `remote-path`, carry out its logic to retrieve the artifact and place it at `local-path`. Please refer to the [cache structure](#cachestructure) definition for more information on the cache is constructed.
 
-For an example of a custom engine, take a look at [engine.sh](https://github.com/blender/Rome/blob/master/integration-tests/engine.sh) which is used in the integration tests to simply copy artifacts in a different directory. Infinite uses cases are opened by using a custom engine, such as uploading artifacts to any non-compatible S3 storage system.
+For an example of a custom engine, take a look at [engine.sh](https://github.com/tmspzz/Rome/blob/master/integration-tests/engine.sh) which is used in the integration tests to simply copy artifacts in a different directory. Infinite uses cases are opened by using a custom engine, such as uploading artifacts to any non-compatible S3 storage system.
 
 Other example engines:
 
@@ -817,7 +817,7 @@ for an in depth explanation.
 ## Developing
 
 1. Install [Stack](https://github.com/commercialhaskell/stack) via homebrew `brew install stack`
-1. Clone the repo `git clone https://github.com/blender/Rome.git`
+1. Clone the repo `git clone https://github.com/tmspzz/Rome.git`
 1. `cd Rome && stack build`
 1. Optional: Install brittany via `stack install brittany`
 1. Optional: Install hlint via `stack install hlint`
@@ -829,9 +829,9 @@ for an in depth explanation.
 
 ## Releasing
 
-1. Increase the version number in [Rome.cabal](https://github.com/blender/tmspzz/blob/master/Rome.cabal#L2) 
-1. Increase the version number in [app/Main.hs](https://github.com/blender/tmspzz/blob/master/app/Main.hs#L13)
-1. Increase the version number in [Rome.podspec](https://github.com/blender/tmspzz/blob/master/Rome.podspec#L3)
+1. Increase the version number in [Rome.cabal](https://github.com/tmspzz/Rome/blob/master/Rome.cabal#L2) 
+1. Increase the version number in [app/Main.hs](https://github.com/tmspzz/Rome/blob/master/app/Main.hs#L13)
+1. Increase the version number in [Rome.podspec](https://github.com/tmspzz/Rome/blob/master/Rome.podspec#L3)
 1. Commit
 1. Create a [new pre-release](https://github.com/tmspzz/Rome/releases) on Github
 1. Attach the zipped binary
@@ -841,7 +841,7 @@ for an in depth explanation.
 
 ## Presentations and Tutorials
 
-Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org/) and [slides](https://speakerdeck.com/blender/caching-a-simple-solution-to-speeding-up-build-times)
+Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org/) and [slides](https://speakerdeck.com/tmspzz/caching-a-simple-solution-to-speeding-up-build-times)
 
 - [Features](https://youtu.be/2cCIuidT9VA?t=387)
 - [Usage](https://youtu.be/2cCIuidT9VA?t=600)

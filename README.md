@@ -274,7 +274,7 @@ For example, if your [Romefile](#romefile) specifies `engine: script.sh`, Rome w
 ./script.sh list Alamofire/iOS/Alamofire.framework-4.8.2.zip
 ```
 
-The script should take the given `remote-path`, carry out its logic to retrieve the artifact and place it at `local-path`. Please refer to the [cache structure](#cachestructure) definition for more information on the cache is constructed.
+The script should take the given `remote-path`, carry out its logic to retrieve the artifact and place it at `local-path`. Please refer to the [cache structure](#cache-structure) definition for more information on the cache is constructed.
 
 For an example of a custom engine, take a look at [engine.sh](https://github.com/tmspzz/Rome/blob/master/integration-tests/engine.sh) which is used in the integration tests to simply copy artifacts in a different directory. Infinite uses cases are opened by using a custom engine, such as uploading artifacts to any non-compatible S3 storage system.
 

@@ -769,7 +769,7 @@ A collection of utilities to make life easier.
 
 Migrate the Romefile from INI to YAML __in place__, by running:
 
-`rome ultils migrate-romefile`
+`rome utils migrate-romefile`
 
 
 ## Troubleshooting & FAQ

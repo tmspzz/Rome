@@ -1,6 +1,6 @@
 ![](logo/colosseum.jpg)
 
-# Rome [![Build Status](https://travis-ci.org/blender/Rome.svg?branch=master)](https://travis-ci.org/blender/Rome) [![rome-latest](https://img.shields.io/badge/release-v0.23.1.61-blue.svg)](https://github.com/blender/Rome/releases/tag/v0.23.1.61) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/blender/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
+# Rome [![Build Status](https://travis-ci.org/tmspzz/Rome.svg?branch=master)](https://travis-ci.org/tmspzz/Rome) [![rome-latest](https://img.shields.io/badge/release-v0.23.1.61-blue.svg)](https://github.com/tmspzz/Rome/releases/tag/v0.23.1.61) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/tmspzz/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
 
 Rome is a tool that allows developers on Apple platforms to use:
 
@@ -62,8 +62,8 @@ Trusted by:
 ## Get Rome
 ### Using Homebrew
 ```
-$ brew tap blender/tap https://github.com/blender/homebrew-tap.git
-$ brew install blender/homebrew-tap/rome
+$ brew tap tmspzz/tap https://github.com/tmspzz/homebrew-tap.git
+$ brew install tmspzz/homebrew-tap/rome
 ```
 ### Using CocoaPods
 Simply add the following line to your Podfile:
@@ -77,9 +77,9 @@ Script Build Phases.
 
 ### Manual
 
-The Rome binary is also attached as a zip to each release on the [releases page](https://github.com/blender/Rome/releases) here on GitHub.
+The Rome binary is also attached as a zip to each release on the [releases page](https://github.com/tmspzz/Rome/releases) here on GitHub.
 
-Using Rome? Let me know by [opening an issue](https://github.com/blender/Rome/issues/new)
+Using Rome? Let me know by [opening an issue](https://github.com/tmspzz/Rome/issues/new)
 and I will gladly add you to the user list.
 
 ## Use Rome with fastlane
@@ -274,13 +274,13 @@ For example, if your [Romefile](#romefile) specifies `engine: script.sh`, Rome w
 ./script.sh list Alamofire/iOS/Alamofire.framework-4.8.2.zip
 ```
 
-The script should take the given `remote-path`, carry out its logic to retrieve the artifact and place it at `local-path`. Please refer to the [cache structure](#cachestructure) definition for more information on the cache is constructed.
+The script should take the given `remote-path`, carry out its logic to retrieve the artifact and place it at `local-path`. Please refer to the [cache structure](#cache-structure) definition for more information on the cache is constructed.
 
-For an example of a custom engine, take a look at [engine.sh](https://github.com/blender/Rome/blob/master/integration-tests/engine.sh) which is used in the integration tests to simply copy artifacts in a different directory. Infinite uses cases are opened by using a custom engine, such as uploading artifacts to any non-compatible S3 storage system.
+For an example of a custom engine, take a look at [engine.sh](https://github.com/tmspzz/Rome/blob/master/integration-tests/engine.sh) which is used in the integration tests to simply copy artifacts in a different directory. Infinite uses cases are opened by using a custom engine, such as uploading artifacts to any non-compatible S3 storage system.
 
 Other example engines:
 
-- [Google Storage](https://github.com/blender/Rome/blob/master/example-engines/google.py) 
+- [Google Storage](https://github.com/tmspzz/Rome/blob/master/example-engines/google.py) 
 
 ### Romefile
 
@@ -294,7 +294,7 @@ Feature support that require additions or changes to the Romefile __won't be sup
 
 You can migrate your Romefile to YAML by running `rome utils migrate-romefile`.
 
-If you are looking for the documention prior to `0.17.0.48`, check the [wiki](https://github.com/blender/Rome/wiki/Romefile-prior-0.17.x.x)
+If you are looking for the documention prior to `0.17.0.48`, check the [wiki](https://github.com/tmspzz/Rome/wiki/Romefile-prior-0.17.x.x)
 
 #### Purpose
 
@@ -503,7 +503,7 @@ If left unspecified, an alias is a __Dynamic Framework by default__.
 
 #### Platforms
 
-Since version [0.17.1.49](https://github.com/blender/Rome/releases/tag/v0.17.1.49) Rome allows you
+Since version [0.17.1.49](https://github.com/tmspzz/Rome/releases/tag/v0.17.1.49) Rome allows you
 to specify what platforms are supported for a specific `Romefile Entry`. This serves a differet purpose
 than the command line option `--platforms`.
 
@@ -769,14 +769,14 @@ A collection of utilities to make life easier.
 
 Migrate the Romefile from INI to YAML __in place__, by running:
 
-`rome ultils migrate-romefile`
+`rome utils migrate-romefile`
 
 
 ## Troubleshooting & FAQ
 
 ### Getting "Image not found" when running an application using binaries
 
-Implicit dependencies of frameworks when using binaries are not copied over by Xcode automatically despite "Always Embed Standard Libraries" set to **YES** (see [56](/blender/Rome/issues/56)).
+Implicit dependencies of frameworks when using binaries are not copied over by Xcode automatically despite "Always Embed Standard Libraries" set to **YES** (see [56](/tmspzz/Rome/issues/56)).
 
 Here is an example with ReactiveCocoa, which depends on CoreLocation and MapKit. If ReactiveCocoa is built via Carthage or as a Xcode subproject, CoreLocation and MapKit are copied into the app's bundle. On the other hand, when using the binary, Xcode has no clue of that and does not copy the necessary frameworks even if "Always Embed Standard Libraries" is set to yes.
 
@@ -817,7 +817,7 @@ for an in depth explanation.
 ## Developing
 
 1. Install [Stack](https://github.com/commercialhaskell/stack) via homebrew `brew install stack`
-1. Clone the repo `git clone https://github.com/blender/Rome.git`
+1. Clone the repo `git clone https://github.com/tmspzz/Rome.git`
 1. `cd Rome && stack build`
 1. Optional: Install brittany via `stack install brittany`
 1. Optional: Install hlint via `stack install hlint`
@@ -829,19 +829,19 @@ for an in depth explanation.
 
 ## Releasing
 
-1. Increase the version number in [Rome.cabal](https://github.com/blender/Rome/blob/master/Rome.cabal#L2) 
-1. Increase the version number in [app/Main.hs](https://github.com/blender/Rome/blob/master/app/Main.hs#L13)
-1. Increase the version number in [Rome.podspec](https://github.com/blender/Rome/blob/master/Rome.podspec#L3)
+1. Increase the version number in [Rome.cabal](https://github.com/tmspzz/Rome/blob/master/Rome.cabal#L2) 
+1. Increase the version number in [app/Main.hs](https://github.com/tmspzz/Rome/blob/master/app/Main.hs#L13)
+1. Increase the version number in [Rome.podspec](https://github.com/tmspzz/Rome/blob/master/Rome.podspec#L3)
 1. Commit
-1. Create a [new pre-release](https://github.com/blender/Rome/releases) on Github
+1. Create a [new pre-release](https://github.com/tmspzz/Rome/releases) on Github
 1. Attach the zipped binary
 1. Promote to release
 1. Run `pod trunk push Rome.podspec`
-1. [Update the homebrew formula](https://github.com/blender/homebrew-tap)
+1. [Update the homebrew formula](https://github.com/tmspzz/homebrew-tap)
 
 ## Presentations and Tutorials
 
-Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org/) and [slides](https://speakerdeck.com/blender/caching-a-simple-solution-to-speeding-up-build-times)
+Video tutorial on Rome given at [CocoaHeads Berlin](http://cocoaheads-berlin.org/) and [slides](https://speakerdeck.com/tmspzz/caching-a-simple-solution-to-speeding-up-build-times)
 
 - [Features](https://youtu.be/2cCIuidT9VA?t=387)
 - [Usage](https://youtu.be/2cCIuidT9VA?t=600)

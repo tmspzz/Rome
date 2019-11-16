@@ -2,19 +2,23 @@ module Caches.Local.Uploading where
 
 
 
-import qualified Codec.Archive.Zip            as Zip
+import qualified Codec.Archive.Zip             as Zip
 import           Configuration
-import           Control.Monad                (unless, when)
+import           Control.Monad                            ( unless
+                                                          , when
+                                                          )
 import           Control.Monad.IO.Class
-import           Control.Monad.Reader         (ReaderT, ask)
-import qualified Data.ByteString.Lazy         as LBS
+import           Control.Monad.Reader                     ( ReaderT
+                                                          , ask
+                                                          )
+import qualified Data.ByteString.Lazy          as LBS
 import           Data.Carthage.TargetPlatform
-import           Data.Monoid                  ((<>))
-import           Data.Romefile                (Framework (..))
+import           Data.Monoid                              ( (<>) )
+import           Data.Romefile                            ( Framework(..) )
 import           System.Directory
-import           System.FilePath              ((</>))
-import           Types                        hiding (version)
-import           Types.Commands               (SkipLocalCacheFlag (..))
+import           System.FilePath                          ( (</>) )
+import           Types                             hiding ( version )
+import           Types.Commands                           ( SkipLocalCacheFlag(..) )
 import           Utils
 import           Xcode.DWARF
 
@@ -31,15 +35,13 @@ saveFrameworkToLocalCache
 saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap (FrameworkVersion f@(Framework _ _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
-    unless skipLocalCache $ saveBinaryToLocalCache
-      lCacheDir
-      (Zip.fromArchive frameworkArchive)
-      (prefix </> remoteFrameworkUploadPath)
-      frameworkNameWithFrameworkExtension
-      verbose
+    unless skipLocalCache $ saveBinaryToLocalCache lCacheDir
+                                                   (Zip.fromArchive frameworkArchive)
+                                                   (prefix </> remoteFrameworkUploadPath)
+                                                   frameworkNameWithFrameworkExtension
+                                                   verbose
  where
-  remoteFrameworkUploadPath =
-    remoteFrameworkPath platform reverseRomeMap f version
+  remoteFrameworkUploadPath           = remoteFrameworkPath platform reverseRomeMap f version
   frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
 
 
@@ -55,12 +57,11 @@ saveDsymToLocalCache
 saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap (FrameworkVersion f@(Framework fwn _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
-    unless skipLocalCache $ saveBinaryToLocalCache
-      lCacheDir
-      (Zip.fromArchive dSYMArchive)
-      (prefix </> remoteDsymUploadPath)
-      (fwn <> ".dSYM")
-      verbose
+    unless skipLocalCache $ saveBinaryToLocalCache lCacheDir
+                                                   (Zip.fromArchive dSYMArchive)
+                                                   (prefix </> remoteDsymUploadPath)
+                                                   (fwn <> ".dSYM")
+                                                   verbose
   where remoteDsymUploadPath = remoteDsymPath platform reverseRomeMap f version
 
 
@@ -77,15 +78,12 @@ saveBcsymbolmapToLocalCache
 saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap (FrameworkVersion f@(Framework _ _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
-    unless skipLocalCache $ saveBinaryToLocalCache
-      lCacheDir
-      (Zip.fromArchive dwarfArchive)
-      (prefix </> remoteBcSymbolmapUploadPath)
-      (bcsymbolmapNameFrom dwarfUUID)
-      verbose
- where
-  remoteBcSymbolmapUploadPath =
-    remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
+    unless skipLocalCache $ saveBinaryToLocalCache lCacheDir
+                                                   (Zip.fromArchive dwarfArchive)
+                                                   (prefix </> remoteBcSymbolmapUploadPath)
+                                                   (bcsymbolmapNameFrom dwarfUUID)
+                                                   verbose
+  where remoteBcSymbolmapUploadPath = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
 
 
 
@@ -98,17 +96,11 @@ saveBinaryToLocalCache
   -> String -- ^ A colloquial name for the artifact printed when verbose is `True`.
   -> Bool -- ^ A verbosity flag.
   -> m ()
-saveBinaryToLocalCache cachePath binaryZip destinationPath objectName verbose =
-  do
-    let sayFunc = if verbose then sayLnWithTime else sayLn
-    when verbose
-      $  sayLnWithTime
-      $  "Copying "
-      <> objectName
-      <> " to: "
-      <> finalPath
-    liftIO $ saveBinaryToFile binaryZip finalPath
-    sayFunc $ "Copied " <> objectName <> " to: " <> finalPath
+saveBinaryToLocalCache cachePath binaryZip destinationPath objectName verbose = do
+  let sayFunc = if verbose then sayLnWithTime else sayLn
+  when verbose $ sayLnWithTime $ "Copying " <> objectName <> " to: " <> finalPath
+  liftIO $ saveBinaryToFile binaryZip finalPath
+  sayFunc $ "Copied " <> objectName <> " to: " <> finalPath
   where finalPath = cachePath </> destinationPath
 
 
@@ -118,8 +110,7 @@ saveVersionFilesToLocalCache
   :: FilePath -- ^ The cache definition.
   -> [ProjectNameAndVersion] -- ^ The information used to derive the name and path for the .version file.
   -> ReaderT (CachePrefix, Bool) IO ()
-saveVersionFilesToLocalCache lCacheDir =
-  mapM_ (saveVersonFileToLocalCache lCacheDir)
+saveVersionFilesToLocalCache lCacheDir = mapM_ (saveVersonFileToLocalCache lCacheDir)
 
 
 
@@ -134,13 +125,9 @@ saveVersonFileToLocalCache lCacheDir projectNameAndVersion = do
 
   when versionFileExists $ do
     versionFileContent <- liftIO $ LBS.readFile versionFileLocalPath
-    saveVersionFileBinaryToLocalCache lCacheDir
-                                      cachePrefix
-                                      versionFileContent
-                                      projectNameAndVersion
-                                      verbose
+    saveVersionFileBinaryToLocalCache lCacheDir cachePrefix versionFileContent projectNameAndVersion verbose
  where
-  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
+  versionFileName      = versionFileNameForProjectName $ fst projectNameAndVersion
   versionFileLocalPath = carthageBuildDirectory </> versionFileName
 
 
@@ -154,11 +141,8 @@ saveVersionFileBinaryToLocalCache
   -> ProjectNameAndVersion  -- ^ The information used to derive the name and path for the .version file.
   -> Bool -- ^ A flag controlling verbosity.
   -> m ()
-saveVersionFileBinaryToLocalCache lCacheDir (CachePrefix prefix) versionFileContent projectNameAndVersion
-  = saveBinaryToLocalCache lCacheDir
-                           versionFileContent
-                           (prefix </> versionFileRemotePath)
-                           versionFileName
+saveVersionFileBinaryToLocalCache lCacheDir (CachePrefix prefix) versionFileContent projectNameAndVersion =
+  saveBinaryToLocalCache lCacheDir versionFileContent (prefix </> versionFileRemotePath) versionFileName
  where
-  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
+  versionFileName       = versionFileNameForProjectName $ fst projectNameAndVersion
   versionFileRemotePath = remoteVersionFilePath projectNameAndVersion

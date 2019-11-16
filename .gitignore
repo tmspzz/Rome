@@ -24,3 +24,13 @@ codex.tags
 _Dangerfile.tmp
 hscope.out
 TAGS
+
+# Tests and dev stuff
+Carthage/
+Cartfile
+Cartfile.resolved
+Romefile
+engine.sh
+rome-local-cache/
+server-cache/
+travis/

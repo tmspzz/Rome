@@ -74,7 +74,7 @@ elif command == COMMAND_DOWNLOAD:
         exit(0)
 
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
-    zip_file_path = Path(f"{TEMP_DIR.joinpath(local_path.stem)}{local_path.parts[-1]}")
+    zip_file_path = TEMP_DIR.joinpath(local_path)
     blob = bucket.blob(remote_path)
     try:
         blob.download_to_filename(str(zip_file_path))

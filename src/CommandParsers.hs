@@ -56,6 +56,13 @@ concurrentlyParser = ConcurrentlyFlag <$> Opts.switch
        "Maximise concurrency while performing the operation. Might make verbose output hard to follow."
   )
 
+optimisticParser :: Opts.Parser OptimisticFlag
+optimisticParser = OptimisticFlag <$> Opts.switch
+  (  Opts.long "optimistic"
+  <> Opts.help
+        "If there are .version files, skip frameworks and related artifacts. Only affects download."
+  )
+
 reposParser :: Opts.Parser [ProjectName]
 reposParser = Opts.many
   (Opts.argument
@@ -96,6 +103,7 @@ udcPayloadParser =
     <*> noIgnoreParser
     <*> noSkipCurrentParser
     <*> concurrentlyParser
+    <*> optimisticParser
 
 uploadParser :: Opts.Parser RomeCommand
 uploadParser = pure Upload <*> udcPayloadParser

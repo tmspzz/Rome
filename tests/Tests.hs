@@ -4,8 +4,9 @@ import           Control.Arrow          (left, right)
 import           Control.Monad
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
+import           Data.Carthage.VersionFile
 import           Data.Either            (rights)
-import           Data.List              (intercalate, nub, intersect)
+import           Data.List              (intercalate, nub, intersect, union)
 import           Data.Yaml              (decodeEither', encode)
 import           Data.Romefile
 import qualified Data.Text              as T
@@ -35,6 +36,30 @@ instance Arbitrary TargetPlatform where
 
 instance Arbitrary Version where
   arbitrary = Version <$> nonEmptyString
+
+instance Arbitrary FrameworkInfo where
+  arbitrary = FrameworkInfo <$> arbitrary <*> nonEmptyString <*> arbitrary
+
+instance Arbitrary VersionFileEntry where
+  arbitrary = VersionFileEntry <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary FrameworkIntermediate where
+  arbitrary =  FrameworkIntermediate <$> arbitrary <*> (nub <$> listOf1 arbitrary) 
+
+
+-- versionFileEntryWithOverlappingPlatforms :: Gen VersionFileEntry
+-- versionFileEntryWithOverlappingPlatforms = do
+--   let frameworkInfos = ( ((,) <$> listOf arbitrary <*> listOf arbitrary) `suchThat` \(l1, l2) -> not (null (nub l1)) && not (null (nub l2)) && not (null ( l1 `union` l2))) :: Gen ([FrameworkInfo], [FrameworkInfo])
+--   let a = oneof [fst <$> frameworkInfos, arbitrary] :: Gen (Maybe [FrameworkInfo])
+--   let b = oneof [snd <$> frameworkInfos, arbitrary] :: Gen (Maybe [FrameworkInfo])
+--   VersionFileEntry <$> arbitrary <*> a <*> b <*> a <*> b
+
+
+prop_filteredByIntermediates_idempotent :: [FrameworkVersion] -> [(Version, FrameworkIntermediate)] -> Bool
+prop_filteredByIntermediates_idempotent fv tpls =
+  fv `filteredByIntermediates` tpls 
+    == filteredByIntermediates (filteredByIntermediates fv tpls) tpls 
+
 
 prop_filterByNameEqualTo_idempotent :: [FrameworkVersion] -> Framework -> Bool
 prop_filterByNameEqualTo_idempotent ls n =
@@ -198,3 +223,6 @@ main = do
 
   putStrLn "prop_filterRomeFileEntriesByPlatforms_filters"
   quickCheck (withMaxSuccess 1000 prop_filterRomeFileEntriesByPlatforms_filters)
+
+  putStrLn "prop_filteredByIntermediates_idempotent"
+  quickCheck (withMaxSuccess 1000 prop_filteredByIntermediates_idempotent)

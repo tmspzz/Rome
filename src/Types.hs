@@ -1,26 +1,32 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Types where
 
-import           Control.Monad.Except         (ExceptT)
+import           Control.Monad.Except                     ( ExceptT )
+import           Control.Monad.Trans.Reader               ( ReaderT )
 import           Data.Aeson
-import           Data.Carthage.Cartfile       (Version)
+import           Data.Carthage.Cartfile                   ( Version )
 import           Data.Carthage.TargetPlatform
-import qualified Data.Map.Strict              as M
-import           Data.Romefile                (Framework, ProjectName)
+import qualified Data.Map.Strict               as M
+import           Data.Romefile                            ( Framework
+                                                          , ProjectName
+                                                          )
+import           Data.UUID                     as UUID
+                                                          ( UUID )
 import           GHC.Generics
-import qualified Network.AWS.Env              as AWS (Env)
+import qualified Network.AWS.Env               as AWS
+                                                          ( Env )
 import           Types.Commands
 
 
 
 
-type UploadDownloadCmdEnv  = (AWS.Env, CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool)
-type UploadDownloadEnv     = (AWS.Env, CachePrefix, Bool)
-type RomeMonad             = ExceptT String IO
-type RepositoryMap         = M.Map ProjectName [Framework]
+type UploadDownloadCmdEnv = (AWS.Env, CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool, UUID.UUID)
+type UploadDownloadEnv = (AWS.Env, CachePrefix, Bool)
+type RomeMonad = (ExceptT String (ReaderT UUID.UUID IO))
+type RepositoryMap = M.Map ProjectName [Framework]
 type InvertedRepositoryMap = M.Map Framework ProjectName
 
-type RomeVersion           = (Int, Int, Int, Int)
+type RomeVersion = (Int, Int, Int, Int)
 
 type ProjectNameAndVersion = (ProjectName, Version)
 

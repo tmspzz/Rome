@@ -29,9 +29,9 @@ setup() {
     cp ../_Cartfile.resolved_bkp Cartfile.resolved 
   fi
 
-  printf "[Cache]\n S3-Bucket = rome\n local = rome-local-cache" >> Romefile
+  printf "[Cache]\n S3-Bucket = rome\n local = rome-local-cache" > Romefile
   mkdir -p ~/.aws
-  printf "[default]\n region = us-east-1" >> ~/.aws/config
+  printf "[default]\n region = us-east-1" > ~/.aws/config
 
   # minio
 

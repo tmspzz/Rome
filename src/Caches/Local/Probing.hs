@@ -4,11 +4,11 @@ module Caches.Local.Probing where
 
 import           Control.Monad.IO.Class
 import           Data.Carthage.TargetPlatform
-import           Data.List                    (intersect)
-import           Data.Romefile                (_frameworkPlatforms)
+import           Data.List                                ( intersect )
+import           Data.Romefile                            ( _frameworkPlatforms )
 import           System.Directory
-import           System.FilePath              ((</>))
-import           Types                        hiding (version)
+import           System.FilePath                          ( (</>) )
+import           Types                             hiding ( version )
 import           Utils
 
 -- | Probes a `FilePath` to check if each `FrameworkVersion` exists for each `TargetPlatform`
@@ -20,12 +20,9 @@ probeLocalCacheForFrameworks
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` to probe for.
   -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
   -> m [FrameworkAvailability]
-probeLocalCacheForFrameworks lCacheDir cachePrefix reverseRomeMap frameworkVersions
-  = sequence . probeForEachFramework
+probeLocalCacheForFrameworks lCacheDir cachePrefix reverseRomeMap frameworkVersions = sequence . probeForEachFramework
  where
-  probeForEachFramework = mapM
-    (probeLocalCacheForFramework lCacheDir cachePrefix reverseRomeMap)
-    frameworkVersions
+  probeForEachFramework = mapM (probeLocalCacheForFramework lCacheDir cachePrefix reverseRomeMap) frameworkVersions
 
 
 
@@ -38,15 +35,12 @@ probeLocalCacheForFramework
   -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
   -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
   -> m FrameworkAvailability
-probeLocalCacheForFramework lCacheDir cachePrefix reverseRomeMap frameworkVersion platforms
-  = fmap (FrameworkAvailability frameworkVersion) probeForEachPlatform
+probeLocalCacheForFramework lCacheDir cachePrefix reverseRomeMap frameworkVersion platforms = fmap
+  (FrameworkAvailability frameworkVersion)
+  probeForEachPlatform
  where
   probeForEachPlatform = mapM
-    (probeLocalCacheForFrameworkOnPlatform lCacheDir
-                                           cachePrefix
-                                           reverseRomeMap
-                                           frameworkVersion
-    )
+    (probeLocalCacheForFrameworkOnPlatform lCacheDir cachePrefix reverseRomeMap frameworkVersion)
     (platforms `intersect` (_frameworkPlatforms . _framework $ frameworkVersion))
 
 
@@ -62,13 +56,8 @@ probeLocalCacheForFrameworkOnPlatform
   -> m PlatformAvailability
 probeLocalCacheForFrameworkOnPlatform lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion fwn version) platform
   = do
-    frameworkExistsInLocalCache <-
-      liftIO . doesFileExist $ frameworkLocalCachePath
+    frameworkExistsInLocalCache <- liftIO . doesFileExist $ frameworkLocalCachePath
     return (PlatformAvailability platform frameworkExistsInLocalCache)
  where
-  frameworkLocalCachePath = lCacheDir </> prefix </> remoteFrameworkUploadPath
-  remoteFrameworkUploadPath =
-    remoteFrameworkPath platform reverseRomeMap fwn version
-
-
-
+  frameworkLocalCachePath   = lCacheDir </> prefix </> remoteFrameworkUploadPath
+  remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap fwn version

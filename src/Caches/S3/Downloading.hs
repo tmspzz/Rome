@@ -1,28 +1,36 @@
 module Caches.S3.Downloading where
 
 import           Caches.Common
-import           Configuration                (carthageArtifactsBuildDirectoryForPlatform)
-import           Control.Exception            (try)
-import           Control.Lens                 (view)
+import           Configuration                            ( carthageArtifactsBuildDirectoryForPlatform )
+import           Control.Exception                        ( try )
+import           Control.Lens                             ( view )
 import           Control.Monad
 import           Control.Monad.Except
-import           Control.Monad.Reader         (ReaderT, ask, runReaderT,
-                                               withReaderT)
-import qualified Data.ByteString              as BS
-import qualified Data.ByteString.Lazy         as LBS
+import           Control.Monad.Reader                     ( ReaderT
+                                                          , ask
+                                                          , runReaderT
+                                                          , withReaderT
+                                                          )
+import qualified Data.ByteString               as BS
+import qualified Data.ByteString.Lazy          as LBS
 import           Data.Carthage.TargetPlatform
-import qualified Data.Conduit                 as C (ConduitT, await, yield,
-                                                    (.|))
-import qualified Data.Conduit.Binary          as C (sinkLbs)
-import           Data.Either                  (lefts)
-import           Data.Maybe                   (fromMaybe)
-import           Data.Monoid                  ((<>))
-import           Data.Romefile                (Framework (..))
-import qualified Data.Text                    as T
-import qualified Network.AWS                  as AWS
-import qualified Network.AWS.S3               as S3
-import           System.FilePath              ((</>))
-import           Types                        hiding (version)
+import qualified Data.Conduit                  as C
+                                                          ( ConduitT
+                                                          , await
+                                                          , yield
+                                                          , (.|)
+                                                          )
+import qualified Data.Conduit.Binary           as C
+                                                          ( sinkLbs )
+import           Data.Either                              ( lefts )
+import           Data.Maybe                               ( fromMaybe )
+import           Data.Monoid                              ( (<>) )
+import           Data.Romefile                            ( Framework(..) )
+import qualified Data.Text                     as T
+import qualified Network.AWS                   as AWS
+import qualified Network.AWS.S3                as S3
+import           System.FilePath                          ( (</>) )
+import           Types                             hiding ( version )
 import           Utils
 import           Xcode.DWARF
 
@@ -34,20 +42,12 @@ getFrameworkFromS3
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
-  -> ExceptT
-       String
-       (ReaderT (AWS.Env, CachePrefix, Bool) IO)
-       LBS.ByteString
-getFrameworkFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform
-  = do
-    (env, CachePrefix prefix, verbose) <- ask
-    mapExceptT
-      (withReaderT (const (env, verbose)))
-      (getArtifactFromS3 s3BucketName (prefix </> remoteFrameworkUploadPath) fwn
-      )
- where
-  remoteFrameworkUploadPath =
-    remoteFrameworkPath platform reverseRomeMap f version
+  -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) LBS.ByteString
+getFrameworkFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform = do
+  (env, CachePrefix prefix, verbose) <- ask
+  mapExceptT (withReaderT (const (env, verbose)))
+             (getArtifactFromS3 s3BucketName (prefix </> remoteFrameworkUploadPath) fwn)
+  where remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
 
 
 
@@ -57,16 +57,11 @@ getDSYMFromS3
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
-  -> ExceptT
-       String
-       (ReaderT (AWS.Env, CachePrefix, Bool) IO)
-       LBS.ByteString
-getDSYMFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform
-  = do
-    (env, CachePrefix prefix, verbose) <- ask
-    let finalRemoteDSYMUploadPath = prefix </> remoteDSYMUploadPath
-    mapExceptT (withReaderT (const (env, verbose)))
-      $ getArtifactFromS3 s3BucketName finalRemoteDSYMUploadPath dSYMName
+  -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) LBS.ByteString
+getDSYMFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform = do
+  (env, CachePrefix prefix, verbose) <- ask
+  let finalRemoteDSYMUploadPath = prefix </> remoteDSYMUploadPath
+  mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3 s3BucketName finalRemoteDSYMUploadPath dSYMName
  where
   remoteDSYMUploadPath = remoteDsymPath platform reverseRomeMap f version
   dSYMName             = fwn <> ".dSYM"
@@ -75,21 +70,14 @@ getDSYMFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn _ _
 
 -- | Retrieves a .version file from S3
 getVersionFileFromS3
-  :: S3.BucketName
-  -> ProjectNameAndVersion
-  -> ExceptT
-       String
-       (ReaderT (AWS.Env, CachePrefix, Bool) IO)
-       LBS.ByteString
+  :: S3.BucketName -> ProjectNameAndVersion -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) LBS.ByteString
 getVersionFileFromS3 s3BucketName projectNameAndVersion = do
   (env, CachePrefix prefix, verbose) <- ask
   let finalVersionFileRemotePath = prefix </> versionFileRemotePath
-  mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3
-    s3BucketName
-    finalVersionFileRemotePath
-    versionFileName
+  mapExceptT (withReaderT (const (env, verbose)))
+    $ getArtifactFromS3 s3BucketName finalVersionFileRemotePath versionFileName
  where
-  versionFileName = versionFileNameForProjectName $ fst projectNameAndVersion
+  versionFileName       = versionFileNameForProjectName $ fst projectNameAndVersion
   versionFileRemotePath = remoteVersionFilePath projectNameAndVersion
 
 
@@ -101,22 +89,16 @@ getBcsymbolmapFromS3
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> DwarfUUID -- ^ The UUID of the bcsymbolmap
-  -> ExceptT
-       String
-       (ReaderT (AWS.Env, CachePrefix, Bool) IO)
-       LBS.ByteString
-getBcsymbolmapFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform dwarfUUID
-  = do
+  -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) LBS.ByteString
+getBcsymbolmapFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform dwarfUUID =
+  do
     (env, CachePrefix prefix, verbose) <- ask
     let finalRemoteBcsymbolmaploadPath = prefix </> remoteBcSymbolmapUploadPath
-    mapExceptT (withReaderT (const (env, verbose))) $ getArtifactFromS3
-      s3BucketName
-      finalRemoteBcsymbolmaploadPath
-      symbolmapName
+    mapExceptT (withReaderT (const (env, verbose)))
+      $ getArtifactFromS3 s3BucketName finalRemoteBcsymbolmaploadPath symbolmapName
  where
-  remoteBcSymbolmapUploadPath =
-    remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
-  symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
+  remoteBcSymbolmapUploadPath = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
+  symbolmapName               = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
 
 
 
@@ -130,15 +112,10 @@ getAndUnzipFrameworkFromS3
 getAndUnzipFrameworkFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (_, _, verbose) <- ask
-    frameworkBinary <- getFrameworkFromS3 s3BucketName
-                                          reverseRomeMap
-                                          fVersion
-                                          platform
+    frameworkBinary <- getFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform
     deleteFrameworkDirectory fVersion platform verbose
     unzipBinary frameworkBinary fwn frameworkZipName verbose
-      <* ifExists
-           frameworkExecutablePath
-           (makeExecutable frameworkExecutablePath)
+      <* ifExists frameworkExecutablePath (makeExecutable frameworkExecutablePath)
  where
   frameworkZipName        = frameworkArchiveName f version
   frameworkExecutablePath = frameworkBuildBundleForPlatform platform f </> fwn
@@ -155,7 +132,7 @@ getAndUnzipDSYMFromS3
 getAndUnzipDSYMFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (_, _, verbose) <- ask
-    dSYMBinary <- getDSYMFromS3 s3BucketName reverseRomeMap fVersion platform
+    dSYMBinary      <- getDSYMFromS3 s3BucketName reverseRomeMap fVersion platform
     deleteDSYMDirectory fVersion platform verbose
     unzipBinary dSYMBinary fwn dSYMZipName verbose
   where dSYMZipName = dSYMArchiveName f version
@@ -174,16 +151,11 @@ getAndUnzipBcsymbolmapFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVers
   = when (platform `elem` fwps) $ do
     (_, _, verbose) <- ask
     let symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
-    binary <- getBcsymbolmapFromS3 s3BucketName
-                                   reverseRomeMap
-                                   fVersion
-                                   platform
-                                   dwarfUUID
+    binary <- getBcsymbolmapFromS3 s3BucketName reverseRomeMap fVersion platform dwarfUUID
     deleteFile (bcsymbolmapPath dwarfUUID) verbose
     unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
  where
-  platformBuildDirectory =
-    carthageArtifactsBuildDirectoryForPlatform platform f
+  platformBuildDirectory = carthageArtifactsBuildDirectoryForPlatform platform f
   bcsymbolmapZipName d = bcsymbolmapArchiveName d version
   bcsymbolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
 
@@ -195,36 +167,25 @@ getAndUnzipBcsymbolmapsFromS3'
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the dSYM in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
-  -> ExceptT
-       DWARFOperationError
-       (ReaderT (AWS.Env, CachePrefix, Bool) IO)
-       ()
+  -> ExceptT DWARFOperationError (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
 getAndUnzipBcsymbolmapsFromS3' lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) _) platform
   = when (platform `elem` fwps) $ do
 
-    dwarfUUIDs <- withExceptT (const ErrorGettingDwarfUUIDs)
-      $ dwarfUUIDsFrom (frameworkDirectory </> fwn)
+    dwarfUUIDs               <- withExceptT (const ErrorGettingDwarfUUIDs) $ dwarfUUIDsFrom (frameworkDirectory </> fwn)
     eitherDwarfUUIDsOrSucces <- forM
       dwarfUUIDs
       (\dwarfUUID -> lift $ runExceptT
-        (withExceptT (\e -> (dwarfUUID, e)) $ getAndUnzipBcsymbolmapFromS3
-          lCacheDir
-          reverseRomeMap
-          fVersion
-          platform
-          dwarfUUID
+        ( withExceptT (\e -> (dwarfUUID, e))
+        $ getAndUnzipBcsymbolmapFromS3 lCacheDir reverseRomeMap fVersion platform dwarfUUID
         )
       )
 
     let failedUUIDsAndErrors = lefts eitherDwarfUUIDsOrSucces
-    unless (null failedUUIDsAndErrors) $ throwError $ FailedDwarfUUIDs
-      failedUUIDsAndErrors
+    unless (null failedUUIDsAndErrors) $ throwError $ FailedDwarfUUIDs failedUUIDsAndErrors
  where
   frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-  platformBuildDirectory =
-    carthageArtifactsBuildDirectoryForPlatform platform f
-  frameworkDirectory =
-    platformBuildDirectory </> frameworkNameWithFrameworkExtension
+  platformBuildDirectory              = carthageArtifactsBuildDirectoryForPlatform platform f
+  frameworkDirectory                  = platformBuildDirectory </> frameworkNameWithFrameworkExtension
 
 
 
@@ -235,51 +196,31 @@ getArtifactFromS3
   -> String -- ^ A colloquial name for the artifact
   -> ExceptT String (ReaderT (AWS.Env, Bool) IO) LBS.ByteString
 getArtifactFromS3 s3BucketName remotePath artifactName = do
-  readerEnv@(_, verbose)            <- ask
-  eitherArtifact <- liftIO $ try $ runReaderT
-    (downloadBinary s3BucketName remotePath artifactName)
-    readerEnv
+  readerEnv@(_, verbose) <- ask
+  eitherArtifact         <- liftIO $ try $ runReaderT (downloadBinary s3BucketName remotePath artifactName) readerEnv
   case eitherArtifact of
-    Left e ->
-      throwError
-        $  "Error: could not download "
-        <> artifactName
-        <> " : "
-        <> awsErrorToString e verbose
+    Left e -> throwError $ "Error: could not download " <> artifactName <> " : " <> awsErrorToString e verbose
     Right artifactBinary -> return artifactBinary
 
 
 
 -- | Downloads an artifact stored at a given path from an `S3.BucketName`.
-downloadBinary
-  :: S3.BucketName
-  -> FilePath
-  -> FilePath
-  -> ReaderT (AWS.Env, Bool) IO LBS.ByteString
+downloadBinary :: S3.BucketName -> FilePath -> FilePath -> ReaderT (AWS.Env, Bool) IO LBS.ByteString
 downloadBinary s3BucketName objectRemotePath objectName = do
   (env, verbose) <- ask
   AWS.runResourceT . AWS.runAWS env $ do
     let sayFunc = if verbose then sayLnWithTime else sayLn
-    when verbose
-      $  sayFunc
-      $  "Started downloading "
-      <> objectName
-      <> " from: "
-      <> objectRemotePath
+    when verbose $ sayFunc $ "Started downloading " <> objectName <> " from: " <> objectRemotePath
     rs <- AWS.send $ S3.getObject s3BucketName objectKey
-    let contentLength =
-          fromIntegral $ fromMaybe 0 $ view S3.gorsContentLength rs
+    let contentLength = fromIntegral $ fromMaybe 0 $ view S3.gorsContentLength rs
     binary <- view S3.gorsBody rs `AWS.sinkBody` sink verbose contentLength
     sayFunc $ "Downloaded " <> objectName <> " from: " <> objectRemotePath
     return binary
  where
   objectKey = S3.ObjectKey . T.pack $ objectRemotePath
-  sink verbose totalLength = if verbose
-    then printProgress objectName totalLength C..| C.sinkLbs
-    else C.sinkLbs
+  sink verbose totalLength = if verbose then printProgress objectName totalLength C..| C.sinkLbs else C.sinkLbs
 
-  printProgress
-    :: MonadIO m => String -> Int -> C.ConduitT BS.ByteString BS.ByteString m ()
+  printProgress :: MonadIO m => String -> Int -> C.ConduitT BS.ByteString BS.ByteString m ()
   printProgress objName totalLength = loop totalLength 0 0
    where
     loop t consumedLen lastLen = C.await >>= maybe

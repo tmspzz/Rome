@@ -11,27 +11,48 @@ module Network.AWS.Utils
   , sourceProfileOf
   , accessKeyIdOf
   , secretAccessKeyOf
+  , sessionTokenOf
+  , expirationOf
   , roleARNOf
-  ) where
+  )
+where
 
 -- For now, only very little information needs to be extracted from the S3
 -- config file, but extracting it into a separate module is consistent with
 -- `Data.Romefile` and `Data.Carthage` and avoids dealing with the raw INI
 -- file representation (String-keyed hashmaps) in the main logic.
 
-import           Control.Monad     ((<=<))
-import           Data.Either.Utils (maybeToEither)
-import           Data.Either.Extra (mapLeft)
-import           Data.Ini          (Ini, lookupValue, parseIni)
-import qualified Data.Text         as T (Text, null, pack, unpack)
-import qualified Data.Text.Encoding           as T (encodeUtf8)
-import qualified Data.Text.IO      as T (readFile)
-import qualified Network.AWS       as AWS
-import qualified Network.AWS.Data  as AWS
-import qualified Network.AWS.Data.Sensitive   as AWS (Sensitive (..))
+import           Control.Applicative            ( (<|>) )
+import           Control.Monad                  ( (<=<) )
+import           Control.Monad.IO.Class         ( MonadIO
+                                                , liftIO
+                                                )
+import           Control.Monad.Except           ( ExceptT(..)
+                                                , withExceptT
+                                                )
+import           Data.Either.Utils              ( maybeToEither )
+import           Data.Either.Extra              ( mapLeft )
+import           Data.Ini                       ( Ini
+                                                , lookupValue
+                                                , parseIni
+                                                )
+import qualified Data.Text                     as T
+                                                ( Text
+                                                , null
+                                                , pack
+                                                , unpack
+                                                )
+import qualified Data.Text.Encoding            as T
+                                                ( encodeUtf8 )
+import qualified Data.Text.IO                  as T
+                                                ( readFile )
+import qualified Network.AWS                   as AWS
+import qualified Network.AWS.Data              as AWS
+import qualified Network.AWS.Data.Sensitive    as AWS
+                                                ( Sensitive(..) )
 import           Network.URL
-import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Control.Monad.Except (ExceptT (..), withExceptT)
+import qualified Text.Read                     as T
+                                                ( readEither )
 
 newtype ConfigFile = ConfigFile { _awsConfigIni :: Ini } deriving Show
 newtype CredentialsFile = CredentialsFile { _awsCredentialsIni :: Ini } deriving Show
@@ -70,12 +91,16 @@ authFromCredentilas profile credentials = AWS.Auth <$> authEnv
  where
   accessKeyId     = T.encodeUtf8 <$> accessKeyIdOf profile credentials
   secretAccessKey = T.encodeUtf8 <$> secretAccessKeyOf profile credentials
+  sessionToken    = T.encodeUtf8 <$> sessionTokenOf profile credentials
+  expirationDate  = expirationOf profile credentials
   authEnv =
     AWS.AuthEnv
       <$> (AWS.AccessKey <$> accessKeyId)
       <*> (AWS.Sensitive . AWS.SecretKey <$> secretAccessKey)
-      <*> pure Nothing
-      <*> pure Nothing
+      <*> (   (Just . AWS.Sensitive . AWS.SessionToken <$> sessionToken)
+          <|> pure Nothing
+          )
+      <*> ((T.readEither =<< T.unpack <$> expirationDate) <|> pure Nothing)
 
 regionOf :: T.Text -> ConfigFile -> Either String AWS.Region
 regionOf profile = parseRegion <=< lookupValue profile "region" . asIni
@@ -101,33 +126,26 @@ getPropertyFromCredentials
 getPropertyFromCredentials profile property =
   lookupValue profile property . asIni
 
-getPropertyFromConfig
-  :: T.Text -> T.Text -> ConfigFile -> Either String T.Text
-getPropertyFromConfig profile property =
-  lookupValue profile property . asIni
+getPropertyFromConfig :: T.Text -> T.Text -> ConfigFile -> Either String T.Text
+getPropertyFromConfig profile property = lookupValue profile property . asIni
 
 sourceProfileOf :: T.Text -> ConfigFile -> Either String T.Text
 sourceProfileOf profile configFile =
   getPropertyFromConfig finalProfile key configFile
     `withError` const (missingKeyError key profile)
-  where 
-    key = "source_profile"
-    finalProfile = 
-      if profile == "default" then 
-        profile 
-      else 
-        T.pack "profile " <> profile
+ where
+  key = "source_profile"
+  finalProfile =
+    if profile == "default" then profile else T.pack "profile " <> profile
 
 roleARNOf :: T.Text -> ConfigFile -> Either String T.Text
-roleARNOf profile configFile = getPropertyFromConfig finalProfile key configFile
-  `withError` const (missingKeyError key profile)
-  where 
-    key = "role_arn"
-    finalProfile = 
-      if profile == "default" then 
-        profile 
-      else 
-        T.pack "profile " <> profile
+roleARNOf profile configFile =
+  getPropertyFromConfig finalProfile key configFile
+    `withError` const (missingKeyError key profile)
+ where
+  key = "role_arn"
+  finalProfile =
+    if profile == "default" then profile else T.pack "profile " <> profile
 
 accessKeyIdOf :: T.Text -> CredentialsFile -> Either String T.Text
 accessKeyIdOf profile credFile =
@@ -151,6 +169,17 @@ secretAccessKeyOf profile credFile =
   getPropertyFromCredentials profile key credFile
     `withError` const (missingKeyError key profile)
   where key = "aws_secret_access_key"
+
+sessionTokenOf :: T.Text -> CredentialsFile -> Either String T.Text
+sessionTokenOf profile credFile =
+  getPropertyFromCredentials profile key credFile
+    `withError` const (missingKeyError key profile)
+  where key = "aws_session_token"
+
+expirationOf :: T.Text -> CredentialsFile -> Either String T.Text
+expirationOf profile credFile = getPropertyFromCredentials profile key credFile
+  `withError` const (missingKeyError key profile)
+  where key = "aws_expiration"
 
 parseConfigFile :: T.Text -> Either String ConfigFile
 parseConfigFile = fmap ConfigFile . parseIni

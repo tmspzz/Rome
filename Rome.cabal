@@ -1,5 +1,5 @@
 name:                Rome
-version:             0.23.1.61
+version:             0.23.2.62
 synopsis:            A cache for Carthage
 description:         Please see README.md
 homepage:            https://github.com/blender/Rome
@@ -74,6 +74,7 @@ library
                        , extra >= 1.5.3
                        , yaml >= 0.9.0
                        , safe >= 0.3.17
+                       , uuid >= 1.3.13
 
   ghc-options:         -Wall -fno-warn-unused-do-bind
 
@@ -89,6 +90,8 @@ executable rome
                      , Rome
                      , mtl >= 2.2.1
                      , optparse-applicative >= 0.12
+                     , uuid >= 1.3.13
+
 
 
 

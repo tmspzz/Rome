@@ -173,7 +173,7 @@ teardown() {
 
   rm -rf Carthage/Build
   run rome download --concurrently --skip-local-cache --cache-prefix travis
-  
+
   [ "$status" -eq 0 ]
 
   # Version file

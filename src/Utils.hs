@@ -5,50 +5,77 @@
 
 module Utils where
 
-import qualified Codec.Archive.Zip            as Zip
-import           Configuration                (carthageArtifactsBuildDirectoryForPlatform)
-import           Control.Arrow                (left)
-import           Control.Exception            as E (try)
-import           Control.Lens                 hiding (List)
+import qualified Codec.Archive.Zip             as Zip
+import           Configuration                            ( carthageArtifactsBuildDirectoryForPlatform )
+import           Control.Arrow                            ( left )
+import           Control.Exception             as E
+                                                          ( try )
+import           Control.Lens                      hiding ( List )
 import           Control.Monad.Catch
 import           Control.Monad.Except
-import           Control.Monad.Trans.Resource (MonadUnliftIO, runResourceT)
+import           Control.Monad.Trans.Resource             ( MonadUnliftIO
+                                                          , runResourceT
+                                                          )
 import           Data.Aeson
 import           Data.Aeson.Types
-import qualified Data.ByteString.Char8        as BS
-import qualified Data.ByteString.Lazy         as LBS
+import qualified Data.ByteString.Char8         as BS
+import qualified Data.ByteString.Lazy          as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
-import           Data.Char                    (isNumber)
-import qualified Data.Conduit                 as C (runConduit, (.|))
-import qualified Data.Conduit.Binary          as C (sinkFile, sourceLbs)
-import           Data.Function                (on)
+import           Data.Char                                ( isNumber )
+import qualified Data.Conduit                  as C
+                                                          ( runConduit
+                                                          , (.|)
+                                                          )
+import qualified Data.Conduit.Binary           as C
+                                                          ( sinkFile
+                                                          , sourceLbs
+                                                          )
+import           Data.Function                            ( on )
 import           Data.List
-import qualified Data.Map.Strict              as M
-import           Data.Maybe                   (fromJust, fromMaybe)
+import qualified Data.Map.Strict               as M
+import           Data.Maybe                               ( fromJust
+                                                          , fromMaybe
+                                                          )
 import           Data.Romefile
-import qualified Data.Text                    as T
+import qualified Data.Text                     as T
 import           Data.Text.Encoding
-import qualified Data.Text.IO                 as T
+import qualified Data.Text.IO                  as T
 import           Data.Time
-import qualified Network.AWS                  as AWS (Error, ErrorMessage(..), serviceMessage, _ServiceError)
-import qualified Network.AWS.Data.Text        as AWS (showText)
+import qualified Network.AWS                   as AWS
+                                                          ( Error
+                                                          , ErrorMessage(..)
+                                                          , serviceMessage
+                                                          , _ServiceError
+                                                          )
+import qualified Network.AWS.Data.Text         as AWS
+                                                          ( showText )
 
-import           Network.HTTP.Conduit         as HTTP
-import           Network.HTTP.Types.Header    as HTTP (hUserAgent)
-import           Numeric                      (showFFloat)
-import           System.Directory             (createDirectoryIfMissing,
-                                               doesDirectoryExist,
-                                               doesFileExist, getHomeDirectory,
-                                               removeFile)
-import           System.FilePath              (addTrailingPathSeparator,
-                                               dropFileName, normalise, (</>))
-import           System.IO.Error              (isDoesNotExistError)
-import           System.Path.NameManip        (absolute_path, guess_dotdot)
-import           Text.Read                    (readMaybe)
+import           Network.HTTP.Conduit          as HTTP
+import           Network.HTTP.Types.Header     as HTTP
+                                                          ( hUserAgent )
+import           Numeric                                  ( showFFloat )
+import           System.Directory                         ( createDirectoryIfMissing
+                                                          , doesDirectoryExist
+                                                          , doesFileExist
+                                                          , getHomeDirectory
+                                                          , removeFile
+                                                          )
+import           System.FilePath                          ( addTrailingPathSeparator
+                                                          , dropFileName
+                                                          , normalise
+                                                          , (</>)
+                                                          )
+import           System.IO.Error                          ( isDoesNotExistError )
+import           System.Path.NameManip                    ( absolute_path
+                                                          , guess_dotdot
+                                                          )
+import           Text.Read                                ( readMaybe )
 import qualified Turtle
 import           Types
-import           Xcode.DWARF                  (DwarfUUID, bcsymbolmapNameFrom)
+import           Xcode.DWARF                              ( DwarfUUID
+                                                          , bcsymbolmapNameFrom
+                                                          )
 
 
 
@@ -58,15 +85,12 @@ romeVersionToString (major, minor, patch, build) =
   show major <> "." <> show minor <> "." <> show patch <> "." <> show build
 
 -- | Check if the given `RomeVersion` is the latest version compared to GitHub releases
-checkIfRomeLatestVersionIs
-  :: MonadIO m => RomeVersion -> ExceptT String m (Bool, RomeVersion)
+checkIfRomeLatestVersionIs :: MonadIO m => RomeVersion -> ExceptT String m (Bool, RomeVersion)
 checkIfRomeLatestVersionIs currentRomeVersion = do
-  req <- liftIO $ HTTP.parseRequest
-    "https://api.github.com/repos/blender/Rome/releases/latest"
+  req <- liftIO $ HTTP.parseRequest "https://api.github.com/repos/blender/Rome/releases/latest"
 
   let headers = HTTP.requestHeaders req <> [(HTTP.hUserAgent, userAgent)]
-  let req' =
-        req { HTTP.responseTimeout = timeout, HTTP.requestHeaders = headers }
+  let req'    = req { HTTP.responseTimeout = timeout, HTTP.requestHeaders = headers }
 
   manager <- liftIO $ HTTP.newManager HTTP.tlsManagerSettings
 
@@ -74,8 +98,7 @@ checkIfRomeLatestVersionIs currentRomeVersion = do
     $ E.try (HTTP.responseBody <$> HTTP.httpLbs req' manager)
 
   let eitherTagName :: Either String String =
-        left show eitherBody >>= eitherDecode >>= \d ->
-          flip parseEither d $ \obj -> obj .: "tag_name"
+        left show eitherBody >>= eitherDecode >>= \d -> flip parseEither d $ \obj -> obj .: "tag_name"
 
   either throwError return
     $   (\tagVersion -> (currentRomeVersion >= tagVersion, tagVersion))
@@ -89,12 +112,7 @@ checkIfRomeLatestVersionIs currentRomeVersion = do
       . splitWithSeparator '.'
       . T.pack
       . dropWhile (not . isNumber)
-  versionTupleOrZeros a =
-    ( fromMaybe 0 (a !!? 0)
-    , fromMaybe 0 (a !!? 1)
-    , fromMaybe 0 (a !!? 2)
-    , fromMaybe 0 (a !!? 3)
-    )
+  versionTupleOrZeros a = (fromMaybe 0 (a !!? 0), fromMaybe 0 (a !!? 1), fromMaybe 0 (a !!? 2), fromMaybe 0 (a !!? 3))
 
   timeout   = responseTimeoutMicro 1000000 -- 1 second
   userAgent = BS.pack $ "Rome/" <> romeVersionToString currentRomeVersion
@@ -113,8 +131,7 @@ awsErrorToString :: AWS.Error -> Bool -> String
 awsErrorToString e verbose = if verbose
   then show e
   else AWS.showText $ fromMaybe (AWS.ErrorMessage "Unexpected Error") maybeServiceError
-  where
-    maybeServiceError = view AWS.serviceMessage =<< (e ^? AWS._ServiceError)
+  where maybeServiceError = view AWS.serviceMessage =<< (e ^? AWS._ServiceError)
 
 
 
@@ -155,8 +172,7 @@ appendFrameworkExtensionTo (Framework a _ _) = a ++ ".framework"
 
 -- | Given a `Framework` and a `Version` produces a name for a Zip archive.
 frameworkArchiveName :: Framework -> Version -> String
-frameworkArchiveName f@(Framework _ Dynamic _) (Version v) =
-  appendFrameworkExtensionTo f ++ "-" ++ v ++ ".zip"
+frameworkArchiveName f@(Framework _ Dynamic _) (Version v) = appendFrameworkExtensionTo f ++ "-" ++ v ++ ".zip"
 frameworkArchiveName f@(Framework _ Static _) (Version v) =
   appendFrameworkExtensionTo f ++ "-" ++ "static" ++ "-" ++ v ++ ".zip"
 
@@ -165,31 +181,22 @@ frameworkArchiveName f@(Framework _ Static _) (Version v) =
 -- | Given a `Framework` and a `Version` produces a name
 -- | for a dSYM Zip archive.
 dSYMArchiveName :: Framework -> Version -> String
-dSYMArchiveName f@(Framework _ Dynamic _) (Version v) =
-  appendFrameworkExtensionTo f ++ ".dSYM" ++ "-" ++ v ++ ".zip"
+dSYMArchiveName f@(Framework _ Dynamic _) (Version v) = appendFrameworkExtensionTo f ++ ".dSYM" ++ "-" ++ v ++ ".zip"
 dSYMArchiveName f@(Framework _ Static _) (Version v) =
-  appendFrameworkExtensionTo f
-    ++ ".dSYM"
-    ++ "-"
-    ++ "static"
-    ++ "-"
-    ++ v
-    ++ ".zip"
+  appendFrameworkExtensionTo f ++ ".dSYM" ++ "-" ++ "static" ++ "-" ++ v ++ ".zip"
 
 
 
 -- | Given a `DwarfUUID` and a `Version` produces a name
 -- | for a bcsymbolmap Zip archive.
 bcsymbolmapArchiveName :: DwarfUUID -> Version -> String
-bcsymbolmapArchiveName d (Version v) =
-  bcsymbolmapNameFrom d ++ "-" ++ v ++ ".zip"
+bcsymbolmapArchiveName d (Version v) = bcsymbolmapNameFrom d ++ "-" ++ v ++ ".zip"
 
 
 
 -- | Given a list of `CartfileEntry`s  and a list of `ProjectName`s
 -- | produces a list of `CartfileEntry`s filtered by `ProjectName`s
-filterCartfileEntriesByGitRepoNames
-  :: [ProjectName] -> [CartfileEntry] -> [CartfileEntry]
+filterCartfileEntriesByGitRepoNames :: [ProjectName] -> [CartfileEntry] -> [CartfileEntry]
 filterCartfileEntriesByGitRepoNames repoNames cartfileEntries =
   [ c | c <- cartfileEntries, gitRepoNameFromCartfileEntry c `elem` repoNames ]
 
@@ -206,55 +213,35 @@ gitRepoNameFromCartfileEntry :: CartfileEntry -> ProjectName
 gitRepoNameFromCartfileEntry (CartfileEntry GitHub (Location l) _) =
   ProjectName . T.unpack . last . splitWithSeparator '/' . T.pack $ l
 gitRepoNameFromCartfileEntry (CartfileEntry Git (Location l) _) =
-  ProjectName
-    . T.unpack
-    . T.replace ".git" ""
-    . last
-    . splitWithSeparator '/'
-    . T.pack
-    $ l
+  ProjectName . T.unpack . T.replace ".git" "" . last . splitWithSeparator '/' . T.pack $ l
 gitRepoNameFromCartfileEntry (CartfileEntry Binary (Location l) _) =
-  ProjectName
-    . T.unpack
-    . T.replace ".json" ""
-    . last
-    . splitWithSeparator '/'
-    . T.pack
-    $ l
+  ProjectName . T.unpack . T.replace ".json" "" . last . splitWithSeparator '/' . T.pack $ l
 
 
 
 -- | Given a list of `FrameworkVersion` and a `Framework` returns
 -- | a list for `FrameworkVersion` elements matching `Framework`.
-filterByFrameworkEqualTo
-  :: [FrameworkVersion] -> Framework -> [FrameworkVersion]
-filterByFrameworkEqualTo versions f =
-  [ ver | ver <- versions, _framework ver == f ]
+filterByFrameworkEqualTo :: [FrameworkVersion] -> Framework -> [FrameworkVersion]
+filterByFrameworkEqualTo versions f = [ ver | ver <- versions, _framework ver == f ]
 
 
 
 -- | Given a list of `FrameworkVersion` and a list of `Framework`
 -- | filters out of the list of `FrameworkVersion` elements that don't apper
 -- | in the list of `Framework`.
-filterOutFrameworksAndVersionsIfNotIn
-  :: [FrameworkVersion] -> [Framework] -> [FrameworkVersion]
+filterOutFrameworksAndVersionsIfNotIn :: [FrameworkVersion] -> [Framework] -> [FrameworkVersion]
 filterOutFrameworksAndVersionsIfNotIn versions frameworks = do
   ver@(FrameworkVersion f@(Framework n t _) v) <- versions -- For each version
-  let filteredFrameworks =
-        (\(Framework nF tF _) -> nF == n && tF == t) `filter` frameworks -- filter the frameworks to exclude based on name and type, not on the platforms
+  let filteredFrameworks = (\(Framework nF tF _) -> nF == n && tF == t) `filter` frameworks -- filter the frameworks to exclude based on name and type, not on the platforms
   if null filteredFrameworks -- If none match
     then return ver -- don't filter this FrameworkVersion out
     else do  -- if there there are matches
-      let
-        filteredFrameworks2 =
-          f `removePlatformsIn` nub
-            (concatMap _frameworkPlatforms filteredFrameworks)
+      let filteredFrameworks2 = f `removePlatformsIn` nub (concatMap _frameworkPlatforms filteredFrameworks)
       guard (not . null $ _frameworkPlatforms filteredFrameworks2) -- if the entry completely filters out the FrameworkVersion then remove it
       return $ FrameworkVersion filteredFrameworks2 v -- if it doesn't, then remove from f the platforms that appear in the filter above.
  where
   removePlatformsIn :: Framework -> [TargetPlatform] -> Framework
-  removePlatformsIn (Framework n t ps) rPs =
-    Framework n t [ p | p <- ps, p `notElem` rPs ]
+  removePlatformsIn (Framework n t ps) rPs = Framework n t [ p | p <- ps, p `notElem` rPs ]
 
 
 
@@ -267,18 +254,14 @@ removeIntersectingPlatforms lhs rhs = do
   -- | remove the overlapping platforms
   removeIntersectingPlatforms' :: Framework -> Framework -> Framework
   removeIntersectingPlatforms' f1@(Framework n t ps) (Framework n2 t2 ps2)
-    | n == n2 && t == t2 && (not . null) (ps `intersect` ps2) = Framework
-      n
-      t
-      [ p | p <- ps, p `notElem` ps2 ]
+    | n == n2 && t == t2 && (not . null) (ps `intersect` ps2) = Framework n t [ p | p <- ps, p `notElem` ps2 ]
     | otherwise = f1
 
 
 
 -- | Given a `RepositoryMap` and a `ProjectName` returns a `RepositoryMap`
 -- | with that one `ProjectName` or an empty `RepositoryMap`.
-restrictRepositoryMapToGitRepoName
-  :: RepositoryMap -> ProjectName -> RepositoryMap
+restrictRepositoryMapToGitRepoName :: RepositoryMap -> ProjectName -> RepositoryMap
 restrictRepositoryMapToGitRepoName repoMap repoName =
   maybe M.empty (M.singleton repoName) $ repoName `M.lookup` repoMap
 
@@ -287,16 +270,12 @@ restrictRepositoryMapToGitRepoName repoMap repoName =
 -- | Given two lists of `RomefileEntry`, adjust the entries in one list
 -- | according to entries in the other list. Specifically remove the platforms that
 -- | are common in both entries. If the resulting platforms are empty, remove the entry.
-filterRomeFileEntriesByPlatforms
-  :: [RomefileEntry] -> [RomefileEntry] -> [RomefileEntry]
-filterRomeFileEntriesByPlatforms lhs rhs =
-  (uncurry RomefileEntry <$>) . M.toList $ lhsMap `purgingPlatformsIn` rhsMap
+filterRomeFileEntriesByPlatforms :: [RomefileEntry] -> [RomefileEntry] -> [RomefileEntry]
+filterRomeFileEntriesByPlatforms lhs rhs = (uncurry RomefileEntry <$>) . M.toList $ lhsMap `purgingPlatformsIn` rhsMap
  where
   purgingPlatformsIn = M.differenceWith purge
   purge a b =
-    let filteredEntries =
-          (\(Framework _ _ ps) -> not . null $ ps)
-            `filter` (a `removeIntersectingPlatforms` b)
+    let filteredEntries = (\(Framework _ _ ps) -> not . null $ ps) `filter` (a `removeIntersectingPlatforms` b)
     in  Just filteredEntries
   lhsMap = toRepositoryMap lhs
   rhsMap = toRepositoryMap rhs
@@ -304,40 +283,28 @@ filterRomeFileEntriesByPlatforms lhs rhs =
 
 
 -- | Builds a string representing the remote path to a framework zip archive.
-remoteFrameworkPath
-  :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
-remoteFrameworkPath p r f v =
-  remoteCacheDirectory p r f ++ frameworkArchiveName f v
+remoteFrameworkPath :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
+remoteFrameworkPath p r f v = remoteCacheDirectory p r f ++ frameworkArchiveName f v
 
 
 
 -- | Builds a `String` representing the remote path to a dSYM zip archive
-remoteDsymPath
-  :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
+remoteDsymPath :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
 remoteDsymPath p r f v = remoteCacheDirectory p r f ++ dSYMArchiveName f v
 
 
 
 -- | Builds a `String` representing the remote path to a bcsymbolmap zip archive
-remoteBcsymbolmapPath
-  :: DwarfUUID
-  -> TargetPlatform
-  -> InvertedRepositoryMap
-  -> Framework
-  -> Version
-  -> String
-remoteBcsymbolmapPath d p r f v =
-  remoteCacheDirectory p r f ++ bcsymbolmapArchiveName d v
+remoteBcsymbolmapPath :: DwarfUUID -> TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
+remoteBcsymbolmapPath d p r f v = remoteCacheDirectory p r f ++ bcsymbolmapArchiveName d v
 
 
 
 -- | Builds a `String` representing the name of the remote cache directory for a
 -- | given conbination of `TargetPlatform` and `Framework` based on an
 -- | `InvertedRepositoryMap`.
-remoteCacheDirectory
-  :: TargetPlatform -> InvertedRepositoryMap -> Framework -> String
-remoteCacheDirectory p r f = repoName </> show p ++ "/"
-  where repoName = unProjectName $ repoNameForFrameworkName r f
+remoteCacheDirectory :: TargetPlatform -> InvertedRepositoryMap -> Framework -> String
+remoteCacheDirectory p r f = repoName </> show p ++ "/" where repoName = unProjectName $ repoNameForFrameworkName r f
 
 
 
@@ -345,8 +312,7 @@ remoteCacheDirectory p r f = repoName </> show p ++ "/"
 -- | `ProjectNameAndVersion`
 remoteVersionFilePath :: ProjectNameAndVersion -> String
 remoteVersionFilePath (projectName, version) =
-  unProjectName projectName
-    </> versionFileNameForProjectNameVersioned projectName version
+  unProjectName projectName </> versionFileNameForProjectNameVersioned projectName version
 
 
 
@@ -354,9 +320,7 @@ remoteVersionFilePath (projectName, version) =
 -- | a combination of `TargetPlatform` and `Framework` representing
 -- | the path to the framework's bundle
 frameworkBuildBundleForPlatform :: TargetPlatform -> Framework -> String
-frameworkBuildBundleForPlatform p f =
-  carthageArtifactsBuildDirectoryForPlatform p f
-    </> appendFrameworkExtensionTo f
+frameworkBuildBundleForPlatform p f = carthageArtifactsBuildDirectoryForPlatform p f </> appendFrameworkExtensionTo f
 
 
 
@@ -388,19 +352,16 @@ romeFileEntryToTuple RomefileEntry {..} = (_projectName, _frameworks)
 -- | Creates a `ProjectName` from just the `frameworkName` of a `FrameworkName`
 -- | in case the lookup fails.
 repoNameForFrameworkName :: InvertedRepositoryMap -> Framework -> ProjectName
-repoNameForFrameworkName reverseRomeMap framework = fromMaybe
-  (ProjectName . _frameworkName $ framework)
-  (M.lookup framework reverseRomeMap)
+repoNameForFrameworkName reverseRomeMap framework =
+  fromMaybe (ProjectName . _frameworkName $ framework) (M.lookup framework reverseRomeMap)
 
 
 
 -- | Given an `InvertedRepositoryMap` and a list of  `FrameworkVersion` produces
 -- | a list of __unique__ `ProjectNameAndVersion`s
-repoNamesAndVersionForFrameworkVersions
-  :: InvertedRepositoryMap -> [FrameworkVersion] -> [ProjectNameAndVersion]
-repoNamesAndVersionForFrameworkVersions reverseRomeMap versions = nub $ zip
-  (map (repoNameForFrameworkName reverseRomeMap . _framework) versions)
-  (map _frameworkVersion versions)
+repoNamesAndVersionForFrameworkVersions :: InvertedRepositoryMap -> [FrameworkVersion] -> [ProjectNameAndVersion]
+repoNamesAndVersionForFrameworkVersions reverseRomeMap versions =
+  nub $ zip (map (repoNameForFrameworkName reverseRomeMap . _framework) versions) (map _frameworkVersion versions)
 
 
 
@@ -414,8 +375,7 @@ versionFileNameForProjectName prjn = "." <> unProjectName prjn <> ".version"
 -- | Given a `ProjectName` produces the appropriate file name for the corresponding
 -- | Carthage VersionFile with appenended `Version` information
 versionFileNameForProjectNameVersioned :: ProjectName -> Version -> String
-versionFileNameForProjectNameVersioned prjn version =
-  versionFileNameForProjectName prjn <> "-" <> unVersion version
+versionFileNameForProjectNameVersioned prjn version = versionFileNameForProjectName prjn <> "-" <> unVersion version
 
 
 
@@ -438,10 +398,8 @@ formattedPlatformAvailability p = availabilityPrefix p ++ platformName p
 
 -- | Given a `RepositoryMap` and a list of `CartfileEntry` creates a list of
 -- | `FrameworkVersion`s. See `deriveFrameworkNameAndVersion` for details.
-deriveFrameworkNamesAndVersion
-  :: RepositoryMap -> [CartfileEntry] -> [FrameworkVersion]
-deriveFrameworkNamesAndVersion romeMap =
-  concatMap (deriveFrameworkNameAndVersion romeMap)
+deriveFrameworkNamesAndVersion :: RepositoryMap -> [CartfileEntry] -> [FrameworkVersion]
+deriveFrameworkNamesAndVersion romeMap = concatMap (deriveFrameworkNameAndVersion romeMap)
 
 
 
@@ -449,10 +407,9 @@ deriveFrameworkNamesAndVersion romeMap =
 -- | Returns the HEAD commit hash in case there is no match
 deriveCurrentVersion :: MonadIO m => ExceptT String m Version
 deriveCurrentVersion = do
-  (revparseExitCode, headCommit, revparseErrorText) <- Turtle.procStrictWithErr
-    "git"
-    ["rev-parse", "HEAD"]
-    (return $ Turtle.unsafeTextToLine "")
+  (revparseExitCode, headCommit, revparseErrorText) <- Turtle.procStrictWithErr "git"
+                                                                                ["rev-parse", "HEAD"]
+                                                                                (return $ Turtle.unsafeTextToLine "")
   case revparseExitCode of
     Turtle.ExitSuccess -> do
       (describeExitCode, version, _) <- Turtle.procStrictWithErr
@@ -461,7 +418,7 @@ deriveCurrentVersion = do
         (return $ Turtle.unsafeTextToLine "")
       case describeExitCode of
         Turtle.ExitSuccess -> return $ Version (T.unpack $ T.stripEnd version)
-        _ -> return $ Version (T.unpack $ T.stripEnd headCommit)
+        _                  -> return $ Version (T.unpack $ T.stripEnd headCommit)
     _ -> throwError $ if (not . T.null) revparseErrorText
       then T.unpack $ errorMessageHeader <> revparseErrorText
       else T.unpack $ errorMessageHeader <> unknownErrorText
@@ -473,12 +430,10 @@ deriveCurrentVersion = do
 -- | Given a `RepositoryMap` and a `CartfileEntry` creates a list of
 -- | `FrameworkVersion` by attaching the `Version` information from the
 -- | `FrameworkName` in the `CartfileEntry`.
-deriveFrameworkNameAndVersion
-  :: RepositoryMap -> CartfileEntry -> [FrameworkVersion]
-deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry _ _ v) =
-  map (`FrameworkVersion` v) $ fromMaybe
-    [Framework repositoryName Dynamic allTargetPlatforms]
-    (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
+deriveFrameworkNameAndVersion :: RepositoryMap -> CartfileEntry -> [FrameworkVersion]
+deriveFrameworkNameAndVersion romeMap cfe@(CartfileEntry _ _ v) = map (`FrameworkVersion` v) $ fromMaybe
+  [Framework repositoryName Dynamic allTargetPlatforms]
+  (M.lookup (gitRepoNameFromCartfileEntry cfe) romeMap)
   where repositoryName = unProjectName $ gitRepoNameFromCartfileEntry cfe
 
 
@@ -495,24 +450,17 @@ filterRepoMapByGitRepoNames repoMap gitRepoNames =
 getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities
   :: InvertedRepositoryMap -> [FrameworkAvailability] -> [ProjectAvailability]
 getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap =
-  concatMap mergeRepoAvailabilities
-    . groupAvailabilities
-    . getGitRepoAvalabilities
+  concatMap mergeRepoAvailabilities . groupAvailabilities . getGitRepoAvalabilities
  where
   getGitRepoAvalabilities :: [FrameworkAvailability] -> [ProjectAvailability]
-  getGitRepoAvalabilities =
-    fmap getGitRepoAvailabilityFromFrameworkAvailability
+  getGitRepoAvalabilities = fmap getGitRepoAvailabilityFromFrameworkAvailability
 
-  getGitRepoAvailabilityFromFrameworkAvailability
-    :: FrameworkAvailability -> ProjectAvailability
-  getGitRepoAvailabilityFromFrameworkAvailability (FrameworkAvailability (FrameworkVersion fwn v) availabilities)
-    = ProjectAvailability (repoNameForFrameworkName reverseRomeMap fwn)
-                          v
-                          availabilities
+  getGitRepoAvailabilityFromFrameworkAvailability :: FrameworkAvailability -> ProjectAvailability
+  getGitRepoAvailabilityFromFrameworkAvailability (FrameworkAvailability (FrameworkVersion fwn v) availabilities) =
+    ProjectAvailability (repoNameForFrameworkName reverseRomeMap fwn) v availabilities
 
   groupAvailabilities :: [ProjectAvailability] -> [[ProjectAvailability]]
-  groupAvailabilities = groupBy ((==) `on` _availabilityProject)
-    . sortBy (compare `on` _availabilityProject)
+  groupAvailabilities = groupBy ((==) `on` _availabilityProject) . sortBy (compare `on` _availabilityProject)
 
   -- | Given a list of `ProjectAvailability`s produces a singleton list of
   -- | `ProjectAvailability`s containing all `PlatformAvailability`s of the
@@ -530,27 +478,22 @@ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRomeMap =
   --                      }
   -- ]
   mergeRepoAvailabilities :: [ProjectAvailability] -> [ProjectAvailability]
-  mergeRepoAvailabilities [] = []
-  mergeRepoAvailabilities repoAvailabilities@(x : _) =
-    [x { _repoPlatformAvailabilities = platformAvailabilities }]
+  mergeRepoAvailabilities []                         = []
+  mergeRepoAvailabilities repoAvailabilities@(x : _) = [x { _repoPlatformAvailabilities = platformAvailabilities }]
    where
     groupedPlatformAvailabilities :: [[PlatformAvailability]]
-    groupedPlatformAvailabilities = sortAndGroupPlatformAvailabilities
-      (repoAvailabilities >>= _repoPlatformAvailabilities)
+    groupedPlatformAvailabilities =
+      sortAndGroupPlatformAvailabilities (repoAvailabilities >>= _repoPlatformAvailabilities)
 
-    bothAvailable
-      :: PlatformAvailability -> PlatformAvailability -> PlatformAvailability
+    bothAvailable :: PlatformAvailability -> PlatformAvailability -> PlatformAvailability
     bothAvailable p p' = p { _isAvailable = _isAvailable p && _isAvailable p' }
 
     platformAvailabilities :: [PlatformAvailability]
-    platformAvailabilities =
-      fmap (foldl1 bothAvailable) groupedPlatformAvailabilities
+    platformAvailabilities = fmap (foldl1 bothAvailable) groupedPlatformAvailabilities
 
-    sortAndGroupPlatformAvailabilities
-      :: [PlatformAvailability] -> [[PlatformAvailability]]
+    sortAndGroupPlatformAvailabilities :: [PlatformAvailability] -> [[PlatformAvailability]]
     sortAndGroupPlatformAvailabilities =
-      groupBy ((==) `on` _availabilityPlatform)
-        . sortBy (compare `on` _availabilityPlatform)
+      groupBy ((==) `on` _availabilityPlatform) . sortBy (compare `on` _availabilityPlatform)
 
 
 
@@ -577,10 +520,7 @@ createZipArchive filePath verbose = do
   if fileExists || directoryExist
     then do
       when verbose $ sayLnWithTime $ "Starting to zip: " <> filePath
-      liftIO $ Zip.addFilesToArchive
-        [Zip.OptRecursive, Zip.OptPreserveSymbolicLinks]
-        Zip.emptyArchive
-        [filePath]
+      liftIO $ Zip.addFilesToArchive [Zip.OptRecursive, Zip.OptPreserveSymbolicLinks] Zip.emptyArchive [filePath]
     else throwError $ "Error: " <> filePath <> " does not exist"
 
 
@@ -636,14 +576,11 @@ deleteFrameworkDirectory
   -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
   -> Bool -- ^ A flag controlling verbosity
   -> m ()
-deleteFrameworkDirectory (FrameworkVersion f _) platform = deleteDirectory
-  frameworkDirectory
+deleteFrameworkDirectory (FrameworkVersion f _) platform = deleteDirectory frameworkDirectory
  where
   frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-  platformBuildDirectory =
-    carthageArtifactsBuildDirectoryForPlatform platform f
-  frameworkDirectory =
-    platformBuildDirectory </> frameworkNameWithFrameworkExtension
+  platformBuildDirectory              = carthageArtifactsBuildDirectoryForPlatform platform f
+  frameworkDirectory                  = platformBuildDirectory </> frameworkNameWithFrameworkExtension
 
 
 
@@ -654,14 +591,11 @@ deleteDSYMDirectory
   -> TargetPlatform -- ^ The `TargetPlatform` to restrict this operation to
   -> Bool -- ^ A flag controlling verbosity
   -> m ()
-deleteDSYMDirectory (FrameworkVersion f _) platform = deleteDirectory
-  dSYMDirectory
+deleteDSYMDirectory (FrameworkVersion f _) platform = deleteDirectory dSYMDirectory
  where
   frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-  platformBuildDirectory =
-    carthageArtifactsBuildDirectoryForPlatform platform f
-  dSYMDirectory =
-    platformBuildDirectory </> frameworkNameWithFrameworkExtension <> ".dSYM"
+  platformBuildDirectory              = carthageArtifactsBuildDirectoryForPlatform platform f
+  dSYMDirectory                       = platformBuildDirectory </> frameworkNameWithFrameworkExtension <> ".dSYM"
 
 
 
@@ -676,22 +610,10 @@ unzipBinary
 unzipBinary objectBinary objectName objectZipName verbose = do
   when verbose $ sayLnWithTime $ "Starting to unzip " <> objectZipName
   if LBS.length objectBinary == 0
-    then
-      when verbose
-      $  sayLnWithTime
-      $  "Warning: "
-      <> objectZipName
-      <> " is ZERO bytes"
+    then when verbose $ sayLnWithTime $ "Warning: " <> objectZipName <> " is ZERO bytes"
     else do
-      liftIO $ Zip.extractFilesFromArchive
-        [Zip.OptRecursive, Zip.OptPreserveSymbolicLinks]
-        (Zip.toArchive objectBinary)
-      when verbose
-        $  sayLnWithTime
-        $  "Unzipped "
-        <> objectName
-        <> " from: "
-        <> objectZipName
+      liftIO $ Zip.extractFilesFromArchive [Zip.OptRecursive, Zip.OptPreserveSymbolicLinks] (Zip.toArchive objectBinary)
+      when verbose $ sayLnWithTime $ "Unzipped " <> objectName <> " from: " <> objectZipName
 
 
 
@@ -703,10 +625,7 @@ saveBinaryToFile
   -> m ()
 saveBinaryToFile binaryArtifact destinationPath = do
   liftIO $ createDirectoryIfMissing True (dropFileName destinationPath)
-  runResourceT
-    $    C.runConduit
-    $    C.sourceLbs binaryArtifact
-    C..| C.sinkFile destinationPath
+  runResourceT $ C.runConduit $ C.sourceLbs binaryArtifact C..| C.sinkFile destinationPath
 
 
 

@@ -42,7 +42,7 @@ ignoreMap:
       platforms: [Mac]
 EOF
   mkdir -p ~/.aws
-  printf "[default]\n region = us-east-1" >> ~/.aws/config
+  printf "[default]\n region = us-east-1" > ~/.aws/config
 
   # minio
 
@@ -238,7 +238,9 @@ teardown() {
 }
 
 @test "rome downloads all artifacts from the local cache (dynamic, yml)" {
-  
+
+  skip
+
   if [ -d "../_rome-local-cache_bkp" ]; then
     echo "# Rome local cache restored" >&3
     cp -R ../_rome-local-cache_bkp/ rome-local-cache

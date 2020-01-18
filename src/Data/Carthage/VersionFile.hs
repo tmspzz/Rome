@@ -5,7 +5,7 @@ module Data.Carthage.VersionFile where
 
 import           Data.Carthage.Common
 import           Data.Carthage.TargetPlatform
-import qualified Data.Map.Strict              as M
+import qualified Data.Map.Strict               as M
 import           Data.Aeson
 import           Data.Aeson.Types
 
@@ -19,9 +19,7 @@ data FrameworkInfo = FrameworkInfo { _hash           :: String
                                   deriving (Show, Eq)
 
 instance FromJSON FrameworkInfo where
-  parseJSON (Object v) = FrameworkInfo <$>
-                       v .: "hash" <*>
-                       v .: "name"
+  parseJSON (Object v) = FrameworkInfo <$> v .: "hash" <*> v .: "name"
   parseJSON invalid    = typeMismatch "FrameworkInfo" invalid
 
 data FrameworkPlatformInfo = FrameworkPlatformInfo { targetPlatform :: TargetPlatform
@@ -40,12 +38,18 @@ data VersionFileEntry = VersionFileEntry { commitish    :: Version
                                          deriving (Show, Eq)
 
 instance FromJSON VersionFileEntry where
-  parseJSON (Object v) = VersionFileEntry
-                      <$> (Version <$> v .: "commitish")
-                      <*> v .: "xcodeVersion"
-                      <*> v .:? "iOS"
-                      <*> v .:? "tvOS"
-                      <*> v .:? "watchOS"
-                      <*> v .:? "Mac"
+  parseJSON (Object v) =
+    VersionFileEntry
+      <$> (Version <$> v .: "commitish")
+      <*> v
+      .:  "xcodeVersion"
+      <*> v
+      .:? "iOS"
+      <*> v
+      .:? "tvOS"
+      <*> v
+      .:? "watchOS"
+      <*> v
+      .:? "Mac"
 
-  parseJSON invalid    = typeMismatch "VersionFileEntry" invalid
+  parseJSON invalid = typeMismatch "VersionFileEntry" invalid

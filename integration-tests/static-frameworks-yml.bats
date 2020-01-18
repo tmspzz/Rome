@@ -50,7 +50,7 @@ ignoreMap:
     platforms: [iOS,Mac,tvOS,watchOS]
 EOF
   mkdir -p ~/.aws
-  printf "[default]\n region = us-east-1" >> ~/.aws/config
+  printf "[default]\n region = us-east-1" > ~/.aws/config
 
   # minio
 

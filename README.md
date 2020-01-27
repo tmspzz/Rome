@@ -1,6 +1,6 @@
 ![](logo/colosseum.jpg)
 
-# Rome [![Build Status](https://travis-ci.org/tmspzz/Rome.svg?branch=master)](https://travis-ci.org/tmspzz/Rome) [![rome-latest](https://img.shields.io/badge/release-v0.23.1.61-blue.svg)](https://github.com/tmspzz/Rome/releases/tag/v0.23.1.61) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/tmspzz/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
+# Rome [![Build Status](https://travis-ci.org/tmspzz/Rome.svg?branch=master)](https://travis-ci.org/tmspzz/Rome) [![rome-latest](https://img.shields.io/badge/release-v0.23.2.63-blue.svg)](https://github.com/tmspzz/Rome/releases/tag/v0.23.2.63) ![cocoapods](https://img.shields.io/cocoapods/v/Rome.svg) ![total-downloads](https://img.shields.io/github/downloads/tmspzz/Rome/total.svg) [![fastlane-plugin -badge](https://rawcdn.githack.com/fastlane/fastlane/master/fastlane/assets/plugin-badge.svg)](https://github.com/OpenShelter/fastlane-plugin-rome) [![twitter-follow](https://img.shields.io/twitter/follow/tmpz.svg?style=social&label=Follow)](https://twitter.com/tmpz)
 
 Rome is a tool that allows developers on Apple platforms to use:
 

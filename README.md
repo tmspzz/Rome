@@ -162,7 +162,7 @@ In code:
 #!/bin/bash
 rome download --platform iOS # download missing frameworks (or copy from local cache)
 carthage bootstrap --platform iOS --cache-builds # build dependencies missing a .version file or that where not found in the cache
-rome list --missing --platform iOS | awk '{print $1}' | xargs rome upload --platform iOS # upload what is missing
+rome list --missing --platform iOS | awk '{print $1}' | xargs -I {} rome upload "{}" --platform iOS # upload what is missing
 ```
 
 #### List workflow
@@ -175,8 +175,8 @@ In code:
 ```sh
 #!/bin/bash
 rome download --platform iOS # download missing frameworks (or copy from local cache)
-rome list --missing --platform iOS | awk '{print $1}' | xargs carthage bootstrap --platform iOS --cache-builds # list what is missing and update/build if needed
-rome list --missing --platform iOS | awk '{print $1}' | xargs rome upload --platform iOS # upload what is missing
+rome list --missing --platform iOS | awk '{print $1}' | xargs -I {} carthage bootstrap "{}" --platform iOS --cache-builds # list what is missing and update/build if needed
+rome list --missing --platform iOS | awk '{print $1}' | xargs -I {} rome upload "{}" --platform iOS # upload what is missing
 ```
 
 If no frameworks are missing, the `awk` pipe to `carthage` will fail and the rest of the command will not be executed. This avoids rebuilding all dependencies or uploading artifacts already present in the cache.
@@ -752,7 +752,7 @@ ResearchKit 1.4.1 : -tvOS -watchOS
 Forwarding a list of missing frameworks to Carthage for building:
 
 ```bash
-$ rome list --missing --platform ios | awk '{print $1}' | xargs carthage build --platform ios
+$ rome list --missing --platform ios | awk '{print $1}' | xargs -I {} carthage build "{}" --platform ios
 *** xcodebuild output can be found in ...
 ```
 

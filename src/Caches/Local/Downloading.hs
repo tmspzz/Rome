@@ -1,35 +1,41 @@
 module Caches.Local.Downloading where
 
-import           Configuration                            ( carthageBuildDirectory
-                                                          , carthageArtifactsBuildDirectoryForPlatform
-                                                          )
+import           Configuration                  ( carthageBuildDirectory
+                                                , carthageArtifactsBuildDirectoryForPlatform
+                                                )
+import           Control.Exception              ( catch
+                                                , throw
+                                                , displayException
+                                                )
 import           Control.Monad.Except
-import           Control.Monad.Trans.Resource             ( runResourceT )
+import           Control.Monad.Trans.Resource   ( runResourceT )
 import qualified Data.ByteString.Lazy          as LBS
 import           Data.Carthage.TargetPlatform
 import qualified Data.Conduit                  as C
-                                                          ( runConduit
-                                                          , (.|)
-                                                          )
+                                                ( runConduit
+                                                , (.|)
+                                                )
 import qualified Data.Conduit.Binary           as C
-                                                          ( sinkLbs
-                                                          , sourceFile
-                                                          )
+                                                ( sinkLbs
+                                                , sourceFile
+                                                )
 import           Data.Romefile
 import           Data.UUID                     as UUID
-                                                          ( UUID )
+                                                ( UUID )
 import           System.Directory
 import           System.FilePath
-import           Types                             hiding ( version )
+import           Types                   hiding ( version )
 
 import           Caches.Common
-import           Control.Monad.Reader                     ( ReaderT
-                                                          , ask
-                                                          )
+import           Control.Monad.Reader           ( ReaderT
+                                                , ask
+                                                )
 import           Data.Either
-import           Data.Monoid                              ( (<>) )
+import           Data.Monoid                    ( (<>) )
+import           System.IO.Error                ( isDoesNotExistError )
 import           Utils
 import           Xcode.DWARF
+
 
 
 
@@ -139,7 +145,14 @@ getAndUnzipBcsymbolmapFromLocalCache lCacheDir reverseRomeMap fVersion@(Framewor
     let symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
     binary <- getBcsymbolmapFromLocalCache lCacheDir cachePrefix reverseRomeMap fVersion platform dwarfUUID
     sayFunc $ "Found " <> symbolmapName <> " in local cache at: " <> frameworkLocalCachePath prefix
-    deleteFile (bcsymbolmapPath dwarfUUID) verbose
+    liftIO
+      $       deleteFile (bcsymbolmapPath dwarfUUID) verbose
+      `catch` (\e ->
+                let sayFuncIO = if verbose then sayLnWithTime else sayLn
+                in  if isDoesNotExistError e
+                      then when verbose $ sayFuncIO ("Error :" <> displayException e)
+                      else throw e
+              )
     unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
  where
   frameworkLocalCachePath cPrefix = lCacheDir </> cPrefix </> remoteFrameworkUploadPath

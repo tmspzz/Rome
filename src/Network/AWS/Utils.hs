@@ -97,9 +97,7 @@ authFromCredentilas profile credentials = AWS.Auth <$> authEnv
     AWS.AuthEnv
       <$> (AWS.AccessKey <$> accessKeyId)
       <*> (AWS.Sensitive . AWS.SecretKey <$> secretAccessKey)
-      <*> (   (Just . AWS.Sensitive . AWS.SessionToken <$> sessionToken)
-          <|> pure Nothing
-          )
+      <*> ((Just . AWS.Sensitive . AWS.SessionToken <$> sessionToken) <|> pure Nothing)
       <*> ((T.readEither =<< T.unpack <$> expirationDate) <|> pure Nothing)
 
 regionOf :: T.Text -> ConfigFile -> Either String AWS.Region
@@ -115,65 +113,47 @@ endPointOf profile = parseURL <=< lookupValue profile "endpoint" . asIni
  where
   parseURL s = if T.null s
     then Left "Failed reading: Failure parsing Endpoint from empty string"
-    else
-      maybeToEither "Failed reading: Endpoint is not a valid URL"
-      $ importURL
-      . T.unpack
-      $ s
+    else maybeToEither "Failed reading: Endpoint is not a valid URL" $ importURL . T.unpack $ s
 
-getPropertyFromCredentials
-  :: T.Text -> T.Text -> CredentialsFile -> Either String T.Text
-getPropertyFromCredentials profile property =
-  lookupValue profile property . asIni
+getPropertyFromCredentials :: T.Text -> T.Text -> CredentialsFile -> Either String T.Text
+getPropertyFromCredentials profile property = lookupValue profile property . asIni
 
 getPropertyFromConfig :: T.Text -> T.Text -> ConfigFile -> Either String T.Text
 getPropertyFromConfig profile property = lookupValue profile property . asIni
 
 sourceProfileOf :: T.Text -> ConfigFile -> Either String T.Text
-sourceProfileOf profile configFile =
-  getPropertyFromConfig finalProfile key configFile
-    `withError` const (missingKeyError key profile)
+sourceProfileOf profile configFile = getPropertyFromConfig finalProfile key configFile
+  `withError` const (missingKeyError key profile)
  where
-  key = "source_profile"
-  finalProfile =
-    if profile == "default" then profile else T.pack "profile " <> profile
+  key          = "source_profile"
+  finalProfile = if profile == "default" then profile else T.pack "profile " <> profile
 
 roleARNOf :: T.Text -> ConfigFile -> Either String T.Text
-roleARNOf profile configFile =
-  getPropertyFromConfig finalProfile key configFile
-    `withError` const (missingKeyError key profile)
+roleARNOf profile configFile = getPropertyFromConfig finalProfile key configFile
+  `withError` const (missingKeyError key profile)
  where
-  key = "role_arn"
-  finalProfile =
-    if profile == "default" then profile else T.pack "profile " <> profile
+  key          = "role_arn"
+  finalProfile = if profile == "default" then profile else T.pack "profile " <> profile
 
 accessKeyIdOf :: T.Text -> CredentialsFile -> Either String T.Text
-accessKeyIdOf profile credFile =
-  getPropertyFromCredentials profile key credFile
-    `withError` const (missingKeyError key profile)
+accessKeyIdOf profile credFile = getPropertyFromCredentials profile key credFile
+  `withError` const (missingKeyError key profile)
   where key = "aws_access_key_id"
 
 missingKeyError :: T.Text -> T.Text -> String
-missingKeyError key profile =
-  "Could not find key `"
-    ++ T.unpack key
-    ++ "` for profile `"
-    ++ T.unpack profile
-    ++ "`"
+missingKeyError key profile = "Could not find key `" ++ T.unpack key ++ "` for profile `" ++ T.unpack profile ++ "`"
 
 withError :: Either a b -> (a -> c) -> Either c b
 withError = flip mapLeft
 
 secretAccessKeyOf :: T.Text -> CredentialsFile -> Either String T.Text
-secretAccessKeyOf profile credFile =
-  getPropertyFromCredentials profile key credFile
-    `withError` const (missingKeyError key profile)
+secretAccessKeyOf profile credFile = getPropertyFromCredentials profile key credFile
+  `withError` const (missingKeyError key profile)
   where key = "aws_secret_access_key"
 
 sessionTokenOf :: T.Text -> CredentialsFile -> Either String T.Text
-sessionTokenOf profile credFile =
-  getPropertyFromCredentials profile key credFile
-    `withError` const (missingKeyError key profile)
+sessionTokenOf profile credFile = getPropertyFromCredentials profile key credFile
+  `withError` const (missingKeyError key profile)
   where key = "aws_session_token"
 
 expirationOf :: T.Text -> CredentialsFile -> Either String T.Text

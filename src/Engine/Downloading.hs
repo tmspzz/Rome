@@ -4,25 +4,26 @@
 module Engine.Downloading where
 
 import           Caches.Common
-import           Configuration                            ( carthageArtifactsBuildDirectoryForPlatform )
-import           Control.Exception                        ( try )
+import           Configuration                  ( carthageArtifactsBuildDirectoryForPlatform )
+import           Control.Exception              ( try, catch, throw, displayException)
 import           Control.Monad
 import           Control.Monad.Except
-import           Control.Monad.Reader                     ( ReaderT
-                                                          , ask
-                                                          , runReaderT
-                                                          , withReaderT
-                                                          )
+import           Control.Monad.Reader           ( ReaderT
+                                                , ask
+                                                , runReaderT
+                                                , withReaderT
+                                                )
 import qualified Data.ByteString.Lazy          as LBS
 import           Data.Carthage.TargetPlatform
-import           Data.Either                              ( lefts )
-import           Data.Monoid                              ( (<>) )
-import           Data.Romefile                            ( Framework(..) )
+import           Data.Either                    ( lefts )
+import           Data.Monoid                    ( (<>) )
+import           Data.Romefile                  ( Framework(..) )
 import qualified Data.UUID                     as UUID
-                                                          ( UUID )
+                                                ( UUID )
 import           System.Directory
-import           System.FilePath                          ( (</>) )
-import           Types                             hiding ( version )
+import           System.FilePath                ( (</>) )
+import           System.IO.Error                ( isDoesNotExistError )
+import           Types                   hiding ( version )
 import           Utils
 import           Xcode.DWARF
 import qualified Turtle
@@ -108,9 +109,12 @@ getAndUnzipBcsymbolmapWithEngine
 getAndUnzipBcsymbolmapWithEngine enginePath reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) version) platform dwarfUUID tmpDir
   = when (platform `elem` fwps) $ do
     (_, verbose, _) <- ask
+    let sayFunc       = if verbose then sayLnWithTime else sayLn
     let symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
     binary <- getBcsymbolmapWithEngine enginePath reverseRomeMap fVersion platform dwarfUUID tmpDir
-    deleteFile (bcsymbolmapPath dwarfUUID) verbose
+    liftIO $ deleteFile (bcsymbolmapPath dwarfUUID) verbose
+      `catch` (\e ->
+        if isDoesNotExistError e then when verbose $ sayFunc ("Error :" <> displayException e) else throw e)
     unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
  where
   platformBuildDirectory = carthageArtifactsBuildDirectoryForPlatform platform f
@@ -191,7 +195,7 @@ getArtifactFromEngine
   -> ExceptT String (ReaderT (Bool, UUID.UUID) IO) LBS.ByteString
 getArtifactFromEngine enginePath remotePath artifactName tmpDir = do
   readerEnv <- ask
-  eitherArtifact :: Either IOError LBS.ByteString <- liftIO $ try $ runReaderT
+  eitherArtifact :: Either IOError LBS.ByteString <- liftIO $ Control.Exception.try $ runReaderT
     (downloadBinaryWithEngine enginePath remotePath artifactName tmpDir)
     readerEnv
   case eitherArtifact of
@@ -229,5 +233,7 @@ downloadBinaryWithEngine enginePath objectRemotePath objectName tmpDir = do
     then liftIO $ do
       binary <- LBS.readFile outputPath
       deleteFile outputPath verbose
+        `catch` (\e -> let sayFuncIO = if verbose then sayLnWithTime else sayLn in
+          if isDoesNotExistError e then when verbose $ sayFuncIO ("Error :" <> displayException e) else throw e)
       return binary
     else fail "Binary was not downloaded by engine"

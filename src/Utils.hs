@@ -6,76 +6,74 @@
 module Utils where
 
 import qualified Codec.Archive.Zip             as Zip
-import           Configuration                            ( carthageArtifactsBuildDirectoryForPlatform )
-import           Control.Arrow                            ( left )
+import           Configuration                  ( carthageArtifactsBuildDirectoryForPlatform )
+import           Control.Arrow                  ( left )
 import           Control.Exception             as E
-                                                          ( try )
-import           Control.Lens                      hiding ( List )
-import           Control.Monad.Catch
+                                                ( try )
+import           Control.Lens            hiding ( List )
 import           Control.Monad.Except
-import           Control.Monad.Trans.Resource             ( MonadUnliftIO
-                                                          , runResourceT
-                                                          )
+import           Control.Monad.Trans.Resource   ( MonadUnliftIO
+                                                , runResourceT
+                                                )
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.ByteString.Char8         as BS
 import qualified Data.ByteString.Lazy          as LBS
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
-import           Data.Char                                ( isNumber )
+import           Data.Char                      ( isNumber )
 import qualified Data.Conduit                  as C
-                                                          ( runConduit
-                                                          , (.|)
-                                                          )
+                                                ( runConduit
+                                                , (.|)
+                                                )
 import qualified Data.Conduit.Binary           as C
-                                                          ( sinkFile
-                                                          , sourceLbs
-                                                          )
-import           Data.Function                            ( on )
+                                                ( sinkFile
+                                                , sourceLbs
+                                                )
+import           Data.Function                  ( on )
 import           Data.List
 import qualified Data.Map.Strict               as M
-import           Data.Maybe                               ( fromJust
-                                                          , fromMaybe
-                                                          )
+import           Data.Maybe                     ( fromJust
+                                                , fromMaybe
+                                                )
 import           Data.Romefile
 import qualified Data.Text                     as T
 import           Data.Text.Encoding
 import qualified Data.Text.IO                  as T
 import           Data.Time
 import qualified Network.AWS                   as AWS
-                                                          ( Error
-                                                          , ErrorMessage(..)
-                                                          , serviceMessage
-                                                          , _ServiceError
-                                                          )
+                                                ( Error
+                                                , ErrorMessage(..)
+                                                , serviceMessage
+                                                , _ServiceError
+                                                )
 import qualified Network.AWS.Data.Text         as AWS
-                                                          ( showText )
+                                                ( showText )
 
 import           Network.HTTP.Conduit          as HTTP
 import           Network.HTTP.Types.Header     as HTTP
-                                                          ( hUserAgent )
-import           Numeric                                  ( showFFloat )
-import           System.Directory                         ( createDirectoryIfMissing
-                                                          , doesDirectoryExist
-                                                          , doesFileExist
-                                                          , getHomeDirectory
-                                                          , removeFile
-                                                          )
-import           System.FilePath                          ( addTrailingPathSeparator
-                                                          , dropFileName
-                                                          , normalise
-                                                          , (</>)
-                                                          )
-import           System.IO.Error                          ( isDoesNotExistError )
-import           System.Path.NameManip                    ( absolute_path
-                                                          , guess_dotdot
-                                                          )
-import           Text.Read                                ( readMaybe )
+                                                ( hUserAgent )
+import           Numeric                        ( showFFloat )
+import           System.Directory               ( createDirectoryIfMissing
+                                                , doesDirectoryExist
+                                                , doesFileExist
+                                                , getHomeDirectory
+                                                , removeFile
+                                                )
+import           System.FilePath                ( addTrailingPathSeparator
+                                                , dropFileName
+                                                , normalise
+                                                , (</>)
+                                                )
+import           System.Path.NameManip          ( absolute_path
+                                                , guess_dotdot
+                                                )
+import           Text.Read                      ( readMaybe )
 import qualified Turtle
 import           Types
-import           Xcode.DWARF                              ( DwarfUUID
-                                                          , bcsymbolmapNameFrom
-                                                          )
+import           Xcode.DWARF                    ( DwarfUUID
+                                                , bcsymbolmapNameFrom
+                                                )
 
 
 
@@ -561,11 +559,8 @@ deleteFile
   -> m ()
 deleteFile path verbose = do
   let sayFunc = if verbose then sayLnWithTime else sayLn
-  liftIO $ removeFile path `catch` handleError sayFunc
+  liftIO $ removeFile path
   when verbose $ liftIO . sayFunc $ "Deleted: " <> path
- where
-  handleError f e | isDoesNotExistError e = f $ "Error: no such file " <> path
-                  | otherwise             = throwM e
 
 
 

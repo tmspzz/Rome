@@ -1,36 +1,41 @@
 module Caches.S3.Downloading where
 
 import           Caches.Common
-import           Configuration                            ( carthageArtifactsBuildDirectoryForPlatform )
-import           Control.Exception                        ( try )
-import           Control.Lens                             ( view )
+import           Configuration                  ( carthageArtifactsBuildDirectoryForPlatform )
+import           Control.Exception              ( try
+                                                , catch
+                                                , throw
+                                                , displayException
+                                                )
+import           Control.Lens                   ( view )
 import           Control.Monad
 import           Control.Monad.Except
-import           Control.Monad.Reader                     ( ReaderT
-                                                          , ask
-                                                          , runReaderT
-                                                          , withReaderT
-                                                          )
+import           Control.Monad.Reader           ( ReaderT
+                                                , ask
+                                                , runReaderT
+                                                , withReaderT
+                                                )
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as LBS
 import           Data.Carthage.TargetPlatform
 import qualified Data.Conduit                  as C
-                                                          ( ConduitT
-                                                          , await
-                                                          , yield
-                                                          , (.|)
-                                                          )
+                                                ( ConduitT
+                                                , await
+                                                , yield
+                                                , (.|)
+                                                )
 import qualified Data.Conduit.Binary           as C
-                                                          ( sinkLbs )
-import           Data.Either                              ( lefts )
-import           Data.Maybe                               ( fromMaybe )
-import           Data.Monoid                              ( (<>) )
-import           Data.Romefile                            ( Framework(..) )
+                                                ( sinkLbs )
+import           Data.Either                    ( lefts )
+import           Data.Maybe                     ( fromMaybe )
+import           Data.Monoid                    ( (<>) )
+import           Data.Romefile                  ( Framework(..) )
 import qualified Data.Text                     as T
 import qualified Network.AWS                   as AWS
 import qualified Network.AWS.S3                as S3
-import           System.FilePath                          ( (</>) )
-import           Types                             hiding ( version )
+import           System.FilePath                ( (</>) )
+import           System.IO.Error                ( isDoesNotExistError )
+import           Types                   hiding ( version )
 import           Utils
 import           Xcode.DWARF
 
@@ -150,9 +155,13 @@ getAndUnzipBcsymbolmapFromS3
 getAndUnzipBcsymbolmapFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) version) platform dwarfUUID
   = when (platform `elem` fwps) $ do
     (_, _, verbose) <- ask
+    let sayFunc       = if verbose then sayLnWithTime else sayLn
     let symbolmapName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
     binary <- getBcsymbolmapFromS3 s3BucketName reverseRomeMap fVersion platform dwarfUUID
-    deleteFile (bcsymbolmapPath dwarfUUID) verbose
+    liftIO
+      $       deleteFile (bcsymbolmapPath dwarfUUID) verbose
+      `catch` (\e -> if isDoesNotExistError e then when verbose $ sayFunc ("Error :" <> displayException e) else throw e
+              )
     unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
  where
   platformBuildDirectory = carthageArtifactsBuildDirectoryForPlatform platform f

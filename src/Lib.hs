@@ -22,59 +22,62 @@ import           Engine.Downloading
 import           Engine.Probing
 import           Engine.Uploading
 import           Configuration
-import           Control.Applicative                      ( (<|>) )
-import           Control.Concurrent.Async.Lifted.Safe     ( mapConcurrently_
-                                                          , mapConcurrently
-                                                          , concurrently_
-                                                          )
-import           Control.Lens                      hiding ( List )
+import           Control.Applicative            ( (<|>) )
+import           Control.Concurrent.Async.Lifted.Safe
+                                                ( mapConcurrently_
+                                                , mapConcurrently
+                                                , concurrently_
+                                                )
+import           Control.Lens            hiding ( List )
 import           Control.Monad
+
 import           Control.Monad.Catch
+
 import           Control.Monad.Except
-import           Control.Monad.Reader                     ( ReaderT
-                                                          , ask
-                                                          , runReaderT
-                                                          )
-import           Control.Monad.Trans.Maybe                ( exceptToMaybeT
-                                                          , runMaybeT
-                                                          )
+import           Control.Monad.Reader           ( ReaderT
+                                                , ask
+                                                , runReaderT
+                                                )
+import           Control.Monad.Trans.Maybe      ( exceptToMaybeT
+                                                , runMaybeT
+                                                )
 import qualified Data.ByteString.Char8         as BS
-                                                          ( pack )
+                                                ( pack )
 import qualified Data.ByteString.Lazy          as LBS
-import           Data.Yaml                                ( encodeFile )
-import           Data.IORef                               ( newIORef )
+import           Data.Yaml                      ( encodeFile )
+import           Data.IORef                     ( newIORef )
 import           Data.Carthage.Cartfile
 import           Data.Carthage.TargetPlatform
-import           Data.Either.Extra                        ( maybeToEither
-                                                          , eitherToMaybe
-                                                          , mapLeft
-                                                          )
-import           Data.Maybe                               ( fromMaybe
-                                                          , maybe
-                                                          )
-import           Data.Monoid                              ( (<>) )
+import           Data.Either.Extra              ( maybeToEither
+                                                , eitherToMaybe
+                                                , mapLeft
+                                                )
+import           Data.Maybe                     ( fromMaybe
+                                                , maybe
+                                                )
+import           Data.Monoid                    ( (<>) )
 import           Data.Romefile
 import qualified Data.UUID                     as UUID
-                                                          ( UUID
-                                                          , toString
-                                                          )
+                                                ( UUID
+                                                , toString
+                                                )
 import qualified Data.Map.Strict               as M
-                                                          ( empty )
+                                                ( empty )
 import qualified Data.Text                     as T
 import qualified Network.AWS                   as AWS
 import qualified Network.AWS.Auth              as AWS
-                                                          ( fromEnv )
+                                                ( fromEnv )
 import qualified Network.AWS.Env               as AWS
-                                                          ( Env(..)
-                                                          , retryConnectionFailure
-                                                          )
+                                                ( Env(..)
+                                                , retryConnectionFailure
+                                                )
 import qualified Network.AWS.Data              as AWS
-                                                          ( fromText )
+                                                ( fromText )
 import qualified Network.AWS.S3                as S3
 import qualified Network.AWS.STS.AssumeRole    as STS
-                                                          ( assumeRole
-                                                          , arrsCredentials
-                                                          )
+                                                ( assumeRole
+                                                , arrsCredentials
+                                                )
 import qualified Network.AWS.Utils             as AWS
 import qualified Network.HTTP.Conduit          as Conduit
 
@@ -82,6 +85,7 @@ import           Network.URL
 import           System.Directory
 import           System.Environment
 import           System.FilePath
+import           System.IO.Error                ( isDoesNotExistError )
 import           Types
 import           Types.Commands                as Commands
 import           Utils
@@ -119,7 +123,8 @@ getAWSEnv = do
     ExceptT . return . Left . show $ e
   (auth, _) <- AWS.catching AWS._MissingEnvError AWS.fromEnv $ \envError -> either
     throwError
-    (\_ {- cred -} -> do
+    (\_ {- cred -}
+        -> do
       let finalProfile = fromMaybe profile (eitherToMaybe $ AWS.sourceProfileOf profile =<< config)
       let authAndRegion =
             (,)
@@ -494,22 +499,29 @@ downloadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap fram
       tmpDir <- liftIO $ tmpDirWithUUID uuid
       let engineEnv = (cachePrefix, skipLocalCacheFlag, concurrentlyFlag, verbose, uuid)
       let action1 = runReaderT
-            (downloadFrameworksAndArtifactsWithEngine ePath lCacheDir reverseRepositoryMap frameworkVersions platforms tmpDir)
+            (downloadFrameworksAndArtifactsWithEngine ePath
+                                                      lCacheDir
+                                                      reverseRepositoryMap
+                                                      frameworkVersions
+                                                      platforms
+                                                      tmpDir
+            )
             engineEnv
-      let action2 = runReaderT (downloadVersionFilesWithEngine ePath lCacheDir gitRepoNamesAndVersions tmpDir) engineEnv
-      if performConcurrently 
+      let action2 =
+            runReaderT (downloadVersionFilesWithEngine ePath lCacheDir gitRepoNamesAndVersions tmpDir) engineEnv
+      if performConcurrently
         then liftIO $ concurrently_ action1 action2 >> deleteDirectory tmpDir verbose
-        else liftIO $ action1 >> action2 >> deleteDirectory tmpDir verbose  
+        else liftIO $ action1 >> action2 >> deleteDirectory tmpDir verbose
 
     -- Misconfigured
-    (Nothing          , Nothing, Nothing   ) -> throwError allCacheKeysMissingMessage
+    (Nothing, Nothing, Nothing) -> throwError allCacheKeysMissingMessage
     -- Misconfigured
-    (Just _, _      , Just _) -> throwError conflictingCachesMessage
+    (Just _ , _      , Just _ ) -> throwError conflictingCachesMessage
  where
 
   gitRepoNamesAndVersions :: [ProjectNameAndVersion]
   gitRepoNamesAndVersions = repoNamesAndVersionForFrameworkVersions reverseRepositoryMap frameworkVersions
-  
+
   tmpDirWithUUID :: UUID.UUID -> IO FilePath
   tmpDirWithUUID uuid = do
     dir <- getTemporaryDirectory
@@ -562,7 +574,7 @@ uploadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap framew
       let action2 = runReaderT (uploadVersionFilesToEngine ePath lCacheDir gitRepoNamesAndVersions) engineEnv
       if performConcurrently then liftIO $ concurrently_ action1 action2 else liftIO $ action1 >> action2
     (Nothing, Nothing, Nothing) -> throwError allCacheKeysMissingMessage
-    (Just _, _      , Just _) -> throwError conflictingCachesMessage
+    (Just _ , _      , Just _ ) -> throwError conflictingCachesMessage
 
  where
   gitRepoNamesAndVersions :: [ProjectNameAndVersion]
@@ -599,8 +611,8 @@ uploadVersionFileToEngine ePath mlCacheDir projectNameAndVersion = do
       <*> Just versionFileContent
       <*> Just projectNameAndVersion
       <*> Just verbose
-    liftIO $ runReaderT (uploadVersionFileToEngine' ePath versionFileContent projectNameAndVersion)
-                        (cachePrefix, verbose)
+    liftIO
+      $ runReaderT (uploadVersionFileToEngine' ePath versionFileContent projectNameAndVersion) (cachePrefix, verbose)
  where
 
   versionFileName      = versionFileNameForProjectName $ fst projectNameAndVersion
@@ -1038,6 +1050,12 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRom
                                        fwn
                                        verbose
                 deleteFile (localBcsymbolmapPathFrom dwarfUUID) verbose
+                  `catch` (\e -> if isDoesNotExistError e
+                                 then
+                                   when verbose $ sayFunc ("Error :" <> displayException e)
+                                 else
+                                   throwM e
+                          )
                 unzipBinary symbolmapBinary symbolmapLoggingName (bcsymbolmapZipName dwarfUUID) verbose
               whenLeft sayFunc e
             )
@@ -1103,33 +1121,17 @@ downloadFrameworksAndArtifactsWithEngine
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying the Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
   -> FilePath -- ^ A temporary intermediate directory used by the engine
-  -> ReaderT
-       ( CachePrefix
-       , SkipLocalCacheFlag
-       , ConcurrentlyFlag
-       , Bool
-       , UUID.UUID
-       )
-       IO
-       ()
-downloadFrameworksAndArtifactsWithEngine ePath lCacheDir reverseRomeMap fvs platforms tmpDir
-  = do
-    (_, _, ConcurrentlyFlag performConcurrently, _, _) <- ask
-    if performConcurrently
-      then mapConcurrently_ downloadConcurrently fvs
-      -- (Traversable t, Monad m) => (a -> m b) -> t a -> m (t b)
-      -- (Traversable t, Monad m) => t (m a) -> m (t a)
-      else mapM_ (sequence . download) platforms
+  -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool, UUID.UUID) IO ()
+downloadFrameworksAndArtifactsWithEngine ePath lCacheDir reverseRomeMap fvs platforms tmpDir = do
+  (_, _, ConcurrentlyFlag performConcurrently, _, _) <- ask
+  if performConcurrently
+    then mapConcurrently_ downloadConcurrently fvs
+    -- (Traversable t, Monad m) => (a -> m b) -> t a -> m (t b)
+    -- (Traversable t, Monad m) => t (m a) -> m (t a)
+    else mapM_ (sequence . download) platforms
  where
-  downloadConcurrently f = mapConcurrently
-    (\p -> downloadFrameworkAndArtifactsWithEngine ePath
-                                             lCacheDir
-                                             reverseRomeMap
-                                             f
-                                             p
-                                             tmpDir
-    )
-    platforms
+  downloadConcurrently f =
+    mapConcurrently (\p -> downloadFrameworkAndArtifactsWithEngine ePath lCacheDir reverseRomeMap f p tmpDir) platforms
   -- Types here a tricky (for me)
   -- someF = mapM (\k v -> putStrLn (k ++ " " ++ v)) ["hello", "ciao"] :: String -> [IO ()]
   -- while
@@ -1201,6 +1203,12 @@ downloadFrameworkAndArtifactsWithEngine ePath (Just lCacheDir) reverseRomeMap fV
                                        fwn
                                        verbose
                 deleteFile (localBcsymbolmapPathFrom dwarfUUID) verbose
+                  `catch` (\e -> if isDoesNotExistError e
+                                 then
+                                   when verbose $ sayFunc ("Error :" <> displayException e)
+                                 else
+                                   throwM e
+                          )
                 unzipBinary symbolmapBinary symbolmapLoggingName (bcsymbolmapZipName dwarfUUID) verbose
               whenLeft sayFunc e
             )
@@ -1263,7 +1271,8 @@ downloadVersionFilesWithEngine
   -> [ProjectNameAndVersion] -- ^ A list of `ProjectName`s and `Version`s information.
   -> FilePath -- ^ A temporary path used by the engine to download binaries to
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool, UUID.UUID) IO ()
-downloadVersionFilesWithEngine ePath lDir pnvs tmpDir = mapM_ (\pnv -> downloadVersionFileWithEngine ePath lDir pnv tmpDir) pnvs
+downloadVersionFilesWithEngine ePath lDir pnvs tmpDir =
+  mapM_ (\pnv -> downloadVersionFileWithEngine ePath lDir pnv tmpDir) pnvs
 
 
 

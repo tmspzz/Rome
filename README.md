@@ -36,7 +36,7 @@ Trusted by:
 	- [Setting up AWS credentials](#setting-up-aws-credentials)
 	- [Selecting the AWS Region](#selecting-the-aws-region)
 	- [Setting up endpoint override for Minio, Ceph, or other S3 compatible stores](#setting-up-endpoint-override)
-  - [Custom Engine](#customengine)
+  - [Custom Engine](#custom-engine)
 	- [Romefile](#romefile)
 		- [Cache](#cache)
 		- [RepositoryMap](#repositorymap)

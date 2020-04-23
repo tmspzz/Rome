@@ -833,7 +833,7 @@ for an in depth explanation.
 1. Increase the version number in [Rome.cabal](https://github.com/tmspzz/Rome/blob/master/Rome.cabal#L2) 
 1. Increase the version number in [app/Main.hs](https://github.com/tmspzz/Rome/blob/master/app/Main.hs#L13)
 1. Increase the version number in [Rome.podspec](https://github.com/tmspzz/Rome/blob/master/Rome.podspec#L3)
-1. run `bundle exec github_changelog_generator -u tmspzz -p Rome`
+1. Run `bundle exec github_changelog_generator -u tmspzz -p Rome`
 1. Commit
 1. Create a [new pre-release](https://github.com/tmspzz/Rome/releases) on Github
 1. Attach the zipped binary

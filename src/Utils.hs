@@ -213,7 +213,7 @@ gitRepoNameFromCartfileEntry (CartfileEntry GitHub (Location l) _) =
 gitRepoNameFromCartfileEntry (CartfileEntry Git (Location l) _) =
   ProjectName . T.unpack . T.replace ".git" "" . last . splitWithSeparator '/' . T.pack $ l
 gitRepoNameFromCartfileEntry (CartfileEntry Binary (Location l) _) =
-  ProjectName . T.unpack . T.replace ".json" "" . last . splitWithSeparator '/' . T.pack $ l
+  ProjectName . T.unpack . head . T.splitOn ".json" . last . splitWithSeparator '/' . T.pack $ l
 
 
 

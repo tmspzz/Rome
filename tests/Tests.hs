@@ -10,6 +10,7 @@ import           Data.Either                              ( rights )
 import           Data.List                                ( intercalate
                                                           , nub
                                                           , intersect
+                                                          , isInfixOf
                                                           )
 import           Data.Yaml                                ( decodeEither'
                                                           , encode
@@ -148,6 +149,17 @@ prop_filterRomeFileEntriesByPlatforms_min :: [RomefileEntry] -> [RomefileEntry] 
 prop_filterRomeFileEntriesByPlatforms_min base filteringValues =
   (length $ base `filterRomeFileEntriesByPlatforms` filteringValues) <= length base
 
+binaryURLPathWithParameters :: Gen String
+binaryURLPathWithParameters = do
+   firstPart <- arbitrary
+   secondPart <- arbitrary
+   lastPart <- arbitrary `suchThat` (\a -> not $ "/" `isInfixOf` a || ".json" `isInfixOf` a)
+   return $ "https://" ++ firstPart ++ "/" ++  secondPart ++ "/" ++ "binary.json?some_paramter=test&" ++ lastPart
+
+prop_gitRepoNameFromCartfileEntry_alaways_binary :: String -> Bool
+prop_gitRepoNameFromCartfileEntry_alaways_binary url = 
+  gitRepoNameFromCartfileEntry (CartfileEntry Binary (Location url) (Version "")) == ProjectName "binary"
+
 main :: IO ()
 main = do
 
@@ -189,3 +201,6 @@ main = do
 
   putStrLn "prop_filterRomeFileEntriesByPlatforms_filters"
   quickCheck (withMaxSuccess 1000 prop_filterRomeFileEntriesByPlatforms_filters)
+
+  putStrLn "prop_gitRepoNameFromCartfileEntry_alaways_binary"
+  quickCheck (withMaxSuccess 1000 $ forAll binaryURLPathWithParameters prop_gitRepoNameFromCartfileEntry_alaways_binary)

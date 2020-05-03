@@ -124,7 +124,7 @@ jobs:
         - travis_wait 60 bats integration-tests/static-frameworks-engine-yml.bats
 
 env:
-- ARGS="--resolver=lts-14.14"
+- ARGS="--resolver=lts-15.11"
 
 cache:
   directories:

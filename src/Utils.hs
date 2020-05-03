@@ -59,14 +59,12 @@ import           System.Directory               ( createDirectoryIfMissing
                                                 , doesFileExist
                                                 , getHomeDirectory
                                                 , removeFile
+                                                , canonicalizePath
                                                 )
 import           System.FilePath                ( addTrailingPathSeparator
                                                 , dropFileName
                                                 , normalise
                                                 , (</>)
-                                                )
-import           System.Path.NameManip          ( absolute_path
-                                                , guess_dotdot
                                                 )
 import           Text.Read                      ( readMaybe )
 import qualified Turtle
@@ -502,7 +500,7 @@ absolutizePath aPath
   | "~" `T.isPrefixOf` T.pack aPath = do
     homePath <- getHomeDirectory
     return $ normalise $ addTrailingPathSeparator homePath ++ Prelude.tail aPath
-  | otherwise = fromJust . guess_dotdot <$> absolute_path aPath
+  | otherwise = canonicalizePath aPath
 
 
 

@@ -4,7 +4,7 @@ module CommandParsers where
 
 import           Data.Carthage.TargetPlatform
 import           Data.Char                                ( isLetter )
-import           Data.Either.Utils                        ( maybeToEither )
+import           Data.Either.Extra                        ( maybeToEither )
 import           Data.List                                ( nub )
 import           Data.List.Split                          ( wordsBy )
 import           Data.Monoid                              ( (<>) )

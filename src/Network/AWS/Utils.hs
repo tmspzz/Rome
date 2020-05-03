@@ -30,8 +30,7 @@ import           Control.Monad.IO.Class         ( MonadIO
 import           Control.Monad.Except           ( ExceptT(..)
                                                 , withExceptT
                                                 )
-import           Data.Either.Utils              ( maybeToEither )
-import           Data.Either.Extra              ( mapLeft )
+import           Data.Either.Extra              ( mapLeft, maybeToEither )
 import           Data.Ini                       ( Ini
                                                 , lookupValue
                                                 , parseIni

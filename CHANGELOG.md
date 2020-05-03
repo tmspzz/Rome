@@ -1,23 +1,30 @@
 # Changelog
 
-## [Unreleased](https://github.com/tmspzz/Rome/tree/HEAD)
+## [v0.23.3.64](https://github.com/tmspzz/Rome/tree/v0.23.3.64) (2020-04-29)
 
-[Full Changelog](https://github.com/tmspzz/Rome/compare/v0.23.2.63...HEAD)
+[Full Changelog](https://github.com/tmspzz/Rome/compare/v0.23.2.63...v0.23.3.64)
 
 **Implemented enhancements:**
 
+- Add CHANGELOG.md [\#223](https://github.com/tmspzz/Rome/issues/223)
 - AWS role based access is not working [\#210](https://github.com/tmspzz/Rome/issues/210)
+- Reduce verbosity by hiding delete errors [\#219](https://github.com/tmspzz/Rome/pull/219) ([tmspzz](https://github.com/tmspzz))
+
+**Fixed bugs:**
+
+- Remove query parameters from repo name parsed from binary Cartfile entry [\#222](https://github.com/tmspzz/Rome/pull/222) ([ffittschen](https://github.com/ffittschen))
 
 **Closed issues:**
 
+- Framework always missing using custom-engine [\#225](https://github.com/tmspzz/Rome/issues/225)
 - Rome confusing versions of parent & transient dependency [\#221](https://github.com/tmspzz/Rome/issues/221)
 - Getting "the specified key does not exist" after changing AWS access key [\#217](https://github.com/tmspzz/Rome/issues/217)
 - Using rome upload fails before calling engine [\#215](https://github.com/tmspzz/Rome/issues/215)
 
 **Merged pull requests:**
 
+- Add CHANGELOG.md \(\#223\) [\#224](https://github.com/tmspzz/Rome/pull/224) ([didix21](https://github.com/didix21))
 - Fix link in README.md [\#220](https://github.com/tmspzz/Rome/pull/220) ([devxoul](https://github.com/devxoul))
-- Reduce verbosity by hiding delete errors [\#219](https://github.com/tmspzz/Rome/pull/219) ([tmspzz](https://github.com/tmspzz))
 
 ## [v0.23.2.63](https://github.com/tmspzz/Rome/tree/v0.23.2.63) (2020-01-27)
 
@@ -39,7 +46,6 @@
 - Instruct engine to download files to a temporary path [\#206](https://github.com/tmspzz/Rome/pull/206) ([tmspzz](https://github.com/tmspzz))
 - Fix command typo in README [\#199](https://github.com/tmspzz/Rome/pull/199) ([a2](https://github.com/a2))
 - add a google example engine [\#196](https://github.com/tmspzz/Rome/pull/196) ([ekimia](https://github.com/ekimia))
-- Add role\_arn support [\#179](https://github.com/tmspzz/Rome/pull/179) ([tmspzz](https://github.com/tmspzz))
 
 ## [v0.23.1.61](https://github.com/tmspzz/Rome/tree/v0.23.1.61) (2019-06-19)
 
@@ -99,6 +105,7 @@
 **Merged pull requests:**
 
 - Fix a spelling typo in README.md under 'Set up' [\#183](https://github.com/tmspzz/Rome/pull/183) ([SteveOfTheStow](https://github.com/SteveOfTheStow))
+- Add role\_arn support [\#179](https://github.com/tmspzz/Rome/pull/179) ([tmspzz](https://github.com/tmspzz))
 - Fix warnings [\#176](https://github.com/tmspzz/Rome/pull/176) ([fabb](https://github.com/fabb))
 
 ## [v0.21.0.57](https://github.com/tmspzz/Rome/tree/v0.21.0.57) (2019-04-13)
@@ -373,7 +380,6 @@
 
 - Update version badge [\#89](https://github.com/tmspzz/Rome/pull/89) ([tmspzz](https://github.com/tmspzz))
 - v0.12.0.31 - Spurius Lartius [\#84](https://github.com/tmspzz/Rome/pull/84) ([tmspzz](https://github.com/tmspzz))
-- Introduce CachePrefix [\#83](https://github.com/tmspzz/Rome/pull/83) ([tmspzz](https://github.com/tmspzz))
 
 ## [v0.12.0.30](https://github.com/tmspzz/Rome/tree/v0.12.0.30) (2017-07-11)
 
@@ -398,6 +404,7 @@
 
 **Merged pull requests:**
 
+- Introduce CachePrefix [\#83](https://github.com/tmspzz/Rome/pull/83) ([tmspzz](https://github.com/tmspzz))
 - Add Danger.Systems to run HLint [\#81](https://github.com/tmspzz/Rome/pull/81) ([tmspzz](https://github.com/tmspzz))
 - Get rid of compiler warnings [\#77](https://github.com/tmspzz/Rome/pull/77) ([mheinzel](https://github.com/mheinzel))
 - Add latest version check when running download or upload [\#75](https://github.com/tmspzz/Rome/pull/75) ([tmspzz](https://github.com/tmspzz))

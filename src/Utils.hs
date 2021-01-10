@@ -160,9 +160,9 @@ splitWithSeparator a = T.split (== a)
 
 
 
--- | Appends the string ".framework" to a `Framework`'s name.
+-- | Appends the string ".xcframework" to a `Framework`'s name.
 appendFrameworkExtensionTo :: Framework -> String
-appendFrameworkExtensionTo (Framework a _ _) = a ++ ".framework"
+appendFrameworkExtensionTo (Framework a _ _) = a ++ ".xcframework"
 
 
 

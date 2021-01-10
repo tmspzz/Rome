@@ -54,11 +54,11 @@ data DwarfUUID = DwarfUUID { _uuid :: String
 
 -- Functions
 
--- | Attempts to get UUIDs of DWARFs form a .framework/<binary-name> or .dSYM
+-- | Attempts to get UUIDs of DWARFs form a .xcframework/<binary-name> or .dSYM
 -- | by running `xcrun dwarfdump --uuid <path>`
 dwarfUUIDsFrom
   :: MonadIO m
-  => FilePath -- ^ Path to dSYM or .framework/<binary-name>
+  => FilePath -- ^ Path to dSYM or .xcframework/<binary-name>
   -> ExceptT String m [DwarfUUID]
 dwarfUUIDsFrom fPath = do
   (exitCode, stdOutText, stdErrText) <- Turtle.procStrictWithErr "xcrun"
@@ -71,7 +71,7 @@ dwarfUUIDsFrom fPath = do
   where errorMessageHeader = "Failed parsing DWARF UUID: "
 
 -- | Parses a DwarfUUID from a string like
---   UUID: EDF2AE8A-2EB4-3CA0-986F-D3E49D8C675F (i386) Carthage/Build/iOS/Alamofire.framework/Alamofire
+--   UUID: EDF2AE8A-2EB4-3CA0-986F-D3E49D8C675F (i386) Carthage/Build/iOS/Alamofire.xcframework/Alamofire
 parseDwarfdumpUUID :: Parsec.Parsec String () DwarfUUID
 parseDwarfdumpUUID = do
   uuid <- Parsec.string "UUID:" >> Parsec.spaces >> Parsec.manyTill (Parsec.hexDigit <|> Parsec.char '-') Parsec.space

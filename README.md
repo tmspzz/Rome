@@ -470,6 +470,8 @@ git describe --tags --exact-match `git rev-parse HEAD`
 
 __If the commands does not resolve to any tag, the HEAD commit hash from `git rev-parse HEAD` is used as version.__
 
+In order for `--no-skip-current` to work, make sure to run `carthage archive` to create an artifact to cache.
+
 #### Multiple Aliases
 
 Suppose you have a framework `Framework` that builds two targets, `t1` and `t2`,

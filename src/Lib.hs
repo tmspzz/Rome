@@ -1126,16 +1126,10 @@ downloadFrameworksAndArtifactsWithEngine ePath lCacheDir reverseRomeMap fvs plat
   (_, _, ConcurrentlyFlag performConcurrently, _, _) <- ask
   if performConcurrently
     then mapConcurrently_ downloadConcurrently fvs
-    -- (Traversable t, Monad m) => (a -> m b) -> t a -> m (t b)
-    -- (Traversable t, Monad m) => t (m a) -> m (t a)
     else mapM_ (sequence . download) platforms
  where
   downloadConcurrently f =
     mapConcurrently (\p -> downloadFrameworkAndArtifactsWithEngine ePath lCacheDir reverseRomeMap f p tmpDir) platforms
-  -- Types here a tricky (for me)
-  -- someF = mapM (\k v -> putStrLn (k ++ " " ++ v)) ["hello", "ciao"] :: String -> [IO ()]
-  -- while
-  -- someF' k = mapM (\v -> putStrLn (k ++ " " ++ v)) ["hello", "ciao" ] :: String -> IO [()]
   download = mapM download' fvs
   download' fv p = downloadFrameworkAndArtifactsWithEngine ePath lCacheDir reverseRomeMap fv p tmpDir
 
@@ -1181,64 +1175,10 @@ downloadFrameworkAndArtifactsWithEngine ePath (Just lCacheDir) reverseRomeMap fV
               whenLeft sayFunc e2
             )
             readerEnv
-
-      eitherBcsymbolmapsOrErrors <- runReaderT
-        (runExceptT $ getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir reverseRomeMap fVersion platform)
-        readerEnv
-      case eitherBcsymbolmapsOrErrors of
-        Right _                                      -> return ()
-        Left  ErrorGettingDwarfUUIDs                 -> sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
-        Left  (FailedDwarfUUIDs dwardUUIDsAndErrors) -> do
-          mapM_ (sayFunc . snd) dwardUUIDsAndErrors
-          forM_ (map fst dwardUUIDsAndErrors) $ \dwarfUUID -> liftIO $ runReaderT
-            (do
-              e <- runExceptT $ do
-                let symbolmapLoggingName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
-                let bcsymbolmapZipName d = bcsymbolmapArchiveName d version
-                let localBcsymbolmapPathFrom d = platformBuildDirectory </> bcsymbolmapNameFrom d
-                symbolmapBinary <- getBcsymbolmapWithEngine ePath reverseRomeMap fVersion platform dwarfUUID tmpDir
-                saveBinaryToLocalCache lCacheDir
-                                       symbolmapBinary
-                                       (prefix </> remoteBcSymbolmapUploadPathFromDwarf dwarfUUID)
-                                       fwn
-                                       verbose
-                deleteFile (localBcsymbolmapPathFrom dwarfUUID) verbose
-                  `catch` (\e -> if isDoesNotExistError e
-                                 then
-                                   when verbose $ sayFunc ("Error :" <> displayException e)
-                                 else
-                                   throwM e
-                          )
-                unzipBinary symbolmapBinary symbolmapLoggingName (bcsymbolmapZipName dwarfUUID) verbose
-              whenLeft sayFunc e
-            )
-            readerEnv
-
-      eitherDSYMSuccess <- runReaderT
-        (runExceptT $ getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVersion platform)
-        readerEnv
-      case eitherDSYMSuccess of
-        Right _ -> return ()
-        Left  e -> liftIO $ do
-          sayFunc e
-          runReaderT
-            (do
-              e2 <- runExceptT $ do
-                dSYMBinary <- getDSYMFromEngine ePath reverseRomeMap fVersion platform tmpDir
-                saveBinaryToLocalCache lCacheDir dSYMBinary (prefix </> remotedSYMUploadPath) dSYMName verbose
-                deleteDSYMDirectory fVersion platform verbose
-                unzipBinary dSYMBinary dSYMName dSYMZipName verbose
-              whenLeft sayFunc e2
-            )
-            readerEnv
  where
   frameworkZipName          = frameworkArchiveName f version
   remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
-  remoteBcSymbolmapUploadPathFromDwarf dwarfUUID = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
-  dSYMZipName             = dSYMArchiveName f version
-  remotedSYMUploadPath    = remoteDsymPath platform reverseRomeMap f version
   platformBuildDirectory  = carthageArtifactsBuildDirectoryForPlatform platform f
-  dSYMName                = fwn <> ".dSYM"
   frameworkExecutablePath = frameworkBuildBundleForPlatform platform f </> fwn
 
 
@@ -1253,13 +1193,6 @@ downloadFrameworkAndArtifactsWithEngine ePath Nothing reverseRomeMap fVersion@(F
       (do
         err <- runExceptT $ getAndUnzipFrameworkWithEngine ePath reverseRomeMap fVersion platform tmpDir
         whenLeft sayFunc err
-        eitherDSYMError <- runExceptT $ getAndUnzipDSYMWithEngine ePath reverseRomeMap fVersion platform tmpDir
-        whenLeft sayFunc eitherDSYMError
-        eitherSymbolmapsOrErrors <- runExceptT
-          $ getAndUnzipBcsymbolmapsWithEngine' ePath reverseRomeMap fVersion platform tmpDir
-        flip whenLeft eitherSymbolmapsOrErrors $ \e -> case e of
-          ErrorGettingDwarfUUIDs                 -> sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
-          (FailedDwarfUUIDs dwardUUIDsAndErrors) -> mapM_ (sayFunc . snd) dwardUUIDsAndErrors
       )
       readerEnv
 

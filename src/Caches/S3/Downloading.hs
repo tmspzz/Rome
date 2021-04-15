@@ -44,15 +44,16 @@ import           Xcode.DWARF
 -- | Retrieves a Framework from an S3 Cache and unzip the contents
 getFrameworkFromS3
   :: S3.BucketName -- ^ The cache definition
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) LBS.ByteString
-getFrameworkFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform = do
+getFrameworkFromS3 s3BucketName useXcFrameworks reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform = do
   (env, CachePrefix prefix, verbose) <- ask
   mapExceptT (withReaderT (const (env, verbose)))
              (getArtifactFromS3 s3BucketName (prefix </> remoteFrameworkUploadPath) fwn)
-  where remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
+  where remoteFrameworkUploadPath = remoteFrameworkPath useXcFrameworks platform reverseRomeMap f version
 
 
 
@@ -110,19 +111,20 @@ getBcsymbolmapFromS3 s3BucketName reverseRomeMap (FrameworkVersion f@(Framework 
 -- | Retrieves a Framework from an S3 Cache and unzip the contents
 getAndUnzipFrameworkFromS3
   :: S3.BucketName -- ^ The cache definition
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (AWS.Env, CachePrefix, Bool) IO) ()
-getAndUnzipFrameworkFromS3 s3BucketName reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) version) platform
+getAndUnzipFrameworkFromS3 s3BucketName useXcFrameworks reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (_, _, verbose) <- ask
-    frameworkBinary <- getFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform
+    frameworkBinary <- getFrameworkFromS3 s3BucketName useXcFrameworks reverseRomeMap fVersion platform
     deleteFrameworkDirectory fVersion platform verbose
     unzipBinary frameworkBinary fwn frameworkZipName verbose
       <* ifExists frameworkExecutablePath (makeExecutable frameworkExecutablePath)
  where
-  frameworkZipName        = frameworkArchiveName f version
+  frameworkZipName        = frameworkArchiveName f version useXcFrameworks
   frameworkExecutablePath = frameworkBuildBundleForPlatform platform f </> fwn
 
 

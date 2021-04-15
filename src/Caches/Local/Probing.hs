@@ -16,13 +16,14 @@ probeLocalCacheForFrameworks
   :: MonadIO m
   => FilePath -- ^ The cache definition.
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` to probe for.
   -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
   -> m [FrameworkAvailability]
-probeLocalCacheForFrameworks lCacheDir cachePrefix reverseRomeMap frameworkVersions = sequence . probeForEachFramework
+probeLocalCacheForFrameworks lCacheDir cachePrefix useXcFrameworks reverseRomeMap frameworkVersions = sequence . probeForEachFramework
  where
-  probeForEachFramework = mapM (probeLocalCacheForFramework lCacheDir cachePrefix reverseRomeMap) frameworkVersions
+  probeForEachFramework = mapM (probeLocalCacheForFramework lCacheDir cachePrefix useXcFrameworks reverseRomeMap) frameworkVersions
 
 
 
@@ -31,16 +32,17 @@ probeLocalCacheForFramework
   :: MonadIO m
   => FilePath -- ^ The cache definition.
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
   -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
   -> m FrameworkAvailability
-probeLocalCacheForFramework lCacheDir cachePrefix reverseRomeMap frameworkVersion platforms = fmap
+probeLocalCacheForFramework lCacheDir cachePrefix useXcFrameworks reverseRomeMap frameworkVersion platforms = fmap
   (FrameworkAvailability frameworkVersion)
   probeForEachPlatform
  where
   probeForEachPlatform = mapM
-    (probeLocalCacheForFrameworkOnPlatform lCacheDir cachePrefix reverseRomeMap frameworkVersion)
+    (probeLocalCacheForFrameworkOnPlatform lCacheDir cachePrefix useXcFrameworks reverseRomeMap frameworkVersion)
     (platforms `intersect` (_frameworkPlatforms . _framework $ frameworkVersion))
 
 
@@ -50,14 +52,15 @@ probeLocalCacheForFrameworkOnPlatform
   :: MonadIO m
   => FilePath -- ^ The cache definition.
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
   -> m PlatformAvailability
-probeLocalCacheForFrameworkOnPlatform lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion fwn version) platform
+probeLocalCacheForFrameworkOnPlatform lCacheDir (CachePrefix prefix) useXcFrameworks reverseRomeMap (FrameworkVersion fwn version) platform
   = do
     frameworkExistsInLocalCache <- liftIO . doesFileExist $ frameworkLocalCachePath
     return (PlatformAvailability platform frameworkExistsInLocalCache)
  where
   frameworkLocalCachePath   = lCacheDir </> prefix </> remoteFrameworkUploadPath
-  remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap fwn version
+  remoteFrameworkUploadPath = remoteFrameworkPath useXcFrameworks platform reverseRomeMap fwn version

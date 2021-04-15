@@ -24,16 +24,17 @@ import qualified Turtle
 uploadFrameworkToEngine
   :: Zip.Archive -- ^ The `Zip.Archive` of the Framework.
   -> FilePath -- ^ The `FilePath` to the engine.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework.
   -> TargetPlatform -- ^ A `TargetPlatform`s restricting the scope of this action.
   -> ReaderT (CachePrefix, Bool) IO ()
-uploadFrameworkToEngine frameworkArchive enginePath reverseRomeMap (FrameworkVersion f@(Framework fwn _ fwps) version) platform
+uploadFrameworkToEngine frameworkArchive enginePath useXcFrameworks reverseRomeMap (FrameworkVersion f@(Framework fwn _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (CachePrefix prefix, verbose) <- ask
     withReaderT (const verbose)
       $ uploadBinary enginePath (Zip.fromArchive frameworkArchive) (prefix </> remoteFrameworkUploadPath) fwn
-  where remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
+  where remoteFrameworkUploadPath = remoteFrameworkPath useXcFrameworks platform reverseRomeMap f version
 
 
 

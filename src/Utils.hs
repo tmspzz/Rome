@@ -69,6 +69,7 @@ import           System.FilePath                ( addTrailingPathSeparator
 import           Text.Read                      ( readMaybe )
 import qualified Turtle
 import           Types
+import           Types.Commands
 import           Xcode.DWARF                    ( DwarfUUID
                                                 , bcsymbolmapNameFrom
                                                 )
@@ -166,11 +167,20 @@ appendFrameworkExtensionTo (Framework a _ _) = a ++ ".framework"
 
 
 
+-- | Appends the string ".xcframework" to a `XCFramework`'s name.
+appendXcFrameworkExtensionTo :: Framework -> String
+appendXcFrameworkExtensionTo (Framework a _ _) = a ++ ".xcframework"
+
+
+
 -- | Given a `Framework` and a `Version` produces a name for a Zip archive.
-frameworkArchiveName :: Framework -> Version -> String
-frameworkArchiveName f@(Framework _ Dynamic _) (Version v) = appendFrameworkExtensionTo f ++ "-" ++ v ++ ".zip"
-frameworkArchiveName f@(Framework _ Static _) (Version v) =
-  appendFrameworkExtensionTo f ++ "-" ++ "static" ++ "-" ++ v ++ ".zip"
+frameworkArchiveName :: Framework -> Version -> Bool -> String
+frameworkArchiveName f@(Framework _ Dynamic _) (Version v) x =
+  if x then appendXcFrameworkExtensionTo f ++ "-" ++ v ++ ".zip"
+  else appendFrameworkExtensionTo f ++ "-" ++ v ++ ".zip"
+frameworkArchiveName f@(Framework _ Static _) (Version v) x =
+  if x then appendXcFrameworkExtensionTo f ++ "-" ++ "static" ++ "-" ++ v ++ ".zip"
+  else appendFrameworkExtensionTo f ++ "-" ++ "static" ++ "-" ++ v ++ ".zip"
 
 
 
@@ -279,8 +289,8 @@ filterRomeFileEntriesByPlatforms lhs rhs = (uncurry RomefileEntry <$>) . M.toLis
 
 
 -- | Builds a string representing the remote path to a framework zip archive.
-remoteFrameworkPath :: TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
-remoteFrameworkPath p r f v = remoteCacheDirectory p r f ++ frameworkArchiveName f v
+remoteFrameworkPath :: Bool -> TargetPlatform -> InvertedRepositoryMap -> Framework -> Version -> String
+remoteFrameworkPath x p r f v = remoteCacheDirectory p r f ++ frameworkArchiveName f v x
 
 
 

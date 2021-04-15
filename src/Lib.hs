@@ -204,7 +204,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
 
   case command of
 
-    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFlag)
+    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag useXcFrameworksFlag concurrentlyFlag)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow uploadArtifacts
                                   (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFlag)
@@ -215,9 +215,10 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
                                   mS3BucketName
                                   mlCacheDir
                                   mEnginePath
+                                  (_useXcFrameworks useXcFrameworksFlag)
                                   platforms
 
-    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFlag)
+    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag useXcFrameworksFlag concurrentlyFlag)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow downloadArtifacts
                                   (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFlag)
@@ -228,9 +229,10 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
                                   mS3BucketName
                                   mlCacheDir
                                   mEnginePath
+                                  (_useXcFrameworks useXcFrameworksFlag)
                                   platforms
 
-    List (RomeListPayload listMode platforms cachePrefixString printFormat noIgnoreFlag noSkipCurrentFlag) -> do
+    List (RomeListPayload listMode platforms cachePrefixString printFormat noIgnoreFlag noSkipCurrentFlag useXcFrameworksFlag) -> do
 
       currentVersion <- deriveCurrentVersion
 
@@ -254,6 +256,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
           mlCacheDir
           mEnginePath
           listMode
+          (_useXcFrameworks useXcFrameworksFlag)
           (reverseRepositoryMap <> if _noSkipCurrent noSkipCurrentFlag then currentInvertedMap else M.empty)
           (frameworkVersions <> if _noSkipCurrent noSkipCurrentFlag
             then (currentFrameworkVersions `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames)
@@ -283,6 +286,7 @@ type FlowFunction
   =  Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> Maybe FilePath -- ^ Just the path to the engine or Nothing
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
@@ -296,8 +300,8 @@ performWithDefaultFlow
   -> (Bool {- verbose -}
           , NoIgnoreFlag  {- noIgnoreFlag -}
                         , SkipLocalCacheFlag {- skipLocalCache -}
-                                            , NoSkipCurrentFlag {- noSkipCurrentFlag -}
-                                                               , ConcurrentlyFlag) {- concurrentlyFlag -}
+                                            , NoSkipCurrentFlag {- skipLocalCache -}
+                                                                , ConcurrentlyFlag) {- concurrentlyFlag -}
   -> ([ {- repositoryMapEntries -}
        RomefileEntry], [ {- ignoreMapEntries -}
                         RomefileEntry], [RomefileEntry]) {- currentMapEntries -}
@@ -307,9 +311,10 @@ performWithDefaultFlow
   -> Maybe S3.BucketName -- mS3BucketName
   -> Maybe String -- mlCacheDir
   -> Maybe String -- mEnginePath
+  -> Bool -- ^ useXcFrameworks
   -> [TargetPlatform] -- platforms
   -> RomeMonad ()
-performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFlag) (repositoryMapEntries, ignoreMapEntries, currentMapEntries) gitRepoNames cartfileEntries cachePrefixString mS3BucketName mlCacheDir mEnginePath platforms
+performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFlag) (repositoryMapEntries, ignoreMapEntries, currentMapEntries) gitRepoNames cartfileEntries cachePrefixString mS3BucketName mlCacheDir mEnginePath useXcFrameworks platforms
   = do
 
     uuid <- ask
@@ -331,6 +336,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
                 (flowFunc mS3BucketName
                           mlCacheDir
                           mEnginePath
+                          useXcFrameworks
                           reverseRepositoryMap
                           (derivedFrameworkVersions `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames)
                           platforms
@@ -346,6 +352,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
                   (flowFunc mS3BucketName
                             mlCacheDir
                             mEnginePath
+                            useXcFrameworks
                             currentInvertedMap
                             (currentFrameworkVersions `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames)
                             platforms
@@ -371,6 +378,7 @@ performWithDefaultFlow flowFunc (verbose, noIgnoreFlag, skipLocalCache, noSkipCu
           (flowFunc mS3BucketName
                     mlCacheDir
                     mEnginePath
+                    useXcFrameworks
                     (reverseRepositoryMap <> currentInvertedMap)
                     frameworkVersions
                     platforms
@@ -383,18 +391,20 @@ listArtifacts
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> Maybe FilePath -- ^ Just the path to the engine or Nothing
   -> ListMode -- ^ A list mode to execute this operation in.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to limit the operation to.
   -> PrintFormat -- ^ A format of the string result: text or JSON.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad ()
-listArtifacts mS3BucketName mlCacheDir mEnginePath listMode reverseRepositoryMap frameworkVersions platforms format =
+listArtifacts mS3BucketName mlCacheDir mEnginePath listMode useXcFrameworks reverseRepositoryMap frameworkVersions platforms format =
   do
     (_, _, verbose) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
     repoAvailabilities <- getProjectAvailabilityFromCaches mS3BucketName
                                                            mlCacheDir
                                                            mEnginePath
+                                                           useXcFrameworks
                                                            reverseRepositoryMap
                                                            frameworkVersions
                                                            platforms
@@ -411,31 +421,32 @@ getProjectAvailabilityFromCaches
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> Maybe FilePath -- ^ Just the path to the engine or Nothing
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) RomeMonad [ProjectAvailability]
-getProjectAvailabilityFromCaches (Just s3BucketName) _ Nothing reverseRepositoryMap frameworkVersions platforms = do
+getProjectAvailabilityFromCaches (Just s3BucketName) _ Nothing useXcFrameworks reverseRepositoryMap frameworkVersions platforms = do
   env                       <- lift getAWSEnv
   (cachePrefix, _, verbose) <- ask
   let readerEnv = (env, cachePrefix, verbose)
   availabilities <- liftIO
-    $ runReaderT (probeS3ForFrameworks s3BucketName reverseRepositoryMap frameworkVersions platforms) readerEnv
+    $ runReaderT (probeS3ForFrameworks s3BucketName useXcFrameworks reverseRepositoryMap frameworkVersions platforms) readerEnv
   return $ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRepositoryMap availabilities
 
-getProjectAvailabilityFromCaches Nothing (Just lCacheDir) Nothing reverseRepositoryMap frameworkVersions platforms = do
+getProjectAvailabilityFromCaches Nothing (Just lCacheDir) Nothing useXcFrameworks reverseRepositoryMap frameworkVersions platforms = do
   (cachePrefix, SkipLocalCacheFlag skipLocalCache, _) <- ask
   when skipLocalCache $ throwError conflictingSkipLocalCacheOptionMessage
 
-  availabilities <- probeLocalCacheForFrameworks lCacheDir cachePrefix reverseRepositoryMap frameworkVersions platforms
+  availabilities <- probeLocalCacheForFrameworks lCacheDir cachePrefix useXcFrameworks reverseRepositoryMap frameworkVersions platforms
   return $ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRepositoryMap availabilities
 
-getProjectAvailabilityFromCaches Nothing _ (Just ePath) reverseRepositoryMap frameworkVersions platforms = do
+getProjectAvailabilityFromCaches Nothing _ (Just ePath) useXcFrameworks reverseRepositoryMap frameworkVersions platforms = do
   (cachePrefix, _, _) <- ask
-  availabilities      <- probeEngineForFrameworks ePath cachePrefix reverseRepositoryMap frameworkVersions platforms
+  availabilities      <- probeEngineForFrameworks ePath cachePrefix useXcFrameworks reverseRepositoryMap frameworkVersions platforms
   return $ getMergedGitRepoAvailabilitiesFromFrameworkAvailabilities reverseRepositoryMap availabilities
-getProjectAvailabilityFromCaches (Just _) _       (Just _) _ _ _ = throwError conflictingCachesMessage
-getProjectAvailabilityFromCaches Nothing  Nothing Nothing  _ _ _ = throwError allCacheKeysMissingMessage
+getProjectAvailabilityFromCaches (Just _) _       (Just _) _ _ _ _ = throwError conflictingCachesMessage
+getProjectAvailabilityFromCaches Nothing  Nothing Nothing  _ _ _ _ = throwError allCacheKeysMissingMessage
 
 
 
@@ -445,11 +456,12 @@ downloadArtifacts
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> Maybe FilePath -- ^ Just the path to the engine or Nothing
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool, UUID.UUID) RomeMonad ()
-downloadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap frameworkVersions platforms = do
+downloadArtifacts mS3BucketName mlCacheDir mEnginePath useXcFrameworks reverseRepositoryMap frameworkVersions platforms = do
   (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), concurrentlyFlag@(ConcurrentlyFlag performConcurrently), verbose, uuid) <-
     ask
 
@@ -464,6 +476,7 @@ downloadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap fram
       let action1 = runReaderT
             (downloadFrameworksAndArtifactsFromCaches s3BucketName
                                                       lCacheDir
+                                                      useXcFrameworks
                                                       reverseRepositoryMap
                                                       frameworkVersions
                                                       platforms
@@ -482,6 +495,7 @@ downloadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap fram
         runReaderT
           (do
             errors <- mapM runExceptT $ getAndUnzipFrameworksAndArtifactsFromLocalCache lCacheDir
+                                                                                        useXcFrameworks
                                                                                         reverseRepositoryMap
                                                                                         frameworkVersions
                                                                                         platforms
@@ -501,6 +515,7 @@ downloadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap fram
       let action1 = runReaderT
             (downloadFrameworksAndArtifactsWithEngine ePath
                                                       lCacheDir
+                                                      useXcFrameworks
                                                       reverseRepositoryMap
                                                       frameworkVersions
                                                       platforms
@@ -533,11 +548,12 @@ uploadArtifacts
   :: Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
   -> Maybe FilePath -- ^ Just the path to the engine or Nothing
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .version files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool, UUID.UUID) RomeMonad ()
-uploadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap frameworkVersions platforms = do
+uploadArtifacts mS3BucketName mlCacheDir mEnginePath useXcFrameworks reverseRepositoryMap frameworkVersions platforms = do
   (cachePrefix, skipLocalCacheFlag@(SkipLocalCacheFlag skipLocalCache), concurrentlyFlag@(ConcurrentlyFlag performConcurrently), verbose, uuid) <-
     ask
   case (mS3BucketName, mlCacheDir, mEnginePath) of
@@ -548,6 +564,7 @@ uploadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap framew
       let action1 = runReaderT
             (uploadFrameworksAndArtifactsToCaches s3BucketName
                                                   lCacheDir
+                                                  useXcFrameworks
                                                   reverseRepositoryMap
                                                   frameworkVersions
                                                   platforms
@@ -562,14 +579,14 @@ uploadArtifacts mS3BucketName mlCacheDir mEnginePath reverseRepositoryMap framew
       when skipLocalCache $ throwError conflictingSkipLocalCacheOptionMessage
       liftIO
         $  runReaderT
-             (saveFrameworksAndArtifactsToLocalCache lCacheDir reverseRepositoryMap frameworkVersions platforms)
+             (saveFrameworksAndArtifactsToLocalCache lCacheDir useXcFrameworks reverseRepositoryMap frameworkVersions platforms)
              readerEnv
         >> runReaderT (saveVersionFilesToLocalCache lCacheDir gitRepoNamesAndVersions) readerEnv
     -- Engine, maybe Cache
     (Nothing, lCacheDir, Just ePath) -> do
       let engineEnv = (cachePrefix, skipLocalCacheFlag, concurrentlyFlag, verbose, uuid)
       let action1 = runReaderT
-            (uploadFrameworksAndArtifactsToEngine ePath lCacheDir reverseRepositoryMap frameworkVersions platforms)
+            (uploadFrameworksAndArtifactsToEngine ePath lCacheDir useXcFrameworks reverseRepositoryMap frameworkVersions platforms)
             engineEnv
       let action2 = runReaderT (uploadVersionFilesToEngine ePath lCacheDir gitRepoNamesAndVersions) engineEnv
       if performConcurrently then liftIO $ concurrently_ action1 action2 else liftIO $ action1 >> action2
@@ -662,17 +679,18 @@ uploadVersionFileToCaches s3BucketName mlCacheDir projectNameAndVersion = do
 uploadFrameworksAndArtifactsToCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to a local cache or Nothing
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying the Frameworks and dSYMs.
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-uploadFrameworksAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fvs platforms = do
+uploadFrameworksAndArtifactsToCaches s3BucketName mlCacheDir useXcFrameworks reverseRomeMap fvs platforms = do
   (_, _, _, ConcurrentlyFlag performConcurrently, _, _) <- ask
   if performConcurrently then mapConcurrently_ uploadConcurrently fvs else mapM_ (sequence . upload) platforms
  where
   uploadConcurrently f =
-    mapConcurrently (uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap f) platforms
-  upload = mapM (uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap) fvs
+    mapConcurrently (uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir useXcFrameworks reverseRomeMap f) platforms
+  upload = mapM (uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir useXcFrameworks reverseRomeMap) fvs
 
 
 
@@ -680,11 +698,12 @@ uploadFrameworksAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fvs 
 uploadFrameworkAndArtifactsToCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and the dSYM
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) _) platform
+uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir useXcFrameworks reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) _) platform
   = do
     (env, cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), _, verbose, _) <- ask
 
@@ -698,17 +717,18 @@ uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVers
         <$> (   saveFrameworkToLocalCache
             <$> mlCacheDir
             <*> Just frameworkArchive
+            <*> Just useXcFrameworks
             <*> Just reverseRomeMap
             <*> Just fVersion
             <*> Just platform
             )
         <*> Just (cachePrefix, s, verbose)
-      liftIO $ runReaderT (uploadFrameworkToS3 frameworkArchive s3BucketName reverseRomeMap fVersion platform)
+      liftIO $ runReaderT (uploadFrameworkToS3 frameworkArchive s3BucketName useXcFrameworks reverseRomeMap fVersion platform)
                           uploadDownloadEnv
 
     void . runExceptT $ do
       dSYMArchive <- createZipArchive dSYMdirectory verbose
-      unless skipLocalCache
+      unless (skipLocalCache || useXcFrameworks)
         $   maybe (return ()) liftIO
         $   runReaderT
         <$> (   saveDsymToLocalCache
@@ -727,7 +747,7 @@ uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVers
         dwarfArchive <- exceptToMaybeT $ createZipArchive (bcSymbolMapPath dwarfUUID) verbose
         return (dwarfUUID, dwarfArchive)
 
-      unless skipLocalCache $ forM_ maybeUUIDsArchives $ mapM $ \(dwarfUUID, dwarfArchive) ->
+      unless (skipLocalCache || useXcFrameworks) $ forM_ maybeUUIDsArchives $ mapM $ \(dwarfUUID, dwarfArchive) ->
         maybe (return ()) liftIO
           $   runReaderT
           <$> (   saveBcsymbolmapToLocalCache
@@ -745,8 +765,12 @@ uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVers
         uploadDownloadEnv
  where
 
-  frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-  platformBuildDirectory              = carthageArtifactsBuildDirectoryForPlatform platform f
+  frameworkNameWithFrameworkExtension =
+    if useXcFrameworks then appendXcFrameworkExtensionTo f
+    else appendFrameworkExtensionTo f
+  platformBuildDirectory              =
+    if useXcFrameworks then carthageBuildDirectory
+    else carthageArtifactsBuildDirectoryForPlatform platform f
   frameworkDirectory                  = platformBuildDirectory </> frameworkNameWithFrameworkExtension
   dSYMNameWithDSYMExtension           = frameworkNameWithFrameworkExtension <> ".dSYM"
   dSYMdirectory                       = platformBuildDirectory </> dSYMNameWithDSYMExtension
@@ -758,12 +782,13 @@ uploadFrameworkAndArtifactsToCaches s3BucketName mlCacheDir reverseRomeMap fVers
 saveFrameworksAndArtifactsToLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` restricting the scope of this action.
   -> ReaderT (CachePrefix, Bool) m ()
-saveFrameworksAndArtifactsToLocalCache lCacheDir reverseRomeMap fvs = mapM_ (sequence . save)
-  where save = mapM (saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap) fvs
+saveFrameworksAndArtifactsToLocalCache lCacheDir useXcFrameworks reverseRomeMap fvs = mapM_ (sequence . save)
+  where save = mapM (saveFrameworkAndArtifactsToLocalCache lCacheDir useXcFrameworks reverseRomeMap) fvs
 
 
 
@@ -771,11 +796,12 @@ saveFrameworksAndArtifactsToLocalCache lCacheDir reverseRomeMap fvs = mapM_ (seq
 saveFrameworkAndArtifactsToLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVersion -- ^ A `FrameworkVersion` identifying Framework and dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` restricting the scope of this action.
   -> ReaderT (CachePrefix, Bool) m ()
-saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) _) platform
+saveFrameworkAndArtifactsToLocalCache lCacheDir useXcFrameworks reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) _) platform
   = do
     (cachePrefix, verbose) <- ask
     let readerEnv = (cachePrefix, SkipLocalCacheFlag False, verbose)
@@ -783,23 +809,29 @@ saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(Framewo
     void . runExceptT $ do
       frameworkArchive <- createZipArchive frameworkDirectory verbose
       liftIO
-        $ runReaderT (saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap fVersion platform) readerEnv
+        $ runReaderT (saveFrameworkToLocalCache lCacheDir frameworkArchive useXcFrameworks reverseRomeMap fVersion platform) readerEnv
 
     void . runExceptT $ do
       dSYMArchive <- createZipArchive dSYMdirectory verbose
-      liftIO $ runReaderT (saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap fVersion platform) readerEnv
+      unless useXcFrameworks
+       $ liftIO $ runReaderT (saveDsymToLocalCache lCacheDir dSYMArchive reverseRomeMap fVersion platform) readerEnv
 
     void . runExceptT $ do
       dwarfUUIDs         <- dwarfUUIDsFrom (frameworkDirectory </> fwn)
       maybeUUIDsArchives <- liftIO $ forM dwarfUUIDs $ \dwarfUUID -> runMaybeT $ do
         dwarfArchive <- exceptToMaybeT $ createZipArchive (bcSymbolMapPath dwarfUUID) verbose
         return (dwarfUUID, dwarfArchive)
-      forM_ maybeUUIDsArchives $ mapM $ \(dwarfUUID, dwarfArchive) -> liftIO $ runReaderT
-        (saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap fVersion platform)
-        readerEnv
+      unless useXcFrameworks
+       $ forM_ maybeUUIDsArchives $ mapM $ \(dwarfUUID, dwarfArchive) -> liftIO $ runReaderT
+          (saveBcsymbolmapToLocalCache lCacheDir dwarfUUID dwarfArchive reverseRomeMap fVersion platform)
+          readerEnv
  where
-  frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-  platformBuildDirectory              = carthageArtifactsBuildDirectoryForPlatform platform f
+  frameworkNameWithFrameworkExtension =
+    if useXcFrameworks then appendXcFrameworkExtensionTo f
+    else appendFrameworkExtensionTo f
+  platformBuildDirectory              =
+    if useXcFrameworks then carthageBuildDirectory
+    else carthageArtifactsBuildDirectoryForPlatform platform f
   frameworkDirectory                  = platformBuildDirectory </> frameworkNameWithFrameworkExtension
   dSYMNameWithDSYMExtension           = frameworkNameWithFrameworkExtension <> ".dSYM"
   dSYMdirectory                       = platformBuildDirectory </> dSYMNameWithDSYMExtension
@@ -811,27 +843,29 @@ saveFrameworkAndArtifactsToLocalCache lCacheDir reverseRomeMap fVersion@(Framewo
 uploadFrameworksAndArtifactsToEngine
   :: FilePath -- ^ The path to the engine or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` from which to derive Frameworks, dSYMs and .verison files
   -> [TargetPlatform] -- ^ A list of `TargetPlatform` to restrict this operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool, UUID.UUID) IO ()
-uploadFrameworksAndArtifactsToEngine enginePath mlCacheDir reverseRomeMap fvs platforms = do
+uploadFrameworksAndArtifactsToEngine enginePath mlCacheDir useXcFrameworks reverseRomeMap fvs platforms = do
   (_, _, ConcurrentlyFlag performConcurrently, _, _) <- ask
   if performConcurrently then mapConcurrently_ uploadConcurrently fvs else mapM_ (sequence . upload) platforms
  where
   uploadConcurrently f =
-    mapConcurrently (uploadFrameworkAndArtifactsWithEngine enginePath mlCacheDir reverseRomeMap f) platforms
-  upload = mapM (uploadFrameworkAndArtifactsWithEngine enginePath mlCacheDir reverseRomeMap) fvs
+    mapConcurrently (uploadFrameworkAndArtifactsWithEngine enginePath mlCacheDir useXcFrameworks reverseRomeMap f) platforms
+  upload = mapM (uploadFrameworkAndArtifactsWithEngine enginePath mlCacheDir useXcFrameworks reverseRomeMap) fvs
 
 
 uploadFrameworkAndArtifactsWithEngine
   :: FilePath -- ^ The path to the engine or Nothing
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVersion -- ^ A`FrameworkVersion` from which to derive Frameworks, dSYMs and .verison files
   -> TargetPlatform -- ^ A `TargetPlatform` to restrict this operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool, UUID.UUID) IO ()
-uploadFrameworkAndArtifactsWithEngine enginePath mlCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
+uploadFrameworkAndArtifactsWithEngine enginePath mlCacheDir useXcFrameworks reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn fwt fwps) _) platform
   = do
     (cachePrefix, s@(SkipLocalCacheFlag skipLocalCache), ConcurrentlyFlag performConcurrently, verbose, _) <- ask
     let readerEnv = (cachePrefix, verbose)
@@ -843,13 +877,14 @@ uploadFrameworkAndArtifactsWithEngine enginePath mlCacheDir reverseRomeMap fVers
         <$> (   saveFrameworkToLocalCache
             <$> mlCacheDir
             <*> Just frameworkArchive
+            <*> Just useXcFrameworks
             <*> Just reverseRomeMap
             <*> Just fVersion
             <*> Just platform
             )
         <*> Just (cachePrefix, s, verbose)
       liftIO
-        $ runReaderT (uploadFrameworkToEngine frameworkArchive enginePath reverseRomeMap fVersion platform) readerEnv
+        $ runReaderT (uploadFrameworkToEngine frameworkArchive enginePath useXcFrameworks reverseRomeMap fVersion platform) readerEnv
 
     void . runExceptT $ do
       dSYMArchive <- createZipArchive dSYMdirectory verbose
@@ -890,8 +925,12 @@ uploadFrameworkAndArtifactsWithEngine enginePath mlCacheDir reverseRomeMap fVers
         readerEnv
  where
 
-  frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
-  platformBuildDirectory              = carthageArtifactsBuildDirectoryForPlatform platform f
+  frameworkNameWithFrameworkExtension =
+    if useXcFrameworks then appendXcFrameworkExtensionTo f
+    else appendFrameworkExtensionTo f
+  platformBuildDirectory              =
+    if useXcFrameworks then carthageBuildDirectory
+    else carthageArtifactsBuildDirectoryForPlatform platform f
   frameworkDirectory                  = platformBuildDirectory </> frameworkNameWithFrameworkExtension
   dSYMNameWithDSYMExtension           = frameworkNameWithFrameworkExtension <> ".dSYM"
   dSYMdirectory                       = platformBuildDirectory </> dSYMNameWithDSYMExtension
@@ -972,17 +1011,18 @@ downloadVersionFileFromCaches s3BucketName Nothing projectNameAndVersion = do
 downloadFrameworksAndArtifactsFromCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying the Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap fvs platforms = do
+downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir useXcFrameworks reverseRomeMap fvs platforms = do
   (_, _, _, ConcurrentlyFlag performConcurrently, _, _) <- ask
   if performConcurrently then mapConcurrently_ downloadConcurrently fvs else mapM_ (sequence . download) platforms
  where
   downloadConcurrently f =
-    mapConcurrently (downloadFrameworkAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap f) platforms
-  download = mapM (downloadFrameworkAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap) fvs
+    mapConcurrently (downloadFrameworkAndArtifactsFromCaches s3BucketName mlCacheDir useXcFrameworks reverseRomeMap f) platforms
+  download = mapM (downloadFrameworkAndArtifactsFromCaches s3BucketName mlCacheDir useXcFrameworks reverseRomeMap) fvs
 
 
 
@@ -992,22 +1032,23 @@ downloadFrameworksAndArtifactsFromCaches s3BucketName mlCacheDir reverseRomeMap 
 downloadFrameworkAndArtifactsFromCaches
   :: S3.BucketName -- ^ The cache definition.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and dSYM
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
   -> ReaderT UploadDownloadCmdEnv IO ()
-downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform
+downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) useXcFrameworks reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform
   = do
     (env, cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, _, verbose, uuid) <- ask
 
     let remoteReaderEnv = (env, cachePrefix, verbose)
     let localReaderEnv  = (cachePrefix, verbose, uuid)
 
-    when skipLocalCache $ downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVersion platform
+    when skipLocalCache $ downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing useXcFrameworks reverseRomeMap fVersion platform
 
     unless skipLocalCache $ do
       eitherFrameworkSuccess <- runReaderT
-        (runExceptT $ getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap fVersion platform)
+        (runExceptT $ getAndUnzipFrameworkFromLocalCache lCacheDir useXcFrameworks reverseRomeMap fVersion platform)
         localReaderEnv
       let sayFunc :: MonadIO m => String -> m ()
           sayFunc = if verbose then sayLnWithTime else sayLn
@@ -1019,7 +1060,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRom
           runReaderT
             (do
               e2 <- runExceptT $ do
-                frameworkBinary <- getFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform
+                frameworkBinary <- getFrameworkFromS3 s3BucketName useXcFrameworks reverseRomeMap fVersion platform
                 saveBinaryToLocalCache lCacheDir frameworkBinary (prefix </> remoteFrameworkUploadPath) fwn verbose
                 deleteFrameworkDirectory fVersion platform verbose
                 unzipBinary frameworkBinary fwn frameworkZipName verbose
@@ -1080,8 +1121,8 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRom
             )
             remoteReaderEnv
  where
-  frameworkZipName          = frameworkArchiveName f version
-  remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
+  frameworkZipName          = frameworkArchiveName f version useXcFrameworks
+  remoteFrameworkUploadPath = remoteFrameworkPath useXcFrameworks platform reverseRomeMap f version
   remoteBcSymbolmapUploadPathFromDwarf dwarfUUID = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
   dSYMZipName             = dSYMArchiveName f version
   remotedSYMUploadPath    = remoteDsymPath platform reverseRomeMap f version
@@ -1089,7 +1130,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) reverseRom
   dSYMName                = fwn <> ".dSYM"
   frameworkExecutablePath = frameworkBuildBundleForPlatform platform f </> fwn
 
-downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVersion@(FrameworkVersion (Framework fwn _ _) _) platform
+downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing useXcFrameworks reverseRomeMap fVersion@(FrameworkVersion (Framework fwn _ _) _) platform
   = do
     (env, cachePrefix, _, _, verbose, _) <- ask
 
@@ -1097,7 +1138,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVer
 
     let sayFunc   = if verbose then sayLnWithTime else sayLn
     eitherError <- liftIO
-      $ runReaderT (runExceptT $ getAndUnzipFrameworkFromS3 s3BucketName reverseRomeMap fVersion platform) readerEnv
+      $ runReaderT (runExceptT $ getAndUnzipFrameworkFromS3 s3BucketName useXcFrameworks reverseRomeMap fVersion platform) readerEnv
     whenLeft sayFunc eitherError
 
     eitherDSYMError <- liftIO
@@ -1117,12 +1158,13 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing reverseRomeMap fVer
 downloadFrameworksAndArtifactsWithEngine
   :: FilePath -- ^ The path to the engine.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` identifying the Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of target platforms restricting the scope of this action.
   -> FilePath -- ^ A temporary intermediate directory used by the engine
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool, UUID.UUID) IO ()
-downloadFrameworksAndArtifactsWithEngine ePath lCacheDir reverseRomeMap fvs platforms tmpDir = do
+downloadFrameworksAndArtifactsWithEngine ePath lCacheDir useXcFrameworks reverseRomeMap fvs platforms tmpDir = do
   (_, _, ConcurrentlyFlag performConcurrently, _, _) <- ask
   if performConcurrently
     then mapConcurrently_ downloadConcurrently fvs
@@ -1131,13 +1173,13 @@ downloadFrameworksAndArtifactsWithEngine ePath lCacheDir reverseRomeMap fvs plat
     else mapM_ (sequence . download) platforms
  where
   downloadConcurrently f =
-    mapConcurrently (\p -> downloadFrameworkAndArtifactsWithEngine ePath lCacheDir reverseRomeMap f p tmpDir) platforms
+    mapConcurrently (\p -> downloadFrameworkAndArtifactsWithEngine ePath lCacheDir useXcFrameworks reverseRomeMap f p tmpDir) platforms
   -- Types here a tricky (for me)
   -- someF = mapM (\k v -> putStrLn (k ++ " " ++ v)) ["hello", "ciao"] :: String -> [IO ()]
   -- while
   -- someF' k = mapM (\v -> putStrLn (k ++ " " ++ v)) ["hello", "ciao" ] :: String -> IO [()]
   download = mapM download' fvs
-  download' fv p = downloadFrameworkAndArtifactsWithEngine ePath lCacheDir reverseRomeMap fv p tmpDir
+  download' fv p = downloadFrameworkAndArtifactsWithEngine ePath lCacheDir useXcFrameworks reverseRomeMap fv p tmpDir
 
 
 -- | Downloads a Framework and it's relative dSYM with the engine or a local cache.
@@ -1146,22 +1188,23 @@ downloadFrameworksAndArtifactsWithEngine ePath lCacheDir reverseRomeMap fvs plat
 downloadFrameworkAndArtifactsWithEngine
   :: FilePath -- ^ The path to the engine.
   -> Maybe FilePath -- ^ Just the path to the local cache or Nothing.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `ProjectName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework and dSYM
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
   -> FilePath -- ^ A temporary path used by the engine to download binaries to
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, ConcurrentlyFlag, Bool, UUID.UUID) IO ()
-downloadFrameworkAndArtifactsWithEngine ePath (Just lCacheDir) reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform tmpDir
+downloadFrameworkAndArtifactsWithEngine ePath (Just lCacheDir) useXcFrameworks reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform tmpDir
   = do
     (cachePrefix@(CachePrefix prefix), SkipLocalCacheFlag skipLocalCache, _, verbose, uuid) <- ask
 
     let readerEnv = (cachePrefix, verbose, uuid)
 
-    when skipLocalCache $ downloadFrameworkAndArtifactsWithEngine ePath Nothing reverseRomeMap fVersion platform tmpDir
+    when skipLocalCache $ downloadFrameworkAndArtifactsWithEngine ePath Nothing useXcFrameworks reverseRomeMap fVersion platform tmpDir
 
     unless skipLocalCache $ do
       eitherFrameworkSuccess <- runReaderT
-        (runExceptT $ getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap fVersion platform)
+        (runExceptT $ getAndUnzipFrameworkFromLocalCache lCacheDir useXcFrameworks reverseRomeMap fVersion platform)
         readerEnv
       let sayFunc :: MonadIO m => String -> m ()
           sayFunc = if verbose then sayLnWithTime else sayLn
@@ -1173,7 +1216,7 @@ downloadFrameworkAndArtifactsWithEngine ePath (Just lCacheDir) reverseRomeMap fV
           runReaderT
             (do
               e2 <- runExceptT $ do
-                frameworkBinary <- getFrameworkFromEngine ePath reverseRomeMap fVersion platform tmpDir
+                frameworkBinary <- getFrameworkFromEngine ePath useXcFrameworks reverseRomeMap fVersion platform tmpDir
                 saveBinaryToLocalCache lCacheDir frameworkBinary (prefix </> remoteFrameworkUploadPath) fwn verbose
                 deleteFrameworkDirectory fVersion platform verbose
                 unzipBinary frameworkBinary fwn frameworkZipName verbose
@@ -1232,8 +1275,8 @@ downloadFrameworkAndArtifactsWithEngine ePath (Just lCacheDir) reverseRomeMap fV
             )
             readerEnv
  where
-  frameworkZipName          = frameworkArchiveName f version
-  remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
+  frameworkZipName          = frameworkArchiveName f version useXcFrameworks
+  remoteFrameworkUploadPath = remoteFrameworkPath useXcFrameworks platform reverseRomeMap f version
   remoteBcSymbolmapUploadPathFromDwarf dwarfUUID = remoteBcsymbolmapPath dwarfUUID platform reverseRomeMap f version
   dSYMZipName             = dSYMArchiveName f version
   remotedSYMUploadPath    = remoteDsymPath platform reverseRomeMap f version
@@ -1242,7 +1285,7 @@ downloadFrameworkAndArtifactsWithEngine ePath (Just lCacheDir) reverseRomeMap fV
   frameworkExecutablePath = frameworkBuildBundleForPlatform platform f </> fwn
 
 
-downloadFrameworkAndArtifactsWithEngine ePath Nothing reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform tmpDir
+downloadFrameworkAndArtifactsWithEngine ePath Nothing useXcFrameworks reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ _) version) platform tmpDir
   = do
     (cachePrefix, _, _, verbose, uuid) <- ask
 
@@ -1251,7 +1294,7 @@ downloadFrameworkAndArtifactsWithEngine ePath Nothing reverseRomeMap fVersion@(F
 
     liftIO $ runReaderT
       (do
-        err <- runExceptT $ getAndUnzipFrameworkWithEngine ePath reverseRomeMap fVersion platform tmpDir
+        err <- runExceptT $ getAndUnzipFrameworkWithEngine ePath useXcFrameworks reverseRomeMap fVersion platform tmpDir
         whenLeft sayFunc err
         eitherDSYMError <- runExceptT $ getAndUnzipDSYMWithEngine ePath reverseRomeMap fVersion platform tmpDir
         whenLeft sayFunc eitherDSYMError

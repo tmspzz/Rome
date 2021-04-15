@@ -43,6 +43,12 @@ noSkipCurrentParser = NoSkipCurrentFlag <$> Opts.switch
   <> Opts.help "Do not skip the `currentMap` section in the Romefile when performing the operation."
   )
 
+useXcFrameworksParser :: Opts.Parser UseXcFrameworksFlag
+useXcFrameworksParser = UseXcFrameworksFlag <$> Opts.switch
+  (  Opts.long "use-xcframeworks"
+  <> Opts.help "Search for .xcframeworks when performing the operation."
+  )
+
 concurrentlyParser :: Opts.Parser ConcurrentlyFlag
 concurrentlyParser = ConcurrentlyFlag <$> Opts.switch
   (  Opts.long "concurrently"
@@ -85,6 +91,7 @@ udcPayloadParser =
     <*> skipLocalCacheParser
     <*> noIgnoreParser
     <*> noSkipCurrentParser
+    <*> useXcFrameworksParser
     <*> concurrentlyParser
 
 uploadParser :: Opts.Parser RomeCommand
@@ -116,6 +123,7 @@ listPayloadParser =
     <*> printFormatParser
     <*> noIgnoreParser
     <*> noSkipCurrentParser
+    <*> useXcFrameworksParser
 
 listParser :: Opts.Parser RomeCommand
 listParser = List <$> listPayloadParser

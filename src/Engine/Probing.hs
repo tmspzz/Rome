@@ -17,12 +17,13 @@ probeEngineForFrameworks
   :: MonadIO m
   => FilePath -- ^ The `FilePath` to the engine
   -> CachePrefix -- ^ The top level directory prefix.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> [FrameworkVersion] -- ^ A list of `FrameworkVersion` to probe for.
   -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
   -> m [FrameworkAvailability]
-probeEngineForFrameworks lCacheDir cachePrefix reverseRomeMap frameworkVersions = sequence . probeForEachFramework
-  where probeForEachFramework = mapM (probeEngineForFramework lCacheDir cachePrefix reverseRomeMap) frameworkVersions
+probeEngineForFrameworks lCacheDir cachePrefix useXcFrameworks reverseRomeMap frameworkVersions = sequence . probeForEachFramework
+  where probeForEachFramework = mapM (probeEngineForFramework lCacheDir cachePrefix useXcFrameworks reverseRomeMap) frameworkVersions
 
 
 -- | Probes the engine at `FilePath` to check if a `FrameworkVersion` exists for each `TargetPlatform`
@@ -30,16 +31,17 @@ probeEngineForFramework
   :: MonadIO m
   => FilePath -- ^ The `FilePath` to the engine
   -> CachePrefix -- ^ The top level directory prefix.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
   -> [TargetPlatform] -- ^ A list target platforms restricting the scope of this action.
   -> m FrameworkAvailability
-probeEngineForFramework lCacheDir cachePrefix reverseRomeMap frameworkVersion platforms = fmap
+probeEngineForFramework lCacheDir cachePrefix useXcFrameworks reverseRomeMap frameworkVersion platforms = fmap
   (FrameworkAvailability frameworkVersion)
   probeForEachPlatform
  where
   probeForEachPlatform = mapM
-    (probeEngineForFrameworkOnPlatform lCacheDir cachePrefix reverseRomeMap frameworkVersion)
+    (probeEngineForFrameworkOnPlatform lCacheDir cachePrefix useXcFrameworks reverseRomeMap frameworkVersion)
     (platforms `intersect` (_frameworkPlatforms . _framework $ frameworkVersion))
 
 
@@ -48,11 +50,12 @@ probeEngineForFrameworkOnPlatform
   :: MonadIO m
   => FilePath -- ^ The `FilePath` to the engine
   -> CachePrefix -- ^ The top level directory prefix.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` to probe for.
   -> TargetPlatform -- ^ A target platforms restricting the scope of this action.
   -> m PlatformAvailability
-probeEngineForFrameworkOnPlatform enginePath (CachePrefix prefix) reverseRomeMap (FrameworkVersion fwn version) platform
+probeEngineForFrameworkOnPlatform enginePath (CachePrefix prefix) useXcFrameworks reverseRomeMap (FrameworkVersion fwn version) platform
   = do
     let cmd = Turtle.fromString enginePath
     exitCode <- Turtle.proc cmd
@@ -62,5 +65,5 @@ probeEngineForFrameworkOnPlatform enginePath (CachePrefix prefix) reverseRomeMap
         -- If engine exits with success, we assume the framework exists.
       Turtle.ExitSuccess   -> return (PlatformAvailability platform True)
       Turtle.ExitFailure _ -> return (PlatformAvailability platform False)
-  where remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap fwn version
+  where remoteFrameworkUploadPath = remoteFrameworkPath useXcFrameworks platform reverseRomeMap fwn version
 

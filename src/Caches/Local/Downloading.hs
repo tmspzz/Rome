@@ -44,11 +44,12 @@ getFrameworkFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition
   -> CachePrefix -- ^ A prefix for folders at top level in the cache.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String m LBS.ByteString
-getFrameworkFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform
+getFrameworkFromLocalCache lCacheDir (CachePrefix prefix) useXcFrameworks reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform
   = do
     frameworkExistsInLocalCache <- liftIO . doesFileExist $ frameworkLocalCachePath prefix
     if frameworkExistsInLocalCache
@@ -56,7 +57,7 @@ getFrameworkFromLocalCache lCacheDir (CachePrefix prefix) reverseRomeMap (Framew
       else throwError $ "Error: could not find " <> fwn <> " in local cache at : " <> frameworkLocalCachePath prefix
  where
   frameworkLocalCachePath cPrefix = lCacheDir </> cPrefix </> remoteFrameworkUploadPath
-  remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
+  remoteFrameworkUploadPath = remoteFrameworkPath useXcFrameworks platform reverseRomeMap f version
 
 
 
@@ -156,7 +157,7 @@ getAndUnzipBcsymbolmapFromLocalCache lCacheDir reverseRomeMap fVersion@(Framewor
     unzipBinary binary symbolmapName (bcsymbolmapZipName dwarfUUID) verbose
  where
   frameworkLocalCachePath cPrefix = lCacheDir </> cPrefix </> remoteFrameworkUploadPath
-  remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
+  remoteFrameworkUploadPath = remoteFrameworkPath False platform reverseRomeMap f version
   bcsymbolmapZipName d = bcsymbolmapArchiveName d version
   bcsymbolmapPath d = platformBuildDirectory </> bcsymbolmapNameFrom d
   platformBuildDirectory = carthageArtifactsBuildDirectoryForPlatform platform f
@@ -222,16 +223,18 @@ getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir reverseRomeMap fVersion@(Framew
 getAndUnzipFrameworksAndArtifactsFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> [FrameworkVersion] -- ^ The a list of `FrameworkVersion` identifying the Frameworks and dSYMs
   -> [TargetPlatform] -- ^ A list of `TargetPlatform`s to limit the operation to
   -> [ExceptT String (ReaderT (CachePrefix, Bool, UUID.UUID) m) ()]
-getAndUnzipFrameworksAndArtifactsFromLocalCache lCacheDir reverseRomeMap fvs platforms =
-  concatMap getAndUnzipFramework platforms
+getAndUnzipFrameworksAndArtifactsFromLocalCache lCacheDir useXcFrameworks reverseRomeMap fvs platforms =
+  if useXcFrameworks then concatMap getAndUnzipFramework platforms
+  else concatMap getAndUnzipFramework platforms
     <> concatMap getAndUnzipBcsymbolmaps platforms
     <> concatMap getAndUnzipDSYM         platforms
  where
-  getAndUnzipFramework    = mapM (getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap) fvs
+  getAndUnzipFramework    = mapM (getAndUnzipFrameworkFromLocalCache lCacheDir useXcFrameworks reverseRomeMap) fvs
   getAndUnzipBcsymbolmaps = mapM (getAndUnzipBcsymbolmapsFromLocalCache lCacheDir reverseRomeMap) fvs
   getAndUnzipDSYM         = mapM (getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap) fvs
 
@@ -241,23 +244,24 @@ getAndUnzipFrameworksAndArtifactsFromLocalCache lCacheDir reverseRomeMap fvs pla
 getAndUnzipFrameworkFromLocalCache
   :: MonadIO m
   => FilePath -- ^ The cache definition
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> ExceptT String (ReaderT (CachePrefix, Bool, UUID.UUID) m) ()
-getAndUnzipFrameworkFromLocalCache lCacheDir reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) version) platform
+getAndUnzipFrameworkFromLocalCache lCacheDir useXcFrameworks reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (cachePrefix@(CachePrefix prefix), verbose, _) <- ask
     let sayFunc = if verbose then sayLnWithTime else sayLn
-    binary <- getFrameworkFromLocalCache lCacheDir cachePrefix reverseRomeMap fVersion platform
+    binary <- getFrameworkFromLocalCache lCacheDir cachePrefix useXcFrameworks reverseRomeMap fVersion platform
     sayFunc $ "Found " <> fwn <> " in local cache at: " <> frameworkLocalCachePath prefix
     deleteFrameworkDirectory fVersion platform verbose
     unzipBinary binary fwn frameworkZipName verbose
       <* ifExists frameworkExecutablePath (makeExecutable frameworkExecutablePath)
  where
   frameworkLocalCachePath cPrefix = lCacheDir </> cPrefix </> remoteFrameworkUploadPath
-  remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
-  frameworkZipName          = frameworkArchiveName f version
+  remoteFrameworkUploadPath = remoteFrameworkPath useXcFrameworks platform reverseRomeMap f version
+  frameworkZipName          = frameworkArchiveName f version useXcFrameworks
   frameworkExecutablePath   = frameworkBuildBundleForPlatform platform f </> fwn
 
 

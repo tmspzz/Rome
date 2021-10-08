@@ -43,12 +43,6 @@ noSkipCurrentParser = NoSkipCurrentFlag <$> Opts.switch
   <> Opts.help "Do not skip the `currentMap` section in the Romefile when performing the operation."
   )
 
-useXcFrameworksParser :: Opts.Parser UseXcFrameworksFlag
-useXcFrameworksParser = UseXcFrameworksFlag <$> Opts.switch
-  (  Opts.long "use-xcframeworks"
-  <> Opts.help "Search for .xcframeworks when performing the operation."
-  )
-
 concurrentlyParser :: Opts.Parser ConcurrentlyFlag
 concurrentlyParser = ConcurrentlyFlag <$> Opts.switch
   (  Opts.long "concurrently"
@@ -82,16 +76,22 @@ platformsParser =
   splitPlatforms s = filter (not . null) $ filter isLetter <$> wordsBy (not . isLetter) s
   platformListOrError s = mapM platformOrError $ splitPlatforms s
 
+platformCommandParser :: Opts.Parser PlatformCommand
+platformCommandParser =
+  flag' UseXcFrameworks
+  (  Opts.long "use-xcframeworks"
+  <> Opts.help "Search for .xcframeworks when performing the operation."
+  ) <|> (TargetPlatforms <$> platformsParser)
+
 udcPayloadParser :: Opts.Parser RomeUDCPayload
 udcPayloadParser =
   RomeUDCPayload
     <$> reposParser
-    <*> platformsParser
+    <*> platformCommandParser
     <*> cachePrefixParser
     <*> skipLocalCacheParser
     <*> noIgnoreParser
     <*> noSkipCurrentParser
-    <*> useXcFrameworksParser
     <*> concurrentlyParser
 
 uploadParser :: Opts.Parser RomeCommand
@@ -118,12 +118,11 @@ listPayloadParser :: Opts.Parser RomeListPayload
 listPayloadParser =
   RomeListPayload
     <$> listModeParser
-    <*> platformsParser
+    <*> platformCommandParser
     <*> cachePrefixParser
     <*> printFormatParser
     <*> noIgnoreParser
     <*> noSkipCurrentParser
-    <*> useXcFrameworksParser
 
 listParser :: Opts.Parser RomeCommand
 listParser = List <$> listPayloadParser

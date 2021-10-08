@@ -12,18 +12,19 @@ data RomeCommand = Upload RomeUDCPayload
 
 
 data RomeUDCPayload = RomeUDCPayload { _payload              :: [ProjectName]
-                                     , _udcPlatforms         :: [TargetPlatform]
+                                     , _udcPlatforms         :: PlatformCommand
                                      , _cachePrefix          :: String
                                     --  , _verifyFlag         :: VerifyFlag
                                      , _skipLocalCacheFlag   :: SkipLocalCacheFlag
                                      , _noIgnoreFlag         :: NoIgnoreFlag
                                      , _noSkipCurrentFlag    :: NoSkipCurrentFlag
-                                     , _useXcFrameworksFlag  :: UseXcFrameworksFlag
                                      , _concurrentlyFlag     :: ConcurrentlyFlag
                                      }
                                      deriving (Show, Eq)
 
-
+data PlatformCommand = TargetPlatforms [TargetPlatform]
+                      | UseXcFrameworks
+                      deriving (Show, Eq)
 
 data RomeUtilsPayload = RomeUtilsPayload { _subcommand :: RomeUtilsSubcommand }
                                          deriving (Show, Eq)
@@ -41,19 +42,15 @@ newtype NoIgnoreFlag = NoIgnoreFlag { _noIgnore :: Bool }
 newtype NoSkipCurrentFlag = NoSkipCurrentFlag { _noSkipCurrent :: Bool }
                                               deriving (Show, Eq)
 
-newtype UseXcFrameworksFlag = UseXcFrameworksFlag { _useXcFrameworks :: Bool }
-                                              deriving (Show, Eq)
-
 newtype ConcurrentlyFlag = ConcurrentlyFlag { _concurrently :: Bool }
                                               deriving (Show, Eq)
 
 data RomeListPayload = RomeListPayload { _listMode                  :: ListMode
-                                       , _listPlatforms             :: [TargetPlatform]
+                                       , _listPlatforms             :: PlatformCommand
                                        , _listCachePrefix           :: String
                                        , _listFormat                :: PrintFormat
                                        , _listNoIgnoreFlag          :: NoIgnoreFlag
                                        , _listNoSkipCurrentFlag     :: NoSkipCurrentFlag
-                                       , _listUseXcFrameworksFlag   :: UseXcFrameworksFlag
                                        }
                                        deriving (Show, Eq)
 

@@ -204,7 +204,7 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
 
   case command of
 
-    Upload (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag useXcFrameworksFlag concurrentlyFlag)
+    Upload (RomeUDCPayload gitRepoNames platformCmd cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFlag)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow uploadArtifacts
                                   (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFlag)
@@ -215,10 +215,10 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
                                   mS3BucketName
                                   mlCacheDir
                                   mEnginePath
-                                  (_useXcFrameworks useXcFrameworksFlag)
-                                  platforms
+                                  (getXcCommand platformCmd)
+                                  (getPlatforms platformCmd)
 
-    Download (RomeUDCPayload gitRepoNames platforms cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag useXcFrameworksFlag concurrentlyFlag)
+    Download (RomeUDCPayload gitRepoNames platformCmd cachePrefixString skipLocalCache noIgnoreFlag noSkipCurrentFlag concurrentlyFlag)
       -> sayVersionWarning romeVersion verbose
         *> performWithDefaultFlow downloadArtifacts
                                   (verbose, noIgnoreFlag, skipLocalCache, noSkipCurrentFlag, concurrentlyFlag)
@@ -229,10 +229,10 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
                                   mS3BucketName
                                   mlCacheDir
                                   mEnginePath
-                                  (_useXcFrameworks useXcFrameworksFlag)
-                                  platforms
+                                  (getXcCommand platformCmd)
+                                  (getPlatforms platformCmd)
 
-    List (RomeListPayload listMode platforms cachePrefixString printFormat noIgnoreFlag noSkipCurrentFlag useXcFrameworksFlag) -> do
+    List (RomeListPayload listMode platformCmd cachePrefixString printFormat noIgnoreFlag noSkipCurrentFlag) -> do
 
       currentVersion <- deriveCurrentVersion
 
@@ -256,13 +256,13 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
           mlCacheDir
           mEnginePath
           listMode
-          (_useXcFrameworks useXcFrameworksFlag)
+          (getXcCommand platformCmd)
           (reverseRepositoryMap <> if _noSkipCurrent noSkipCurrentFlag then currentInvertedMap else M.empty)
           (frameworkVersions <> if _noSkipCurrent noSkipCurrentFlag
             then (currentFrameworkVersions `filterOutFrameworksAndVersionsIfNotIn` finalIgnoreNames)
             else []
           )
-          platforms
+          (getPlatforms platformCmd)
           printFormat
         )
         (cachePrefix, SkipLocalCacheFlag False, verbose)
@@ -281,6 +281,10 @@ runUDCCommand command absoluteRomefilePath verbose romeVersion = do
       <> "You are currently on: "
       <> romeVersionToString vers
       <> noColorControlSequence
+  getPlatforms platformCmd = case platformCmd of
+    TargetPlatforms xs -> xs
+    UseXcFrameworks -> allTargetPlatforms
+  getXcCommand = (==) UseXcFrameworks
 
 type FlowFunction
   =  Maybe S3.BucketName -- ^ Just an S3 Bucket name or Nothing
@@ -300,7 +304,7 @@ performWithDefaultFlow
   -> (Bool {- verbose -}
           , NoIgnoreFlag  {- noIgnoreFlag -}
                         , SkipLocalCacheFlag {- skipLocalCache -}
-                                            , NoSkipCurrentFlag {- skipLocalCache -}
+                                            , NoSkipCurrentFlag {- noSkipCurrentFlag -}
                                                                 , ConcurrentlyFlag) {- concurrentlyFlag -}
   -> ([ {- repositoryMapEntries -}
        RomefileEntry], [ {- ignoreMapEntries -}

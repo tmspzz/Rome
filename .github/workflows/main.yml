@@ -21,14 +21,14 @@ jobs:
              ${{ runner.os }}-cache-stack
       - name: Setup
         if: steps.cache-stack.outputs.cache-hit != 'true'
-        run: stack $STACK_ARGS --no-terminal setup -j 2
+        run: stack $STACK_ARGS --no-terminal setup
       - name: Dependencies
         if: steps.cache-stack.outputs.cache-hit != 'true'
-        run: stack $STACK_ARGS --no-terminal build -j 2 --dependencies-only --test --no-run-tests --haddock --no-haddock-deps --fast
+        run: stack $STACK_ARGS --no-terminal build --dependencies-only --fast
       - name: Build
-        run: stack $STACK_ARGS --no-terminal build -j 2 --fast
+        run: stack $STACK_ARGS --no-terminal build --test --no-run-tests --fast
       - name: Test
-        run: stack $STACK_ARGS test --no-terminal --haddock --no-haddock-deps --fast
+        run: stack $STACK_ARGS test --no-terminal --fast
       - name: Install
         run: stack $STACK_ARGS install
 

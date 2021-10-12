@@ -10,8 +10,7 @@ jobs:
   build-and-run-unit-tests:
     runs-on: macos-11
     steps:
-      - uses: actions/checkout@v2, actions/
-      
+      - uses: actions/checkout@v2
       - name: Setup
         run: stack $STACK_ARGS --no-terminal setup -j 2
       - name: Cache Dependencies

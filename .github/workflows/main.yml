@@ -1,0 +1,20 @@
+name: Rome
+on:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  STACK_ARGS: --resolver=lts-15.11
+
+jobs:
+  build:
+    runs-on: macos-11
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build & Unit Test
+        run: |
+          stack $STACK_ARGS setup -j 2,
+          stack $STACK_ARGS test --no-terminal --haddock --no-haddock-deps,
+          stack $STACK_ARGS build -j 2,
+          stack $STACK_ARGS sdist,
+          stack $STACK_ARGS install

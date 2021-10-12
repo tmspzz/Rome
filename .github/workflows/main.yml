@@ -22,16 +22,8 @@ jobs:
       - name: Setup
         if: steps.cache-stack.outputs.cache-hit != 'true'
         run: stack $STACK_ARGS --no-terminal setup -j 2
-      - name: Cache stack-work
-        id: cache-stack-work
-        uses: actions/cache@v2
-        with:
-          path: .stack-work
-          key: ${{ runner.os }}-cache-stack-work-${{ hashFiles('stack.yaml', 'stack.yaml.lock') }}
-          restore-keys: |
-             ${{ runner.os }}-cache-stack-work
       - name: Dependencies
-        if: steps.cache-stack-work.outputs.cache-hit != 'true'
+        if: steps.cache-stack.outputs.cache-hit != 'true'
         run: stack $STACK_ARGS --no-terminal build -j 2 --dependencies-only --test --no-run-tests --haddock --no-haddock-deps --fast
       - name: Build
         run: stack $STACK_ARGS --no-terminal build -j 2 --fast

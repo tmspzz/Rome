@@ -62,10 +62,11 @@ jobs:
         with:
           name: rome-binary
           path: ~/.local/bin/rome
-      - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: |
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
           ls -la $HOME/.local/bin
           chmod +x $HOME/.local/bin/rome
+          echo $PATH $GITHUB_PATH
           rome --version
     
     

@@ -47,9 +47,9 @@ jobs:
         with:
           name: rome-binary
           path: ~/.local/bin/rome
-      - run: echo "${HOME}/.local/bin" >> $GITHUB_PATH
       - run: |
           ls -la $HOME/.local/bin
+          chmod +x $HOME/.local/bin/rome
           rome --version
     
   
@@ -62,9 +62,10 @@ jobs:
         with:
           name: rome-binary
           path: ~/.local/bin/rome
-      - run: echo "${HOME}/.local/bin" >> $GITHUB_PATH
+      - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: |
           ls -la $HOME/.local/bin
+          chmod +x $HOME/.local/bin/rome
           rome --version
     
     
@@ -80,6 +81,7 @@ jobs:
       - run: echo "${HOME}/.local/bin" >> $GITHUB_PATH
       - run: |
           ls -la $HOME/.local/bin
+          chmod +x $HOME/.local/bin/rome
           rome --version
     
 

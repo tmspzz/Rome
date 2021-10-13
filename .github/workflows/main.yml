@@ -51,7 +51,6 @@ jobs:
           echo $HOME/.local/bin >> $GITHUB_PATH
           chmod +x  $HOME/.local/bin/rome
       - run: |
-          ls -la $HOME/.local/bin
           rome --version
     
   
@@ -67,16 +66,9 @@ jobs:
       - name: Inject rome into binary path
         run: |
           echo $HOME/.local/bin >> $GITHUB_PATH
-          sudo chown -R $UID:$GID $HOME/.local/bin
           chmod +x  $HOME/.local/bin/rome
       - name: Run Dynamic Frameworks Integration tests
         run: |
-          ls -la $HOME/.local/bin
-          echo $PATH 
-          echo "----"
-          echo $GITHUB_PATH
-          echo "---"
-          echo $HOME/.local/bin
           rome --version
     
     
@@ -91,9 +83,8 @@ jobs:
           path: ~/.local/bin
       - run: |
           echo $HOME/.local/bin >> $GITHUB_PATH
-          sudo chown -R $UID:$GID $HOME/.local/bin
+          chmod +x  $HOME/.local/bin/rome
       - run: |
-          ls -la $HOME/.local/bin
           rome --version
     
 

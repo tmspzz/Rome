@@ -65,11 +65,11 @@ jobs:
           name: rome-binary
           path: ~/.local/bin/rome
       - name: Inject rome into binary path
-      - run: |
+        run: |
           echo $HOME/.local/bin >> $GITHUB_PATH
           sudo chown -R $UID:$GID $HOME/.local/bin
       - name: Run Dynamic Frameworks Integration tests
-      - run: |
+        run: |
           ls -la $HOME/.local/bin
           echo $PATH 
           echo "----"

@@ -1,14 +1,15 @@
 name: Build and test
 on:
   pull_request:
+    branches:
+      [master]
   workflow_dispatch:
-
-env:
-  STACK_ARGS: --resolver=lts-15.11
 
 jobs:
   build-rome:
     runs-on: macos-11
+    env:
+      STACK_ARGS: --resolver=lts-15.11
     steps:
       - uses: actions/checkout@v2
       - name: Cache stack
@@ -45,7 +46,10 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: rome-binary
-      - run: rome --version
+      - run: echo "${HOME}/.local/bin" >> $GITHUB_PATH
+      - run: |
+          ls -la $HOME/.local/bin
+          rome --version
     
   
   integration-tests-dynamic-frameworks:
@@ -56,7 +60,10 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: rome-binary
-      - run: rome --version
+      - run: echo "${HOME}/.local/bin" >> $GITHUB_PATH
+      - run: |
+          ls -la $HOME/.local/bin
+          rome --version
     
     
   integration-tests-current-framework:
@@ -67,6 +74,9 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: rome-binary
-      - run: rome --version
+      - run: echo "${HOME}/.local/bin" >> $GITHUB_PATH
+      - run: |
+          ls -la $HOME/.local/bin
+          rome --version
     
 

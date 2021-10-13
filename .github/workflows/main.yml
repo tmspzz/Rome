@@ -48,8 +48,10 @@ jobs:
           name: rome-binary
           path: ~/.local/bin/rome
       - run: |
+          echo $HOME/.local/bin >> $GITHUB_PATH
+          sudo chown -R $UID:$GID $HOME/.local/bin
+      - run: |
           ls -la $HOME/.local/bin
-          chmod +x $HOME/.local/bin/rome
           rome --version
     
   
@@ -63,10 +65,13 @@ jobs:
           name: rome-binary
           path: ~/.local/bin/rome
       - run: |
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo $HOME/.local/bin >> $GITHUB_PATH
+          sudo chown -R $UID:$GID $HOME/.local/bin
+      - run: |
           ls -la $HOME/.local/bin
-          chmod +x $HOME/.local/bin/rome
-          echo $PATH $GITHUB_PATH
+          echo $PATH 
+          echo "----"
+          echo $GITHUB_PATH
           rome --version
     
     
@@ -79,10 +84,11 @@ jobs:
         with:
           name: rome-binary
           path: ~/.local/bin/rome
-      - run: echo "${HOME}/.local/bin" >> $GITHUB_PATH
+      - run: |
+          echo $HOME/.local/bin >> $GITHUB_PATH
+          sudo chown -R $UID:$GID $HOME/.local/bin
       - run: |
           ls -la $HOME/.local/bin
-          chmod +x $HOME/.local/bin/rome
           rome --version
     
 

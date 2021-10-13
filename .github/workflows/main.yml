@@ -46,7 +46,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: rome-binary
-          path: ~/.local/bin/rome
+          path: ~/.local/bin
       - run: |
           echo $HOME/.local/bin >> $GITHUB_PATH
           sudo chown -R $UID:$GID $HOME/.local/bin
@@ -63,7 +63,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: rome-binary
-          path: ~/.local/bin/rome
+          path: ~/.local/bin
       - name: Inject rome into binary path
         run: |
           echo $HOME/.local/bin >> $GITHUB_PATH
@@ -87,7 +87,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: rome-binary
-          path: ~/.local/bin/rome
+          path: ~/.local/bin
       - run: |
           echo $HOME/.local/bin >> $GITHUB_PATH
           sudo chown -R $UID:$GID $HOME/.local/bin

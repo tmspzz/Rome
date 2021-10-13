@@ -7,7 +7,7 @@ env:
   STACK_ARGS: --resolver=lts-15.11
 
 jobs:
-  build-and-run-unit-tests:
+  build-rome:
     runs-on: macos-11
     steps:
       - uses: actions/checkout@v2
@@ -31,4 +31,42 @@ jobs:
         run: stack $STACK_ARGS test --no-terminal --fast
       - name: Install
         run: stack $STACK_ARGS install
+      - name: Upload Rome Binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: rome-binary
+          path: ~/.local/bin/rome
+
+  integration-tests-static-frameworks:
+    needs: build-rome
+    runs-on: macos-11
+    steps:
+      - name: Download Rome Binary
+        uses: actions/download-artifact@v2
+        with:
+          name: rome-binary
+      - run: rome --version
+    
+  
+  integration-tests-dynamic-frameworks:
+    needs: build-rome
+    runs-on: macos-11
+    steps:
+      - name: Download Rome Binary
+        uses: actions/download-artifact@v2
+        with:
+          name: rome-binary
+      - run: rome --version
+    
+    
+  integration-tests-current-framework:
+    needs: build-rome
+    runs-on: macos-11
+    steps:
+      - name: Download Rome Binary
+        uses: actions/download-artifact@v2
+        with:
+          name: rome-binary
+      - run: rome --version
+    
 

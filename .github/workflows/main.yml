@@ -46,6 +46,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: rome-binary
+          path: ~/.local/bin/rome
       - run: echo "${HOME}/.local/bin" >> $GITHUB_PATH
       - run: |
           ls -la $HOME/.local/bin
@@ -60,6 +61,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: rome-binary
+          path: ~/.local/bin/rome
       - run: echo "${HOME}/.local/bin" >> $GITHUB_PATH
       - run: |
           ls -la $HOME/.local/bin
@@ -74,6 +76,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: rome-binary
+          path: ~/.local/bin/rome
       - run: echo "${HOME}/.local/bin" >> $GITHUB_PATH
       - run: |
           ls -la $HOME/.local/bin

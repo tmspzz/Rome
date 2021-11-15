@@ -11,18 +11,20 @@ data RomeCommand = Upload RomeUDCPayload
 
 
 
-data RomeUDCPayload = RomeUDCPayload { _payload            :: [ProjectName]
-                                     , _udcPlatforms       :: [TargetPlatform]
-                                     , _cachePrefix        :: String
+data RomeUDCPayload = RomeUDCPayload { _payload              :: [ProjectName]
+                                     , _udcPlatforms         :: PlatformCommand
+                                     , _cachePrefix          :: String
                                     --  , _verifyFlag         :: VerifyFlag
-                                     , _skipLocalCacheFlag :: SkipLocalCacheFlag
-                                     , _noIgnoreFlag       :: NoIgnoreFlag
-                                     , _noSkipCurrentFlag  :: NoSkipCurrentFlag
-                                     , _concurrentlyFlag   :: ConcurrentlyFlag
+                                     , _skipLocalCacheFlag   :: SkipLocalCacheFlag
+                                     , _noIgnoreFlag         :: NoIgnoreFlag
+                                     , _noSkipCurrentFlag    :: NoSkipCurrentFlag
+                                     , _concurrentlyFlag     :: ConcurrentlyFlag
                                      }
                                      deriving (Show, Eq)
 
-
+data PlatformCommand = TargetPlatforms [TargetPlatform]
+                      | UseXcFrameworks
+                      deriving (Show, Eq)
 
 data RomeUtilsPayload = RomeUtilsPayload { _subcommand :: RomeUtilsSubcommand }
                                          deriving (Show, Eq)
@@ -43,12 +45,12 @@ newtype NoSkipCurrentFlag = NoSkipCurrentFlag { _noSkipCurrent :: Bool }
 newtype ConcurrentlyFlag = ConcurrentlyFlag { _concurrently :: Bool }
                                               deriving (Show, Eq)
 
-data RomeListPayload = RomeListPayload { _listMode              :: ListMode
-                                       , _listPlatforms         :: [TargetPlatform]
-                                       , _listCachePrefix       :: String
-                                       , _listFormat            :: PrintFormat
-                                       , _listNoIgnoreFlag      :: NoIgnoreFlag
-                                       , _listNoSkipCurrentFlag :: NoSkipCurrentFlag
+data RomeListPayload = RomeListPayload { _listMode                  :: ListMode
+                                       , _listPlatforms             :: PlatformCommand
+                                       , _listCachePrefix           :: String
+                                       , _listFormat                :: PrintFormat
+                                       , _listNoIgnoreFlag          :: NoIgnoreFlag
+                                       , _listNoSkipCurrentFlag     :: NoSkipCurrentFlag
                                        }
                                        deriving (Show, Eq)
 

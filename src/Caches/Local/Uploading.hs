@@ -28,11 +28,12 @@ import           Xcode.DWARF
 saveFrameworkToLocalCache
   :: FilePath -- ^ The cache definition.
   -> Zip.Archive -- ^ The zipped archive of the Framework
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the dSYM.
   -> TargetPlatform -- ^ A `TargetPlatform` to limit the operation to.
   -> ReaderT (CachePrefix, SkipLocalCacheFlag, Bool) IO ()
-saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap (FrameworkVersion f@(Framework _ _ fwps) version) platform
+saveFrameworkToLocalCache lCacheDir frameworkArchive useXcFrameworks reverseRomeMap (FrameworkVersion f@(Framework _ _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (CachePrefix prefix, SkipLocalCacheFlag skipLocalCache, verbose) <- ask
     unless skipLocalCache $ saveBinaryToLocalCache lCacheDir
@@ -41,7 +42,7 @@ saveFrameworkToLocalCache lCacheDir frameworkArchive reverseRomeMap (FrameworkVe
                                                    frameworkNameWithFrameworkExtension
                                                    verbose
  where
-  remoteFrameworkUploadPath           = remoteFrameworkPath platform reverseRomeMap f version
+  remoteFrameworkUploadPath           = remoteFrameworkPath useXcFrameworks platform reverseRomeMap f version
   frameworkNameWithFrameworkExtension = appendFrameworkExtensionTo f
 
 

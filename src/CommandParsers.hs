@@ -76,11 +76,18 @@ platformsParser =
   splitPlatforms s = filter (not . null) $ filter isLetter <$> wordsBy (not . isLetter) s
   platformListOrError s = mapM platformOrError $ splitPlatforms s
 
+platformCommandParser :: Opts.Parser PlatformCommand
+platformCommandParser =
+  flag' UseXcFrameworks
+  (  Opts.long "use-xcframeworks"
+  <> Opts.help "Search for .xcframeworks when performing the operation."
+  ) <|> (TargetPlatforms <$> platformsParser)
+
 udcPayloadParser :: Opts.Parser RomeUDCPayload
 udcPayloadParser =
   RomeUDCPayload
     <$> reposParser
-    <*> platformsParser
+    <*> platformCommandParser
     <*> cachePrefixParser
     <*> skipLocalCacheParser
     <*> noIgnoreParser
@@ -111,7 +118,7 @@ listPayloadParser :: Opts.Parser RomeListPayload
 listPayloadParser =
   RomeListPayload
     <$> listModeParser
-    <*> platformsParser
+    <*> platformCommandParser
     <*> cachePrefixParser
     <*> printFormatParser
     <*> noIgnoreParser

@@ -31,16 +31,17 @@ import qualified Turtle
 -- | Retrieves a Framework using the engine and unzip the contents
 getFrameworkFromEngine
   :: FilePath -- ^ The `FilePath` to the engine
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> FilePath -- ^ A temporary intermediate directory
   -> ExceptT String (ReaderT (CachePrefix, Bool, UUID.UUID) IO) LBS.ByteString
-getFrameworkFromEngine enginePath reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform tmpDir = do
+getFrameworkFromEngine enginePath useXcFrameworks reverseRomeMap (FrameworkVersion f@(Framework fwn _ _) version) platform tmpDir = do
   (CachePrefix cachePrefix, verbose, uuid) <- ask
   let frameworkLocalPath = cachePrefix </> remoteFrameworkUploadPath
   mapExceptT (withReaderT (const (verbose, uuid))) (getArtifactFromEngine enginePath frameworkLocalPath fwn tmpDir)
-  where remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
+  where remoteFrameworkUploadPath = remoteFrameworkPath useXcFrameworks platform reverseRomeMap f version
 
 
 -- | Retrieves a .version file using the engine
@@ -153,20 +154,21 @@ getAndUnzipBcsymbolmapsWithEngine' enginePath reverseRomeMap fVersion@(Framework
 -- | Retrieves a Framework using the engine and unzip the contents
 getAndUnzipFrameworkWithEngine
   :: FilePath -- ^ The `FilePath` to the engine
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve from a `FrameworkVersion` to the path of the Framework in the cache
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework
   -> TargetPlatform -- ^ The `TargetPlatform` to limit the operation to
   -> FilePath -- ^ A temporary intermediate directory
   -> ExceptT String (ReaderT (CachePrefix, Bool, UUID.UUID) IO) ()
-getAndUnzipFrameworkWithEngine enginePath reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) version) platform tmpDir
+getAndUnzipFrameworkWithEngine enginePath useXcFrameworks reverseRomeMap fVersion@(FrameworkVersion f@(Framework fwn _ fwps) version) platform tmpDir
   = when (platform `elem` fwps) $ do
     (_, verbose, _) <- ask
-    frameworkBinary <- getFrameworkFromEngine enginePath reverseRomeMap fVersion platform tmpDir
+    frameworkBinary <- getFrameworkFromEngine enginePath useXcFrameworks reverseRomeMap fVersion platform tmpDir
     deleteFrameworkDirectory fVersion platform verbose
     unzipBinary frameworkBinary fwn frameworkZipName verbose
       <* ifExists frameworkExecutablePath (makeExecutable frameworkExecutablePath)
  where
-  frameworkZipName        = frameworkArchiveName f version
+  frameworkZipName        = frameworkArchiveName f version useXcFrameworks
   frameworkExecutablePath = frameworkBuildBundleForPlatform platform f </> fwn
 
 

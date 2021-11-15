@@ -24,16 +24,17 @@ import           Xcode.DWARF
 uploadFrameworkToS3
   :: Zip.Archive -- ^ The `Zip.Archive` of the Framework.
   -> S3.BucketName -- ^ The cache definition.
+  -> Bool -- ^ useXcFrameworks
   -> InvertedRepositoryMap -- ^ The map used to resolve `FrameworkName`s to `GitRepoName`s.
   -> FrameworkVersion -- ^ The `FrameworkVersion` identifying the Framework.
   -> TargetPlatform -- ^ A `TargetPlatform`s restricting the scope of this action.
   -> ReaderT UploadDownloadEnv IO ()
-uploadFrameworkToS3 frameworkArchive s3BucketName reverseRomeMap (FrameworkVersion f@(Framework fwn _ fwps) version) platform
+uploadFrameworkToS3 frameworkArchive s3BucketName useXcFrameworks reverseRomeMap (FrameworkVersion f@(Framework fwn _ fwps) version) platform
   = when (platform `elem` fwps) $ do
     (env, CachePrefix prefix, verbose) <- ask
     withReaderT (const (env, verbose))
       $ uploadBinary s3BucketName (Zip.fromArchive frameworkArchive) (prefix </> remoteFrameworkUploadPath) fwn
-  where remoteFrameworkUploadPath = remoteFrameworkPath platform reverseRomeMap f version
+  where remoteFrameworkUploadPath = remoteFrameworkPath useXcFrameworks platform reverseRomeMap f version
 
 
 

@@ -20,7 +20,7 @@ Trusted by:
 <a href="https://www.mozilla.com"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Mozilla_logo.svg/2000px-Mozilla_logo.svg.png" alt="Mozilla" height="90px"/></a> <a href="https://www.brave.com"><img src="https://brave.com/wp-content/uploads/2019/03/brave-logo-1.png" alt="Brave" height="90px"/></a>
 <a href="https://www.daimler-tss.com"><img src="https://www.hdm-stuttgart.de/unternehmen/karrieremarktplatz/anmeldung/aussteller_uploads/99/dLlVePMVtu191516349018.png" alt="DaimlerTSS" height="90px"/></a>
 
-<a href="https://labs.spotify.com/2019/10/23/when-in-rome-how-spotify-halved-build-times-with-just-one-script/"><a href="https://www.sharecare.com"><img src="https://about.sharecare.com/wp-content/uploads/2019/07/sc-logo-horiz-1.png" alt="sharecare" height="40px"/></a>
+<a href="https://labs.spotify.com/2019/10/23/when-in-rome-how-spotify-halved-build-times-with-just-one-script/"><a href="https://www.sharecare.com"><img src="https://about.sharecare.com/wp-content/uploads/2019/07/sc-logo-horiz-1.png" alt="sharecare" height="40px"/></a><a href="https://disney.com"><img src="https://purepng.com/public/uploads/thumbnail/purepng.com-disney-logologobrand-logoiconslogos-251519939495is1hl.png" alt="Disney" height="40px"/></a>
 
 
 [Search Github](https://github.com/search?utf8=%E2%9C%93&q=filename%3ARomefile&type=Code)

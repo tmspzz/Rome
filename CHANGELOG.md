@@ -1,5 +1,36 @@
 # Changelog
 
+## [Unreleased](https://github.com/tmspzz/Rome/tree/HEAD)
+
+[Full Changelog](https://github.com/tmspzz/Rome/compare/v0.24.0.65...HEAD)
+
+**Merged pull requests:**
+
+- Bump addressable from 2.7.0 to 2.8.0 [\#246](https://github.com/tmspzz/Rome/pull/246) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Bump rexml from 3.2.4 to 3.2.5 [\#245](https://github.com/tmspzz/Rome/pull/245) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Bump kramdown from 2.3.0 to 2.3.1 [\#243](https://github.com/tmspzz/Rome/pull/243) ([dependabot[bot]](https://github.com/apps/dependabot))
+
+## [v0.24.0.65](https://github.com/tmspzz/Rome/tree/v0.24.0.65) (2021-11-15)
+
+[Full Changelog](https://github.com/tmspzz/Rome/compare/v0.23.3.64...v0.24.0.65)
+
+**Closed issues:**
+
+- Rome crashes when downloading dependencies [\#242](https://github.com/tmspzz/Rome/issues/242)
+- When using currentMap its not possible to reuse the generated binaries [\#241](https://github.com/tmspzz/Rome/issues/241)
+- Needs to be updated to support XCFrameworks. [\#238](https://github.com/tmspzz/Rome/issues/238)
+- Issues running Rome with --no-skip-current [\#237](https://github.com/tmspzz/Rome/issues/237)
+- Static folder isn't uploaded to remote server on Xcode 12 [\#233](https://github.com/tmspzz/Rome/issues/233)
+- Losing debug capability when using cached builds downloaded by Rome [\#232](https://github.com/tmspzz/Rome/issues/232)
+- Xcode version specific upload/download [\#227](https://github.com/tmspzz/Rome/issues/227)
+
+**Merged pull requests:**
+
+- Add Support for XCFrameworks [\#247](https://github.com/tmspzz/Rome/pull/247) ([vikrem](https://github.com/vikrem))
+- Add more details to current map section of README [\#240](https://github.com/tmspzz/Rome/pull/240) ([mpdifran](https://github.com/mpdifran))
+- Bump kramdown from 2.2.1 to 2.3.0 [\#231](https://github.com/tmspzz/Rome/pull/231) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Update to stackage LTS 15.11 [\#226](https://github.com/tmspzz/Rome/pull/226) ([tmspzz](https://github.com/tmspzz))
+
 ## [v0.23.3.64](https://github.com/tmspzz/Rome/tree/v0.23.3.64) (2020-04-29)
 
 [Full Changelog](https://github.com/tmspzz/Rome/compare/v0.23.2.63...v0.23.3.64)

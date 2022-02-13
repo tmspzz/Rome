@@ -1075,7 +1075,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) useXcFrame
 
 
       eitherBcsymbolmapsOrErrors <- runReaderT
-        (runExceptT $ getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir reverseRomeMap fVersion platform)
+        (runExceptT $ unless useXcFrameworks $ getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir reverseRomeMap fVersion platform)
         localReaderEnv
       case eitherBcsymbolmapsOrErrors of
         Right _                                      -> return ()
@@ -1084,7 +1084,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) useXcFrame
           mapM_ (sayFunc . snd) dwardUUIDsAndErrors
           forM_ (map fst dwardUUIDsAndErrors) $ \dwarfUUID -> liftIO $ runReaderT
             (do
-              e <- runExceptT $ do
+              e <- runExceptT $ unless useXcFrameworks $ do
                 let symbolmapLoggingName = fwn <> "." <> bcsymbolmapNameFrom dwarfUUID
                 let bcsymbolmapZipName d = bcsymbolmapArchiveName d version
                 let localBcsymbolmapPathFrom d = platformBuildDirectory </> bcsymbolmapNameFrom d
@@ -1108,7 +1108,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) useXcFrame
 
 
       eitherDSYMSuccess <- runReaderT
-        (runExceptT $ getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVersion platform)
+        (runExceptT $ unless useXcFrameworks $ getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVersion platform)
         localReaderEnv
       case eitherDSYMSuccess of
         Right _ -> return ()
@@ -1116,7 +1116,7 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName (Just lCacheDir) useXcFrame
           sayFunc e
           runReaderT
             (do
-              e2 <- runExceptT $ do
+              e2 <- runExceptT $ unless useXcFrameworks $ do
                 dSYMBinary <- getDSYMFromS3 s3BucketName reverseRomeMap fVersion platform
                 saveBinaryToLocalCache lCacheDir dSYMBinary (prefix </> remotedSYMUploadPath) dSYMName verbose
                 deleteDSYMDirectory fVersion platform verbose
@@ -1146,11 +1146,11 @@ downloadFrameworkAndArtifactsFromCaches s3BucketName Nothing useXcFrameworks rev
     whenLeft sayFunc eitherError
 
     eitherDSYMError <- liftIO
-      $ runReaderT (runExceptT $ getAndUnzipDSYMFromS3 s3BucketName reverseRomeMap fVersion platform) readerEnv
+      $ runReaderT (runExceptT $ unless useXcFrameworks $ getAndUnzipDSYMFromS3 s3BucketName reverseRomeMap fVersion platform) readerEnv
     whenLeft sayFunc eitherDSYMError
 
     eitherSymbolmapsOrErrors <- liftIO $ runReaderT
-      (runExceptT $ getAndUnzipBcsymbolmapsFromS3' s3BucketName reverseRomeMap fVersion platform)
+      (runExceptT $ unless useXcFrameworks $ getAndUnzipBcsymbolmapsFromS3' s3BucketName reverseRomeMap fVersion platform)
       readerEnv
     flip whenLeft eitherSymbolmapsOrErrors $ \e -> case e of
       ErrorGettingDwarfUUIDs                 -> sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
@@ -1230,7 +1230,7 @@ downloadFrameworkAndArtifactsWithEngine ePath (Just lCacheDir) useXcFrameworks r
             readerEnv
 
       eitherBcsymbolmapsOrErrors <- runReaderT
-        (runExceptT $ getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir reverseRomeMap fVersion platform)
+        (runExceptT $ unless useXcFrameworks $ getAndUnzipBcsymbolmapsFromLocalCache' lCacheDir reverseRomeMap fVersion platform)
         readerEnv
       case eitherBcsymbolmapsOrErrors of
         Right _                                      -> return ()
@@ -1262,7 +1262,7 @@ downloadFrameworkAndArtifactsWithEngine ePath (Just lCacheDir) useXcFrameworks r
             readerEnv
 
       eitherDSYMSuccess <- runReaderT
-        (runExceptT $ getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVersion platform)
+        (runExceptT $ unless useXcFrameworks $ getAndUnzipDSYMFromLocalCache lCacheDir reverseRomeMap fVersion platform)
         readerEnv
       case eitherDSYMSuccess of
         Right _ -> return ()
@@ -1300,10 +1300,10 @@ downloadFrameworkAndArtifactsWithEngine ePath Nothing useXcFrameworks reverseRom
       (do
         err <- runExceptT $ getAndUnzipFrameworkWithEngine ePath useXcFrameworks reverseRomeMap fVersion platform tmpDir
         whenLeft sayFunc err
-        eitherDSYMError <- runExceptT $ getAndUnzipDSYMWithEngine ePath reverseRomeMap fVersion platform tmpDir
+        eitherDSYMError <- runExceptT $ unless useXcFrameworks $ getAndUnzipDSYMWithEngine ePath reverseRomeMap fVersion platform tmpDir
         whenLeft sayFunc eitherDSYMError
-        eitherSymbolmapsOrErrors <- runExceptT
-          $ getAndUnzipBcsymbolmapsWithEngine' ePath reverseRomeMap fVersion platform tmpDir
+        eitherSymbolmapsOrErrors <- runExceptT $
+          unless useXcFrameworks $ getAndUnzipBcsymbolmapsWithEngine' ePath reverseRomeMap fVersion platform tmpDir
         flip whenLeft eitherSymbolmapsOrErrors $ \e -> case e of
           ErrorGettingDwarfUUIDs                 -> sayFunc $ "Error: Cannot retrieve symbolmaps ids for " <> fwn
           (FailedDwarfUUIDs dwardUUIDsAndErrors) -> mapM_ (sayFunc . snd) dwardUUIDsAndErrors

@@ -66,8 +66,7 @@ Trusted by:
 ## Get Rome
 ### Using Homebrew
 ```
-$ brew tap tmspzz/tap https://github.com/tmspzz/homebrew-tap.git
-$ brew install tmspzz/homebrew-tap/rome
+$ brew install rome
 ```
 ### Using CocoaPods
 Simply add the following line to your Podfile:
